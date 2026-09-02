@@ -65,26 +65,33 @@ async function fetchJson(url: string, timeoutMs: number): Promise<Record<string,
 
 /**
  * Resolve the buyer's IP + City/State/Country fully automatically.
- * Order of preference:
- *  1. Platform geo headers (Vercel / Netlify) — instant, no network call.
- *  2. ip-api.com lookup (free, no key).
- *  3. ipapi.co lookup as a fallback provider.
+ *
+ * IMPORTANT: the location is ALWAYS looked up against the extracted client IP
+ * first, so the shown location matches the shown IP. Platform geo headers
+ * (Vercel / Netlify) are only a last-resort fallback because they describe
+ * the connecting hop (often a CDN/proxy edge), which can differ from the
+ * real client IP and produce a wrong city/state.
+ *
+ * Provider order (all keyed to the SAME client IP):
+ *  1. ip-api.com   (free, no key)
+ *  2. ipwho.is     (free, no key)
+ *  3. ipapi.co     (free tier)
+ *  4. Platform geo headers as final fallback.
  * Every step is wrapped in try/catch with a hard timeout so order placement
  * is NEVER blocked by geolocation.
  */
 export async function resolveBuyerLocation(request: NextRequest): Promise<GeoInfo> {
   const ip = getClientIp(request);
   const fromHeaders = headerGeo(request);
-  if (fromHeaders.city || fromHeaders.country) return { ip, ...fromHeaders };
 
-  if (!ip || PRIVATE_IP.test(ip)) return { ip, city: null, region: null, country: null };
+  if (!ip || PRIVATE_IP.test(ip)) return { ip, ...fromHeaders };
 
   try {
     const primary = await fetchJson(
       `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,regionName,city`,
       2500,
     );
-    if (primary?.status === "success") {
+    if (primary?.status === "success" && (primary.city || primary.country)) {
       return {
         ip,
         city: (primary.city as string) || null,
@@ -93,8 +100,18 @@ export async function resolveBuyerLocation(request: NextRequest): Promise<GeoInf
       };
     }
 
+    const secondary = await fetchJson(`https://ipwho.is/${encodeURIComponent(ip)}`, 2500);
+    if (secondary?.success === true && (secondary.city || secondary.country)) {
+      return {
+        ip,
+        city: (secondary.city as string) || null,
+        region: (secondary.region as string) || null,
+        country: (secondary.country as string) || null,
+      };
+    }
+
     const fallback = await fetchJson(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, 2500);
-    if (fallback && !fallback.error) {
+    if (fallback && !fallback.error && (fallback.city || fallback.country_name)) {
       return {
         ip,
         city: (fallback.city as string) || null,
@@ -105,7 +122,9 @@ export async function resolveBuyerLocation(request: NextRequest): Promise<GeoInf
   } catch {
     // Silent — location is best-effort telemetry, never a blocker.
   }
-  return { ip, city: null, region: null, country: null };
+
+  // Last resort: platform headers (may reflect the edge, but better than nothing).
+  return { ip, ...fromHeaders };
 }
 
 export function formatLocation(geo: { city?: string | null; region?: string | null; country?: string | null }) {

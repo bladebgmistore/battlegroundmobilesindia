@@ -15,9 +15,9 @@ export const metadata: Metadata = {
     "Premium BGMI accounts and UC packages with detailed listings, guided delivery, and official WhatsApp support.",
   keywords: ["BGMI accounts", "BGMI UC", "Battleground Mobile India Store", "gaming marketplace", "BGMI store"],
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    icon: "/api/favicon",
+    shortcut: "/api/favicon",
+    apple: "/api/favicon",
   },
   openGraph: {
     title: "Battleground Mobile India Store",

@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+.netlify/
+.DS_Store
+*.log

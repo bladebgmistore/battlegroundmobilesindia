@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin catalog read failed:", error);
-    return jsonError("Database connection failed. Check DATABASE_URL on Netlify.", 503);
+    return jsonError("Database connection failed. Check DATABASE_URL on Vercel.", 503);
   }
 }
 

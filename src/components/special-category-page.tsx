@@ -25,14 +25,17 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   useEffect(() => {
     fetch("/api/store")
       .then((r) => r.json())
-      .then((data: { products?: Product[] }) => {
-        const filtered = (data?.products ?? []).filter((p) => p.categorySlug === category);
-        if (filtered.length) {
-          setItems(filtered);
-        } else {
-          // Fallback to our seeded matching defaults
-          setItems(defaultProducts.filter((p) => p.categorySlug === category));
+      .then((data: { products?: Product[]; categories?: { slug: string; isActive?: boolean }[] }) => {
+        // If the whole category has been disabled, hide every package.
+        const cat = (data?.categories ?? []).find((c) => c.slug === category);
+        if (!cat || cat.isActive === false) {
+          setItems([]);
+          return;
         }
+        const filtered = (data?.products ?? []).filter(
+          (p) => p.categorySlug === category && p.isActive !== false,
+        );
+        setItems(filtered.length ? filtered : defaultProducts.filter((p) => p.categorySlug === category));
       })
       .catch(() => {
         setItems(defaultProducts.filter((p) => p.categorySlug === category));

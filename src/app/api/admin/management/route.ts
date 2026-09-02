@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Admin management read failed:", error);
     return Response.json(
-      { error: "Database connection failed. Check DATABASE_URL on Netlify." },
+      { error: "Database connection failed. Check DATABASE_URL on Vercel." },
       { status: 503 },
     );
   }

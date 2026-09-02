@@ -118,6 +118,8 @@ export default function HomePage() {
   const accountCategory = categories.find((category) => category.slug === "accounts");
   const ucCategory = categories.find((category) => category.slug === "uc");
   const otherCategories = categories.filter((category) => category.slug !== "accounts" && category.slug !== "uc");
+  const activeSlugs = new Set(categories.map((c) => c.slug));
+  const visibleProducts = productList.filter((p) => p.isActive !== false);
 
   return (
     <>
@@ -138,18 +140,26 @@ export default function HomePage() {
                 Discover premium BGMI accounts and UC packages with clear details, secure-guidance handovers and fast support from our verified team.
               </motion.p>
               <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/accounts" className="btn-primary group">
-                  EXPLORE ACCOUNTS <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
-                </Link>
-                <Link href="/uc-purchase" className="btn-outline">
-                  BUY UC <FaBolt className="text-[#f4b400]" />
-                </Link>
-                <Link href="#super-cars" className="btn-outline">
-                  SUPER-CAR <FiArrowRight className="text-base" />
-                </Link>
-                <Link href="#x-suits" className="btn-outline">
-                  X-SUIT <FiArrowRight className="text-base" />
-                </Link>
+                {activeSlugs.has("accounts") && (
+                  <Link href="/accounts" className="btn-primary group">
+                    EXPLORE ACCOUNTS <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
+                  </Link>
+                )}
+                {activeSlugs.has("uc") && (
+                  <Link href="/uc-purchase" className="btn-outline">
+                    BUY UC <FaBolt className="text-[#f4b400]" />
+                  </Link>
+                )}
+                {activeSlugs.has("super-cars") && (
+                  <Link href="#super-cars" className="btn-outline">
+                    SUPER-CAR <FiArrowRight className="text-base" />
+                  </Link>
+                )}
+                {activeSlugs.has("x-suits") && (
+                  <Link href="#x-suits" className="btn-outline">
+                    X-SUIT <FiArrowRight className="text-base" />
+                  </Link>
+                )}
               </motion.div>
               <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-bold text-gray-500">
                 <span className="flex items-center gap-2"><FiShield className="text-blue-500" /> GUIDED HANDOVERS</span>
@@ -188,7 +198,7 @@ export default function HomePage() {
         {accountCategory && (
           <CategoryShelf
             category={accountCategory}
-            products={productList.filter((product) => product.categorySlug === "accounts")}
+            products={visibleProducts.filter((product) => product.categorySlug === "accounts")}
           />
         )}
 
@@ -237,7 +247,7 @@ export default function HomePage() {
           <CategoryShelf
             key={category.id}
             category={category}
-            products={productList.filter((product) => product.categorySlug === category.slug)}
+            products={visibleProducts.filter((product) => product.categorySlug === category.slug)}
           />
         ))}
 

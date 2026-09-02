@@ -65,7 +65,7 @@ function SafetyContent() {
             const IconComponent = Icon as typeof FiShield;
             return (
               <article key={heading as string} className="rounded-2xl premium-card p-6">
-                <IconComponent className="text-xl text-[#d8f454]" />
+                <IconComponent className="text-xl text-[#0f4c81]" />
                 <h2 className="mt-5 text-lg font-black text-[#0f172a]">{heading as string}</h2>
                 <p className="mt-3 text-sm leading-6 text-[#64748b]">{body as string}</p>
               </article>
@@ -89,10 +89,10 @@ function HowContent() {
 
   return (
     <section className="mx-auto max-w-5xl px-5 pb-20 lg:px-8">
-      <div className="relative ml-5 border-l border-[#d6f351]/25 pl-8 sm:ml-8 sm:pl-12">
+      <div className="relative ml-5 border-l border-[#0f4c81]/25 pl-8 sm:ml-8 sm:pl-12">
         {steps.map(([number, heading, body], i) => (
           <div key={number} className="relative pb-10 last:pb-0">
-            <span className="absolute -left-[51px] grid h-10 w-10 place-items-center rounded-full border border-[#d6f351]/35 bg-[#131910] text-[11px] font-black text-[#dbf85d] sm:-left-[69px]">{number}</span>
+            <span className="absolute -left-[51px] grid h-10 w-10 place-items-center rounded-full border border-[#0f4c81]/35 bg-[#0f4c81] text-[11px] font-black text-white sm:-left-[69px]">{number}</span>
             <p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">STEP {i + 1}</p>
             <h2 className="mt-2 text-2xl font-black text-[#0f172a]">{heading}</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[#64748b]">{body}</p>
@@ -116,7 +116,7 @@ function TermsContent() {
           ["Acceptable conduct", "Threatening, abusive, fraudulent, or deceptive behavior may result in a request being declined and access to support being restricted."],
         ].map(([h, b]) => (
           <article key={h} className="rounded-xl border border-white/[.09] premium-card p-6">
-            <FiFileText className="text-[#d7f454]" />
+            <FiFileText className="text-[#0f4c81]" />
             <h2 className="mt-3 text-lg font-black text-[#0f172a]">{h}</h2>
             <p className="mt-2 text-sm leading-6 text-[#64748b]">{b}</p>
           </article>
@@ -159,7 +159,7 @@ function Rules() {
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {rules.map((rule) => (
           <p key={rule} className="flex gap-2 text-xs leading-5 text-[#64748b]">
-            <FiCheck className="mt-0.5 shrink-0 text-[#d8f454]" />
+            <FiCheck className="mt-0.5 shrink-0 text-[#0f4c81]" />
             {rule}
           </p>
         ))}

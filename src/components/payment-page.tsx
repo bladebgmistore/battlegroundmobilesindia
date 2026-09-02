@@ -21,10 +21,13 @@ export default function PaymentPage() {
   const discount = Number(params.get("discount") ?? 0);
   const uid = params.get("uid") ?? "";
   const ign = params.get("ign") ?? "";
+  const name = params.get("name") ?? "";
+  const whatsapp = params.get("whatsapp") ?? "";
 
   const { upiId } = useStoreSettings();
   const [copied, setCopied] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
+  const [displayCode, setDisplayCode] = useState(orderCode);
   const [screenshot, setScreenshot] = useState("");
   const [screenshotBytes, setScreenshotBytes] = useState(0);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
@@ -51,23 +54,12 @@ export default function PaymentPage() {
     setUploadError("");
     setUploadState("compressing");
     try {
-      // 1. Compress client-side — guaranteed < 2 MB before it leaves the browser.
+      // Compress client-side — guaranteed < 2 MB before it leaves the browser.
+      // The actual upload + order creation happen together in handlePaid(),
+      // so we only store the compressed image locally for now.
       const compressed = await compressImageFile(file);
       setScreenshot(compressed.dataUrl);
       setScreenshotBytes(compressed.bytes);
-
-      // 2. Upload the compressed Base64 straight to our same-origin API
-      //    (stored on the order row — no CORS, no 413).
-      setUploadState("uploading");
-      const response = await fetch("/api/orders/confirm-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderCode, screenshot: compressed.dataUrl }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || data?.ok === false) {
-        throw new Error(data?.error ?? "Upload failed. Please try again.");
-      }
       setUploadState("done");
     } catch (error) {
       setUploadState("error");
@@ -79,11 +71,33 @@ export default function PaymentPage() {
     if (!screenshotUploaded || busy) return;
     setBusy(true);
     try {
+      // Create the order exactly once, here, then attach the screenshot and
+      // mark it paid in a single follow-up call. This is the only place the
+      // order is written — the checkout "place order" step no longer creates
+      // it, so a purchase can never produce two orders.
+      const createRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: name,
+          customerWhatsapp: whatsapp,
+          playerUid: uid || null,
+          playerName: ign || null,
+          productName: product,
+          baseAmount,
+          couponCode: coupon || null,
+        }),
+      }).catch(() => null);
+      const createData = createRes ? await createRes.json().catch(() => null) : null;
+      const finalCode = createData?.orderCode ?? displayCode;
+
       await fetch("/api/orders/confirm-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderCode, markPaid: true }),
+        body: JSON.stringify({ orderCode: finalCode, screenshot, markPaid: true }),
       }).catch(() => null);
+
+      setDisplayCode(finalCode);
       setShowPaidModal(true);
     } finally {
       setBusy(false);
@@ -138,7 +152,7 @@ export default function PaymentPage() {
                 <a href={upiUrl} className="btn-primary !py-3.5 text-center text-xs">
                   <FiCreditCard /> OPEN UPI APP
                 </a>
-                <a href={qrUrl} download={`QR-${orderCode}.png`} target="_blank" rel="noopener noreferrer" className="btn-outline !py-3.5 text-center text-xs">
+                <a href={qrUrl} download={`QR-${displayCode}.png`} target="_blank" rel="noopener noreferrer" className="btn-outline !py-3.5 text-center text-xs">
                   <FiDownload /> DOWNLOAD QR
                 </a>
               </div>
@@ -153,7 +167,7 @@ export default function PaymentPage() {
               <p className="text-[10px] font-bold tracking-[.15em] text-[#0f4c81]">ORDER CONFIRMED</p>
               <h2 className="mt-3 text-2xl font-black leading-6 text-[#0f172a]">{product}</h2>
               <div className="mt-5 space-y-2.5 rounded-xl border border-[#e5e8ef] bg-[#f8fafc] p-4 text-sm">
-                <div className="flex justify-between"><span className="text-[#64748b]">Order ID</span><span className="font-mono font-black text-[#0f4c81]">{orderCode}</span></div>
+                <div className="flex justify-between"><span className="text-[#64748b]">Order ID</span><span className="font-mono font-black text-[#0f4c81]">{displayCode}</span></div>
                 <div className="flex justify-between"><span className="text-[#64748b]">Product</span><span className="font-bold text-[#0f172a] text-right max-w-[60%] truncate">{product}</span></div>
                 {uid && <div className="flex justify-between"><span className="text-[#64748b]">BGMI UID</span><span className="font-mono font-black text-[#0f4c81]">{uid}</span></div>}
                 {ign && <div className="flex justify-between"><span className="text-[#64748b]">Player Name</span><span className="inline-flex items-center gap-1.5 font-black text-[#0e9f6e]"><FiUser /> {ign}</span></div>}
@@ -230,7 +244,7 @@ export default function PaymentPage() {
             <div className="premium-card p-5">
               <p className="flex items-center gap-2 text-xs font-black tracking-wide text-[#64748b]"><FiShield className="text-[#0f4c81]" /> Buyer Protection</p>
               <ul className="mt-3 space-y-2 text-xs leading-5 text-[#64748b]">
-                <li>• Order is saved instantly with ID <b className="text-[#0f172a]/80">{orderCode}</b></li>
+                <li>• Order is saved instantly with ID <b className="text-[#0f172a]/80">{displayCode}</b></li>
                 <li>• Payment screenshot is stored securely with your order</li>
                 <li>• Admin will verify payment and deliver within minutes</li>
                 <li>• Screen-record the payment for safety</li>
@@ -245,7 +259,7 @@ export default function PaymentPage() {
               <button onClick={() => setShowPaidModal(false)} aria-label="Close" className="ml-auto grid h-8 w-8 place-items-center rounded-full text-[#94a3b8] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#0e9f6e]/12 text-2xl text-[#0e9f6e]"><FiCheckCircle /></div>
               <h3 className="mt-4 text-xl font-black text-[#0f172a]">Payment Noted!</h3>
-              <p className="mt-2 text-sm leading-6 text-[#64748b]">Your order <b className="text-[#0f172a]">{orderCode}</b> for <b className="text-[#0f172a]">{formatINR(amount)}</b> has been saved with your payment screenshot. Admin verification will happen shortly before delivery.</p>
+              <p className="mt-2 text-sm leading-6 text-[#64748b]">Your order <b className="text-[#0f172a]">{displayCode}</b> for <b className="text-[#0f172a]">{formatINR(amount)}</b> has been saved with your payment screenshot. Admin verification will happen shortly before delivery.</p>
               <button onClick={() => setShowPaidModal(false)} className="btn-primary mt-5 w-full !py-3 text-xs">CLOSE & FINISH</button>
             </div>
           </div>

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://battlegroundmobileindiastore.netlify.app"),
+  metadataBase: new URL("https://battlegroundmobileindiastore.vercel.app"),
   title: {
     default: "Battleground Mobile India Store",
     template: "%s | Battleground Mobile India Store",
@@ -36,6 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        <SpeedInsights />
         <Analytics />
       </body>
     </html>

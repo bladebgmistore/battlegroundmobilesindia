@@ -13,7 +13,7 @@ const PRIVATE_IP =
 /** Extract the real client IP from proxy / CDN headers. */
 export function getClientIp(request: NextRequest): string | null {
   const candidates = [
-    request.headers.get("x-nf-client-connection-ip"), // Netlify
+    request.headers.get("x-nf-client-connection-ip"), // Netlify / Vercel
     request.headers.get("x-real-ip"),
     request.headers.get("cf-connecting-ip"), // Cloudflare
     request.headers.get("x-vercel-forwarded-for"), // Vercel
@@ -33,7 +33,7 @@ function headerGeo(request: NextRequest): Omit<GeoInfo, "ip"> {
   const region = request.headers.get("x-vercel-ip-country-region");
   const country = request.headers.get("x-vercel-ip-country");
 
-  // Netlify geo header (base64 JSON).
+  // Platform geo header (base64 JSON).
   let nfGeo: { city?: string; subdivision?: { name?: string }; country?: { name?: string } } | null = null;
   try {
     const raw = request.headers.get("x-nf-geo");

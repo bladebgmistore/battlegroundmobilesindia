@@ -72,7 +72,7 @@ export default function AdminDashboard() {
         username: ses?.username ?? "MANAV",
         role: ses?.role ?? "owner",
       });
-      setDatabaseError(cat ? "" : "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables.");
+      setDatabaseError(cat ? "" : "Neon catalog could not be loaded. Verify DATABASE_URL in Vercel environment variables.");
       setCategories(cat?.categories ?? []);
       setProducts(cat?.products ?? []);
       setPacks(cat?.ucPackages ?? []);
@@ -194,12 +194,12 @@ export default function AdminDashboard() {
     return days;
   }, [orders]);
 
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#eef1f6]"><div className="flex items-center gap-3 text-sm font-bold text-[#0f4c81]"><span className="h-3 w-3 animate-ping rounded-full bg-[#d9f657]" /> LOADING CONTROL CENTRE</div></main>;
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#eef1f6]"><div className="flex items-center gap-3 text-sm font-bold text-[#0f4c81]"><span className="h-3 w-3 animate-ping rounded-full bg-[#0f4c81]" /> LOADING CONTROL CENTRE</div></main>;
 
   const unread = messages.filter((m) => !m.isRead).length;
   const side = <>
     <div className="flex h-[78px] items-center gap-3 border-b border-[#e5e8ef] px-5">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#d7f454]/10 text-lg text-[#d7f454]"><FiShield /></div>
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0f4c81]/10 text-lg text-[#0f4c81]"><FiShield /></div>
       <div><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">BATTLEGORUND MOBILE</p><p className="text-sm font-black text-[#0f172a]">INDIA STORE</p></div>
       <button onClick={() => setDrawer(false)} className="ml-auto text-[#64748b] lg:hidden"><FiX /></button>
     </div>
@@ -227,13 +227,13 @@ export default function AdminDashboard() {
             <p className="text-xs font-black text-[#0f172a]">{session?.username ?? "MANAV"}</p>
             <p className="text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{(session?.role ?? "owner").toUpperCase()}</p>
           </div>
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#d8f454]/15 font-black text-[#0f4c81]">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#0f4c81]/15 font-black text-[#0f4c81]">
             {(session?.username ?? "M")[0]}
           </span>
         </div>
       </header>
       <div className="p-5 lg:p-8">
-        {notice && <div className="fixed right-5 top-24 z-[60] rounded-lg border border-[#d8f454]/25 bg-[#18200f] px-4 py-3 text-xs font-bold text-[#e2fb75] shadow-xl">{notice}</div>}
+        {notice && <div className="fixed right-5 top-24 z-[60] rounded-lg border border-[#0f4c81]/20 bg-[#e0eefb] px-4 py-3 text-xs font-bold text-[#0f4c81] shadow-xl">{notice}</div>}
         {databaseError && (
           <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
             {databaseError}
@@ -258,7 +258,7 @@ export default function AdminDashboard() {
 
 function Overview({ accounts, packs, orders, messages, totalRevenue, deliveredCount, charts }: { accounts: Product[]; packs: UcPackageItem[]; orders: Order[]; messages: Message[]; totalRevenue: number; deliveredCount: number; charts: { day: string; requests: number }[] }) {
   const stats = [["Catalog products", accounts.length + packs.length, FiBox], ["Total orders", orders.length, FiArchive], ["Delivered", deliveredCount, FiMail], ["Delivered revenue", formatINR(totalRevenue), FiBarChart2]];
-  return <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, Icon]) => { const IconComp = Icon as typeof FiBox; return <article className="rounded-xl border border-[#e5e8ef] bg-white p-5" key={label as string}><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#64748b]">{label as string}</p><IconComp className="text-[#0f4c81]" /></div><p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value as string | number}</p><p className="mt-1 text-[9px] font-black tracking-[.11em] text-[#0f4c81]">LIVE DATABASE</p></article>; })}</div><div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><div className="flex items-center justify-between"><div><h2 className="font-black">Checkout requests</h2><p className="mt-1 text-xs text-[#64748b]">Last seven days</p></div><FiBarChart2 className="text-[#0f4c81]" /></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={charts}><XAxis dataKey="day" stroke="#788078" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#788078" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#151a15", border: "1px solid #ffffff18", borderRadius: 10 }} cursor={{ fill: "#d8f45410" }} /><Bar dataKey="requests" fill="#cbea42" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></section><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p><h2 className="mt-3 text-xl font-black">Storefront status</h2><div className="mt-6 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Payment gateway", "Maintenance"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div></section></div></div>;
+  return <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, Icon]) => { const IconComp = Icon as typeof FiBox; return <article className="rounded-xl border border-[#e5e8ef] bg-white p-5" key={label as string}><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#64748b]">{label as string}</p><IconComp className="text-[#0f4c81]" /></div><p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value as string | number}</p><p className="mt-1 text-[9px] font-black tracking-[.11em] text-[#0f4c81]">LIVE DATABASE</p></article>; })}</div><div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><div className="flex items-center justify-between"><div><h2 className="font-black">Checkout requests</h2><p className="mt-1 text-xs text-[#64748b]">Last seven days</p></div><FiBarChart2 className="text-[#0f4c81]" /></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={charts}><XAxis dataKey="day" stroke="#788078" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#788078" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#0f1b2e", border: "1px solid #ffffff18", borderRadius: 10 }} cursor={{ fill: "#0f4c8110" }} /><Bar dataKey="requests" fill="#0f4c81" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></section><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p><h2 className="mt-3 text-xl font-black">Storefront status</h2><div className="mt-6 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Payment gateway", "Maintenance"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div></section></div></div>;
 }
 
 function CategoryWorkspace({ categories, products, create, update, remove }: { categories: Category[]; products: Product[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
@@ -362,7 +362,7 @@ function CategoryWorkspace({ categories, products, create, update, remove }: { c
         />
       )}
       {selectedCategory?.slug === "uc" && (
-        <div className="rounded-xl border border-[#d8f454]/20 bg-[#f1f5fb] p-5 text-sm text-[#64748b]">
+        <div className="rounded-xl border border-[#0f4c81]/20 bg-[#f1f5fb] p-5 text-sm text-[#64748b]">
           UC products are managed in the dedicated <strong className="text-[#0f4c81]">UC Packages</strong> tab. Category name, image, URL and description are edited above.
         </div>
       )}
@@ -435,7 +435,7 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
               {categories.filter((c) => c.slug !== "uc").map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
             </select>
           )}
-          {fixedCategorySlug && <div className="rounded-lg border border-[#d8f454]/20 bg-[#f1f5fb] px-3 py-2 text-xs font-bold text-[#0f4c81]">Category: {heading}</div>}
+          {fixedCategorySlug && <div className="rounded-lg border border-[#0f4c81]/20 bg-[#f1f5fb] px-3 py-2 text-xs font-bold text-[#0f4c81]">Category: {heading}</div>}
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Product / Deal Title" className="admin-input" />
           <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder="Price in INR" className="admin-input" />
           <ImageInput value={form.image} onChange={(image) => setForm({ ...form, image })} label="PRODUCT IMAGE" />
@@ -456,7 +456,7 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
               <div className="min-w-0 grow">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-black text-[#0f172a]">{p.title}</p>
-                  {p.badge && <span className="rounded bg-[#d8f454]/10 px-2 py-0.5 text-[9px] font-black text-[#0f4c81]">{p.badge}</span>}
+                  {p.badge && <span className="rounded bg-[#0f4c81]/10 px-2 py-0.5 text-[9px] font-black text-[#0f4c81]">{p.badge}</span>}
                 </div>
                 <p className="mt-1 text-sm font-black text-[#0f4c81]">{formatINR(p.price)}</p>
                 <p className="mt-1 text-[10px] text-[#64748b]">{p.features.length} features · Order {p.sortOrder ?? 0} · {p.isActive === false ? "Disabled" : "Live"}</p>

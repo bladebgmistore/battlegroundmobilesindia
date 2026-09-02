@@ -21,9 +21,11 @@ export default function UcPage() {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((data: { ucPackages?: UcPackageItem[]; categories?: Category[] }) => {
-        if (data.ucPackages) setPacks(data.ucPackages);
+        if (data.ucPackages) setPacks(data.ucPackages.filter((p) => p.isActive !== false));
         const ucCategory = data.categories?.find((item) => item.slug === "uc");
         if (ucCategory) setCategory(ucCategory);
+        // If the UC category itself is disabled, hide all its packages.
+        if (ucCategory && ucCategory.isActive === false) setPacks([]);
       })
       .catch(() => undefined);
   }, []);

@@ -128,13 +128,37 @@ export default function CheckoutPage() {
     }
     setBusy(true);
     try {
+      const uid = values.playerUid?.trim() || "";
+
+      if (checkoutMode === "qr") {
+        // NOTE: Do NOT create the order here. The order is created exactly
+        // once — on the payment page — when the buyer confirms with
+        // "I HAVE PAID". Creating it now would place a duplicate order
+        // before payment is even attempted.
+        const localCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+        const qs = new URLSearchParams({
+          orderCode: localCode,
+          product,
+          amount: String(payableAmount),
+          baseAmount: String(baseAmount),
+          ...(couponResult?.code ? { coupon: couponResult.code, discount: String(discountAmount) } : {}),
+          ...(uid ? { uid } : {}),
+          ...(playerName ? { ign: playerName } : {}),
+          name: values.name,
+          whatsapp: values.whatsapp,
+        }).toString();
+        router.push(`/payment?${qs}`);
+        return;
+      }
+
+      // WhatsApp flow — create the order and hand off to WhatsApp.
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: values.name,
           customerWhatsapp: values.whatsapp,
-          playerUid: values.playerUid?.trim() || null,
+          playerUid: uid || null,
           playerName: playerName || null,
           productName: product,
           baseAmount,
@@ -144,32 +168,14 @@ export default function CheckoutPage() {
       const data = await response.json().catch(() => null);
       const finalAmount = data?.finalAmount ?? payableAmount;
       const orderCode = data?.orderCode ?? `BG-${Date.now().toString(36).toUpperCase()}`;
-      const uid = values.playerUid?.trim() || "";
 
-      if (checkoutMode === "qr") {
-        // Go to premium QR payment page
-        const qs = new URLSearchParams({
-          orderCode,
-          product,
-          amount: String(finalAmount),
-          baseAmount: String(baseAmount),
-          ...(couponResult?.code ? { coupon: couponResult.code, discount: String(discountAmount) } : {}),
-          ...(uid ? { uid } : {}),
-          ...(playerName ? { ign: playerName } : {}),
-          name: values.name,
-          whatsapp: values.whatsapp,
-        }).toString();
-        router.push(`/payment?${qs}`);
-      } else {
-        // WhatsApp flow
-        let message = `Hello, I want to purchase: ${product}. Original price: ${formatINR(baseAmount)}.`;
-        if (uid) message += ` Player UID: ${uid}.`;
-        if (playerName) message += ` Player Name: ${playerName}.`;
-        if (discountAmount) message += ` Discount: ${formatINR(discountAmount)} with coupon ${couponResult?.code}.`;
+      let message = `Hello, I want to purchase: ${product}. Original price: ${formatINR(baseAmount)}.`;
+      if (uid) message += ` Player UID: ${uid}.`;
+      if (playerName) message += ` Player Name: ${playerName}.`;
+      if (discountAmount) message += ` Discount: ${formatINR(discountAmount)} with coupon ${couponResult?.code}.`;
 
-        message += ` Final amount: ${formatINR(finalAmount)}. Order reference: ${orderCode}. Name: ${values.name}, WhatsApp: ${values.whatsapp}`;
-        window.open(whatsappWithText(message), "_blank", "noopener,noreferrer");
-      }
+      message += ` Final amount: ${formatINR(finalAmount)}. Order reference: ${orderCode}. Name: ${values.name}, WhatsApp: ${values.whatsapp}`;
+      window.open(whatsappWithText(message), "_blank", "noopener,noreferrer");
     } finally {
       setBusy(false);
     }

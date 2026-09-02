@@ -23,7 +23,7 @@ export default function AccountsPage() {
       .then((r) => r.json())
       .then((d: { products?: Product[] }) => {
         if (d?.products) {
-          setItems(d.products.filter((p) => p.categorySlug === "accounts"));
+          setItems(d.products.filter((p) => p.categorySlug === "accounts" && p.isActive !== false));
         }
       })
       .catch(() => {
@@ -130,13 +130,13 @@ export default function AccountsPage() {
                     />
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_30%,rgba(4,6,5,.9))]" />
                     {item.badge && (
-                      <span className="absolute left-4 top-4 rounded border border-[#d4f256]/40 bg-black/35 px-2 py-1 text-[9px] font-black tracking-[.12em] text-[#d9fa5f]">
+                      <span className="absolute left-4 top-4 rounded border border-white/40 bg-black/40 px-2 py-1 text-[9px] font-black tracking-[.12em] text-white">
                         {item.badge}
                       </span>
                     )}
                     <button
                       onClick={() => toggleWishlist(item.id)}
-                      className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/45 text-[#e5f968] backdrop-blur"
+                      className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/45 text-white backdrop-blur"
                       aria-label="Add to wishlist"
                     >
                       {wishlist.includes(item.id) ? <FaHeart /> : <FaRegHeart />}

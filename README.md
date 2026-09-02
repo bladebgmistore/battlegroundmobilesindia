@@ -11,7 +11,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 ### Public storefront
 - Home, Accounts, UC Purchase, Checkout
 - Is It Safe?, How To Buy, Terms, Refund Policy, Contact
-- Premium dark gaming UI (black / gold / neon green)
+- Premium BGMI storefront UI (blue / gold)
 - Coupon apply on checkout
 - WhatsApp handoff (payment gateway under maintenance notice)
 - Dynamic WhatsApp number, social links, maintenance banner
@@ -61,7 +61,7 @@ Optional overrides (defaults already work without these):
 # not required — owner is hardcoded as MANAV / MANAV7412
 ```
 
-For production on Netlify / Vercel, add `DATABASE_URL` in the host environment settings, then run:
+For production on Vercel, add `DATABASE_URL` in the host environment settings, then run:
 
 ```bash
 npx drizzle-kit push
@@ -87,10 +87,10 @@ If the database is offline, the storefront still shows default catalog data and 
 
 ---
 
-## Production deploy (Netlify)
+## Production deploy (Vercel)
 
 1. Connect the Git repo
-2. Build command: `npm run build` (already in `netlify.toml`)
+2. Build command: `npm run build`
 3. Add env var: `DATABASE_URL`
 4. Deploy
 5. After first deploy, push schema once:

@@ -4,18 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
-import { images } from "@/lib/store-data";
+import { defaultCategories, images } from "@/lib/store-data";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
-const navLinks = [
+// Static links that are always present, plus category links that are added
+// dynamically from the active categories (so a disabled category disappears
+// from the top navigation / mobile dropdown automatically).
+const STATIC_NAV: [string, string][] = [
   ["Home", "/"],
-  ["Accounts", "/accounts"],
-  ["UC Purchase", "/uc-purchase"],
-  ["Super-Car", "/category/super-car"],
-  ["X-Suit", "/category/x-suit"],
   ["Is It Safe?", "/is-it-safe"],
   ["How To Buy", "/how-to-buy"],
 ];
+
+const CATEGORY_NAV: Record<string, [string, string]> = {
+  accounts: ["Accounts", "/accounts"],
+  uc: ["UC Purchase", "/uc-purchase"],
+  "super-cars": ["Super-Car", "/category/super-car"],
+  "x-suits": ["X-Suit", "/category/x-suit"],
+};
 
 /* Soft, light premium backdrop */
 export function GridBackdrop() {
@@ -33,6 +39,24 @@ export function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const { maintenance, settings } = useStoreSettings();
   const logoUrl = settings.logo_url;
+
+  // Build the navigation from active categories so a disabled category is
+  // removed from both the desktop bar and the mobile dropdown menu.
+  const [navCategories, setNavCategories] = useState<{ slug: string; name: string }[]>(
+    defaultCategories.map((c) => ({ slug: c.slug, name: c.name })),
+  );
+  useEffect(() => {
+    fetch("/api/store")
+      .then((r) => r.json())
+      .then((d: { categories?: { slug: string; name: string }[] }) => {
+        if (d?.categories?.length) setNavCategories(d.categories);
+      })
+      .catch(() => undefined);
+  }, []);
+  const navItems: [string, string][] = [
+    ...STATIC_NAV,
+    ...navCategories.map((c) => CATEGORY_NAV[c.slug] ?? [c.name, `/category/${c.slug}`]),
+  ];
 
   return (
     <>
@@ -54,7 +78,7 @@ export function SiteHeader() {
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-            {navLinks.map(([label, href]) => (
+            {navItems.map(([label, href]) => (
               <Link
                 key={href}
                 href={href}
@@ -82,7 +106,7 @@ export function SiteHeader() {
         {isOpen && (
           <div className="border-t border-[#dbe2ec] bg-white px-5 py-4 lg:hidden">
             <nav className="mx-auto grid max-w-7xl gap-1">
-              {navLinks.map(([label, href]) => (
+              {navItems.map(([label, href]) => (
                 <Link
                   onClick={() => setIsOpen(false)}
                   key={href}

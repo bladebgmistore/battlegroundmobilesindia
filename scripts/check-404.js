@@ -29,7 +29,7 @@ const found = notFoundPaths.some(checkFileExists);
 
 if (!found) {
   console.error('❌ Custom 404 page not found in build output!');
-  console.error('This will cause Netlify to show its default 404 page.');
+  console.error('This will cause Vercel to show its default 404 page.');
   console.error('Checked paths:', notFoundPaths);
   // Don't fail the build - just warn
   console.log('Continuing with build...');

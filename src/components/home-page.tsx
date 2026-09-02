@@ -160,11 +160,11 @@ export default function HomePage() {
             <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ duration: 0.75, delay: 0.15 }} className="relative mx-auto w-full max-w-[520px]">
               <div className="relative overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-2 shadow-xl">
                 <div className="relative aspect-[.96] overflow-hidden rounded-[1.3rem]">
-                  <img src={categories[0]?.image ?? images.uc} alt="Premium BGMI collection" className="h-full w-full object-cover" />
+                  <img src={settings.featured_drop_image || categories[0]?.image || images.uc} alt="Premium BGMI collection" className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
                   <div className="absolute left-5 top-5 rounded-lg border border-blue-200 bg-white/90 px-3 py-2 backdrop-blur">
-                    <p className="text-[9px] font-black tracking-[.14em] text-blue-600">FEATURED DROP</p>
-                    <p className="mt-1 text-xl font-black text-gray-900">ELITE INVENTORY</p>
+                    <p className="text-[9px] font-black tracking-[.14em] text-blue-600">{settings.featured_drop_label || "FEATURED DROP"}</p>
+                    <p className="mt-1 text-xl font-black text-gray-900">{settings.featured_drop_title || "ELITE INVENTORY"}</p>
                   </div>
                 </div>
               </div>

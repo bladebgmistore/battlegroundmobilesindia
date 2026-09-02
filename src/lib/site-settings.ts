@@ -12,6 +12,9 @@ const PUBLIC_SETTING_KEYS = [
   "logo_url",
   "upi_id",
   "checkout_mode",
+  "featured_drop_label",
+  "featured_drop_title",
+  "featured_drop_image",
 ];
 
 export type PublicSettings = {

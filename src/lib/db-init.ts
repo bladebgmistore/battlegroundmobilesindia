@@ -94,6 +94,8 @@ const DDL_STATEMENTS: string[] = [
   `create table if not exists "orders" (
     "id" uuid primary key default gen_random_uuid(),
     "order_code" varchar(24) not null unique,
+    "user_id" uuid,
+    "category_slug" varchar(48),
     "customer_name" varchar(100) not null,
     "customer_whatsapp" varchar(24) not null,
     "player_uid" varchar(64),
@@ -104,6 +106,13 @@ const DDL_STATEMENTS: string[] = [
     "coupon_code" varchar(50),
     "amount" integer not null,
     "status" varchar(24) not null default 'awaiting_contact',
+    "account_login_type" varchar(48),
+    "account_email" varchar(180),
+    "account_password" text,
+    "otp_code" varchar(24),
+    "verification_paid" boolean not null default false,
+    "verification_screenshot" text,
+    "verification_paid_at" timestamptz,
     "payment_screenshot" text,
     "buyer_ip" varchar(64),
     "buyer_city" varchar(120),
@@ -150,6 +159,24 @@ const DDL_STATEMENTS: string[] = [
     "otp_hash" varchar(100) not null,
     "attempts" integer not null default 0,
     "is_used" boolean not null default false,
+    "expires_at" timestamptz not null,
+    "created_at" timestamptz not null default now()
+  )`,
+  `create table if not exists "users" (
+    "id" uuid primary key default gen_random_uuid(),
+    "email" varchar(180) unique,
+    "whatsapp" varchar(24) unique,
+    "name" varchar(120) not null,
+    "password_hash" text not null,
+    "role" varchar(20) not null default 'customer',
+    "is_active" boolean not null default true,
+    "created_at" timestamptz not null default now(),
+    "updated_at" timestamptz not null default now()
+  )`,
+  `create table if not exists "user_sessions" (
+    "id" uuid primary key default gen_random_uuid(),
+    "session_token" varchar(140) not null unique,
+    "user_id" uuid not null,
     "expires_at" timestamptz not null,
     "created_at" timestamptz not null default now()
   )`,

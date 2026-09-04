@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/user-store";
 import { ensureOrderColumns } from "@/lib/order-columns";
+import { demoListOrdersByUser } from "@/lib/demo-orders";
 import { desc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
       .limit(200);
     return NextResponse.json({ ok: true, orders: rows });
   } catch {
-    // DB offline — expose an empty list rather than failing the dashboard.
-    return NextResponse.json({ ok: true, orders: [], databaseOffline: true });
+    // DB offline — expose demo orders for this user so the account dashboard
+    // still works in the preview.
+    return NextResponse.json({ ok: true, orders: demoListOrdersByUser(user.id), databaseOffline: true });
   }
 }

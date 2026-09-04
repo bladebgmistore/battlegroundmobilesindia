@@ -6,15 +6,14 @@ import { join } from "node:path";
  * Tiny file-backed demo store.
  *
  * Used ONLY when there is no DATABASE_URL (e.g. the local preview) so that
- * customer accounts, sessions and password-reset OTPs survive a dev-server
- * restart. In production (DATABASE_URL set) the Postgres database is always
- * used and this store is never consulted for real data.
+ * customer accounts, sessions, password-reset OTPs and orders survive a
+ * dev-server restart. In production (DATABASE_URL set) the Postgres database
+ * is always used and this store is never consulted for real data.
  *
  * The file lives in the OS temp dir so it is never committed to git.
  */
 
-type Collection = "users" | "otp" | "sessions";
-type StoreFile = Record<Collection, Record<string, unknown>>;
+type StoreFile = Record<string, Record<string, unknown>>;
 
 let cache: StoreFile | null = null;
 let filePath: string | null = null;
@@ -30,58 +29,56 @@ function load(): StoreFile {
   if (cache) return cache;
   try {
     const raw = readFileSync(getPath(), "utf8");
-    const parsed = JSON.parse(raw) as Partial<StoreFile>;
-    cache = {
-      users: parsed.users ?? {},
-      otp: parsed.otp ?? {},
-      sessions: parsed.sessions ?? {},
-    };
+    const parsed = JSON.parse(raw) as StoreFile;
+    cache = parsed;
   } catch {
-    cache = { users: {}, otp: {}, sessions: {} };
+    cache = {};
   }
   return cache;
 }
 
 function persist(): void {
   try {
-    writeFileSync(getPath(), JSON.stringify(cache ?? { users: {}, otp: {}, sessions: {} }));
+    writeFileSync(getPath(), JSON.stringify(cache ?? {}));
   } catch {
     // Directory not writable or busy — the in-memory copy still works for the current process.
   }
 }
 
-export function demoGet<T>(collection: Collection, key: string): T | undefined {
+export function demoGet<T>(collection: string, key: string): T | undefined {
   const store = load();
-  return (store[collection] as Record<string, T>)[key];
+  return store[collection]?.[key] as T | undefined;
 }
 
-export function demoSet(collection: Collection, key: string, value: unknown): void {
+export function demoSet(collection: string, key: string, value: unknown): void {
   const store = load();
-  (store[collection] as Record<string, unknown>)[key] = value;
+  if (!store[collection]) store[collection] = {};
+  store[collection][key] = value;
   persist();
 }
 
-export function demoDelete(collection: Collection, key: string): void {
+export function demoDelete(collection: string, key: string): void {
   const store = load();
-  delete (store[collection] as Record<string, unknown>)[key];
-  persist();
+  if (store[collection]) {
+    delete store[collection][key];
+    persist();
+  }
 }
 
-export function demoValues<T>(collection: Collection): T[] {
+export function demoValues<T>(collection: string): T[] {
   const store = load();
-  return Object.values(store[collection] as Record<string, T>);
+  const col = store[collection];
+  return col ? Object.values(col) as T[] : [];
 }
 
-export function demoClear(collection?: Collection): void {
+export function demoClear(collection?: string): void {
   const store = load();
   if (collection) {
-    store[collection] = {};
+    delete store[collection];
   } else {
-    store.users = {};
-    store.otp = {};
-    store.sessions = {};
+    cache = {};
+    persist();
   }
-  persist();
 }
 
 export function hasDemoStoreFile(): boolean {

@@ -19,6 +19,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const product = params.get("product") ?? "Selected product";
   const baseAmount = Number(params.get("amount") ?? 0);
+  const categorySlug = params.get("category") ?? "";
   const [busy, setBusy] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
@@ -160,6 +161,7 @@ export default function CheckoutPage() {
           playerUid: values.playerUid?.trim() || null,
           playerName: playerName || null,
           productName: product,
+          categorySlug: categorySlug || null,
           baseAmount,
           couponCode: couponResult?.code ?? null,
         }),

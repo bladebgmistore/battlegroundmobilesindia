@@ -12,9 +12,9 @@ import { useStoreSettings } from "@/lib/use-store-settings";
 
 const fadeUp = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
 
-export function BuyButton({ item, requiresUid = false }: { item: { title: string; price: number }; requiresUid?: boolean }) {
+export function BuyButton({ item, requiresUid = false, category }: { item: { title: string; price: number }; requiresUid?: boolean; category?: string }) {
   const router = useRouter();
-  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}`);
+  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
   return (
     <button onClick={buy} className="btn-primary group w-full">
       BUY NOW <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
@@ -24,7 +24,7 @@ export function BuyButton({ item, requiresUid = false }: { item: { title: string
 
 export function UcBuyButton({ item }: { item: { title: string; price: number } }) {
   const router = useRouter();
-  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1`);
+  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
   return (
     <button onClick={buy} className="btn-primary group !py-2 !px-3.5 !text-[10px] uppercase font-bold tracking-wide">
       BUY NOW <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
@@ -76,7 +76,7 @@ function CategoryShelf({ category, products }: { category: Category; products: P
                     </div>
                   ))}
                 </div>
-                <div className="mt-5"><BuyButton item={item} requiresUid={category.slug === "super-cars" || category.slug === "x-suits"} /></div>
+                <div className="mt-5"><BuyButton item={item} requiresUid={category.slug === "super-cars" || category.slug === "x-suits"} category={category.slug} /></div>
               </div>
             </motion.article>
           )) : (

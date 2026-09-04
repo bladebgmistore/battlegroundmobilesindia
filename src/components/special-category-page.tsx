@@ -41,7 +41,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
 
   const requiresUid = category === "super-cars" || category === "x-suits";
   const buy = (name: string, price: number) =>
-    router.push(`/checkout?product=${encodeURIComponent(name)}&amount=${price}${requiresUid ? "&uid=1" : ""}`);
+    router.push(`/checkout?product=${encodeURIComponent(name)}&amount=${price}${requiresUid ? "&uid=1" : ""}&category=${encodeURIComponent(category)}`);
 
   return (
     <>

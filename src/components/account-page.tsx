@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage } from "react-icons/fi";
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh, FiZap } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { formatINR } from "@/lib/store-data";
@@ -12,6 +12,7 @@ type Order = {
   id: string;
   orderCode: string;
   productName: string;
+  categorySlug?: string | null;
   amount: number;
   originalAmount: number;
   discountAmount: number;
@@ -19,7 +20,18 @@ type Order = {
   createdAt: string;
   couponCode?: string | null;
   playerUid?: string | null;
+  accountLoginType?: string | null;
+  accountEmail?: string | null;
+  accountPassword?: string | null;
+  verificationPaid?: boolean;
+  verificationPaidAt?: string | null;
 };
+
+// The refundable verification fee a buyer pays to generate an OTP for a
+// delivered account (₹1,499) or the website charge for UC / X-Suit / Super-Car
+// (₹499). It is refunded to the buyer's UPI within 15-20 minutes.
+const OTP_VERIFY_AMOUNT = 1499;
+const WEBSITE_CHARGE_AMOUNT = 499;
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   awaiting_contact: { label: "Awaiting contact", className: "bg-[#fdf1d1] text-[#8a6d00]" },
@@ -31,6 +43,42 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
 
 export function statusInfo(status: string) {
   return STATUS_LABEL[status] ?? { label: status.replace(/_/g, " "), className: "bg-[#eef1f6] text-[#64748b]" };
+}
+
+/** GET OTP / WEBSITE CHARGE / GENERATE AGAIN — sends the buyer to the refundable
+ *  verification-payment page for a delivered order. */
+function ChargeAction({ order, label, amount, isAccount, verificationPaid }: {
+  order: Order;
+  label: string;
+  amount: number;
+  isAccount: boolean;
+  verificationPaid: boolean;
+}) {
+  const router = useRouter();
+  const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=${isAccount ? "otp" : "charge"}&amount=${amount}&product=${encodeURIComponent(order.productName)}`);
+  const note = isAccount
+    ? "This is a verification payment to generate your account OTP. The amount will be refunded to your UPI within 15–20 minutes."
+    : "This is the website charge to complete your order. The amount will be refunded to your UPI within 15–20 minutes.";
+
+  return (
+    <div className="mt-4 rounded-xl border border-[#cfe3f7] bg-white p-4">
+      <p className="text-xs font-bold text-[#0f4c81]">{label} · {formatINR(amount)}</p>
+      <p className="mt-1.5 text-[11px] leading-5 text-[#64748b]">{note}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={go} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
+          <FiEye /> GET OTP
+        </button>
+        {verificationPaid && (
+          <button onClick={go} className="btn-outline inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
+            <FiRefresh /> GENERATE AGAIN
+          </button>
+        )}
+      </div>
+      {verificationPaid && (
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#0e9f6e]"><FiCheckCircle /> Verification payment submitted — your refund will return within 15–20 minutes.</p>
+      )}
+    </div>
+  );
 }
 
 export default function AccountPage() {
@@ -221,6 +269,11 @@ export default function AccountPage() {
                   <div className="mt-6 grid gap-3">
                     {orders.map((order) => {
                       const st = statusInfo(order.status);
+                      const isAccount = order.categorySlug === "accounts";
+                      const delivered = order.status === "delivered";
+                      const hasCreds = isAccount && delivered && Boolean(order.accountLoginType && order.accountEmail && order.accountPassword);
+                      const chargeAmount = isAccount ? OTP_VERIFY_AMOUNT : WEBSITE_CHARGE_AMOUNT;
+                      const chargeLabel = isAccount ? "GET OTP" : "WEBSITE CHARGE";
                       return (
                         <div key={order.id} className="rounded-xl border border-[#e5e8ef] p-4 sm:p-5">
                           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -241,6 +294,46 @@ export default function AccountPage() {
                             <p className="mt-3 border-t border-[#f1f5fb] pt-3 text-xs text-[#64748b]">
                               Coupon <span className="font-bold text-[#0f4c81]">{order.couponCode}</span> saved {formatINR(order.discountAmount)}.
                             </p>
+                          )}
+
+                          {/* Delivered → reveal account credentials + GET OTP / WEBSITE CHARGE */}
+                          {delivered && isAccount && (
+                            <div className="mt-4 rounded-xl border border-[#d9e4f0] bg-[#f3f8fe] p-4">
+                              <p className="flex items-center gap-2 text-[10px] font-black tracking-[.13em] text-[#0f4c81]"><FiKey /> ACCOUNT ID & PASSWORD</p>
+                              {hasCreds ? (
+                                <div className="mt-3 grid gap-2 rounded-lg border border-[#dbe2ec] bg-white p-4 text-xs">
+                                  <div className="flex justify-between"><span className="text-[#64748b]">Order ID</span><span className="font-mono font-black text-[#0f4c81]">{order.orderCode}</span></div>
+                                  <div className="flex justify-between"><span className="text-[#64748b]">Account Login Type</span><span className="font-black text-[#0f172a]">{order.accountLoginType}</span></div>
+                                  <div className="flex justify-between"><span className="text-[#64748b]">Mail</span><span className="font-mono font-black text-[#0f172a]">{order.accountEmail}</span></div>
+                                  <div className="flex justify-between"><span className="text-[#64748b]">Password</span><span className="font-mono font-black text-[#0f172a]">{order.accountPassword}</span></div>
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-[11px] text-[#64748b]">Credentials will be shown here once your order has been delivered.</p>
+                              )}
+
+                              {/* GET OTP / GENERATE AGAIN */}
+                              <ChargeAction
+                                order={order}
+                                label={chargeLabel}
+                                amount={chargeAmount}
+                                isAccount={isAccount}
+                                verificationPaid={order.verificationPaid === true}
+                              />
+                            </div>
+                          )}
+
+                          {/* Delivered → WEBSITE CHARGE for UC / X-Suit / Super-Car (no credentials) */}
+                          {delivered && !isAccount && (
+                            <div className="mt-4 rounded-xl border border-[#f2e2b3] bg-[#fdf9ec] p-4">
+                              <p className="flex items-center gap-2 text-[10px] font-black tracking-[.13em] text-[#8a6d00]"><FiZap /> DELIVERY CHARGE</p>
+                              <ChargeAction
+                                order={order}
+                                label={chargeLabel}
+                                amount={chargeAmount}
+                                isAccount={isAccount}
+                                verificationPaid={order.verificationPaid === true}
+                              />
+                            </div>
                           )}
                         </div>
                       );

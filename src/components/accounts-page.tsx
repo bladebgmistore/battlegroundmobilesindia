@@ -59,7 +59,7 @@ export default function AccountsPage() {
 
   // Accounts never require Player UID; only UC, Super Cars and X-Suits do.
   const checkout = (item: Product) =>
-    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}`);
+    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&category=accounts`);
 
   const copy = async () => {
     await navigator.clipboard.writeText(location.href);

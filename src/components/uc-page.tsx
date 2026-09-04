@@ -72,7 +72,7 @@ export default function UcPage() {
                 <div className="relative mt-7 flex items-center justify-between border-t border-[#e5e8ef] pt-5">
                   <span className="text-xl font-black text-[#0f172a]">{formatINR(pack.price)}</span>
                   <button
-                    onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1`)}
+                    onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`)}
                     className="btn-primary group !py-2.5 !px-4 text-[11px]"
                   >
                     BUY NOW <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />

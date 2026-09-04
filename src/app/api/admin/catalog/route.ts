@@ -3,6 +3,7 @@ import { categories, coupons, products, ucPackages } from "@/db/schema";
 import { getAdminSession } from "@/lib/admin-auth";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, desc, eq } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,10 @@ const normalizeSlug = (value: unknown) =>
 
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return jsonError("Unauthorized", 401);
+  await ensureDbReady();
+  await ensureDbReady();
+  await ensureDbReady();
+  await ensureDbReady();
 
   try {
     const [categoryRows, productRows, packageRows, couponRows] = await Promise.all([

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { ensureOrderColumns } from "@/lib/order-columns";
+import { ensureDbReady } from "@/lib/db-init";
 import { demoUpdateOrder, demoReplicateOrder, demoSaveOrder } from "@/lib/demo-orders";
 import { eq } from "drizzle-orm";
 
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 const MAX_SCREENSHOT_CHARS = 2_900_000;
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json().catch(() => null);
     const orderCode = String(body?.orderCode ?? "").trim().slice(0, 24);

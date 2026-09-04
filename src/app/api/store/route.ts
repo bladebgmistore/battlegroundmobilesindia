@@ -10,6 +10,7 @@ import {
 } from "@/lib/store-data";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, eq, inArray } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,6 +34,7 @@ const noStoreHeaders = {
 };
 
 export async function GET() {
+  await ensureDbReady();
   try {
     const [categoryRows, productRows, ucRows, settingRows] = await Promise.all([
       db

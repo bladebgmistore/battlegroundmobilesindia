@@ -1,11 +1,13 @@
 import { db } from "@/db";
 import { feedbacks } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  await ensureDbReady();
   try {
     const rows = await db
       .select()

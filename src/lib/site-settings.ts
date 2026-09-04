@@ -24,8 +24,15 @@ export type PublicSettings = {
 };
 
 /**
- * Server-side reader for admin-managed public settings so server components
- * return the correct WhatsApp number in the first HTML paint.
+ * Server-side reader for admin-managed public settings.
+ *
+ * WARNING: This function performs a DB query, and the DB client is configured
+ * with a no-store fetch. Calling it while Next.js statically prerenders a page
+ * (e.g. from the root layout or any page without `dynamic = "force-dynamic"`)
+ * throws "Dynamic server usage ... DYNAMIC_SERVER_USAGE" at build time. Only
+ * use it inside route handlers or pages/routes that are explicitly dynamic.
+ * Public storefront settings are served live to the browser via `/api/store`
+ * (see `src/lib/use-store-settings.ts`), so prefer that path for static pages.
  */
 export async function getPublicSettings(): Promise<PublicSettings> {
   const values: Record<string, string> = {};

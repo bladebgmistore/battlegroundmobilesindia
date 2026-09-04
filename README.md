@@ -95,6 +95,12 @@ against the production database once.
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
 
+> 🛠️ **No manual schema step needed.** On first database request the app
+> auto-creates any missing tables and seeds starter data (see `src/lib/db-init.ts`).
+> If you still want to create tables yourself, run `npx drizzle-kit push` once.
+> To diagnose a database connection from your own machine (where Neon is reachable):
+> `DATABASE_URL="postgresql://..." npx tsx scripts/db-check.ts`
+
 ---
 
 ## Production deploy (Netlify)

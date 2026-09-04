@@ -6,6 +6,7 @@ import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
 import { desc, eq, inArray } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ function computeCoupon(amount: number, coupon: { discountType: string; discountV
 }
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json();
     const customerName = String(body.customerName ?? "Website visitor").trim().slice(0, 100);
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureDbReady();
   try {
     await ensureOrderColumns();
     const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
@@ -134,6 +137,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureDbReady();
   try {
     const body = await request.json();
     const { id, status } = body;
@@ -177,6 +181,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureDbReady();
   try {
     const { id, ids } = await request.json();
     const selectedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : id ? [String(id)] : [];

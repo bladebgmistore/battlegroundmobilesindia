@@ -3,12 +3,17 @@ import { feedbacks } from "@/db/schema";
 import { getAdminSession } from "@/lib/admin-auth";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { desc, eq } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureDbReady();
+  await ensureDbReady();
+  await ensureDbReady();
+  await ensureDbReady();
   try {
     const rows = await db.select().from(feedbacks).orderBy(desc(feedbacks.createdAt)).limit(100);
     return Response.json({ feedbacks: rows, databaseOnline: true });

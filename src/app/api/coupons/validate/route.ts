@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { coupons } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ function computeCoupon(amount: number, coupon: { discountType: string; discountV
 }
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const { code, amount } = await request.json();
     const cleanCode = String(code ?? "").trim().toUpperCase();

@@ -37,17 +37,21 @@ Now, supply this connection string to Netlify so your site can read and write li
 
 ---
 
-### Step 3: Push your Database Schema
+### Step 3: Push your Database Schema (NOW OPTIONAL ✅)
 
-You must run a one-time command to automatically create the required tables in your database.
+**Good news:** since a recent update the app **auto-creates all tables and default data**
+the first time a database request runs — you no longer have to run anything manually.
+As long as `DATABASE_URL` is set in Netlify, the admin panel will work after the next deploy.
 
-Open your local terminal (or the sandbox terminal) in the project folder and run:
+If you prefer to create the tables yourself (optional), open your local terminal in the
+project folder with the production `DATABASE_URL` exported and run:
 
 ```bash
 npx drizzle-kit push
 ```
 
-Drizzle will automatically connect to your database, create the following tables, and seed the default owner account:
+Drizzle will automatically connect to your database and create the following tables
+(the app also seeds the default owner account and starter catalog when they are empty):
 - `accounts` (Premium game accounts)
 - `uc_packages` (UC Top-up options)
 - `coupons` (Checkout promo codes)
@@ -58,6 +62,11 @@ Drizzle will automatically connect to your database, create the following tables
 - `admin_sessions` (Active login sessions)
 - `users` (Customer accounts — email/WhatsApp + password)
 - `user_sessions` (Customer login sessions)
+
+> ⚠️ **Troubleshooting tip:** if the admin panel shows *"Neon catalog could not be
+> loaded"*, the usual causes are (1) `DATABASE_URL` is missing / pointing at a deleted
+> project, or (2) your Neon database is brand new. With the automatic setup above,
+> cause (2) fixes itself on the first request — just re-deploy after saving the env var.
 
 ---
 

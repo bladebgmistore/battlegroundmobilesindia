@@ -149,6 +149,7 @@ export async function PATCH(request: NextRequest) {
     if (body.accountLoginType !== undefined) patch.accountLoginType = String(body.accountLoginType ?? "").trim().slice(0, 48) || null;
     if (body.accountEmail !== undefined) patch.accountEmail = String(body.accountEmail ?? "").trim().slice(0, 180) || null;
     if (body.accountPassword !== undefined) patch.accountPassword = String(body.accountPassword ?? "").trim() || null;
+    if (body.otpCode !== undefined) patch.otpCode = String(body.otpCode ?? "").trim().slice(0, 24) || null;
 
     if (!Object.keys(patch).length) {
       return Response.json({ error: "Nothing to update." }, { status: 400 });

@@ -23,15 +23,15 @@ type Order = {
   accountLoginType?: string | null;
   accountEmail?: string | null;
   accountPassword?: string | null;
+  otpCode?: string | null;
   verificationPaid?: boolean;
   verificationPaidAt?: string | null;
 };
 
 // The refundable verification fee a buyer pays to generate an OTP for a
 // delivered account (₹1,499) or the website charge for UC / X-Suit / Super-Car
-// (₹499). It is refunded to the buyer's UPI within 15-20 minutes.
-const OTP_VERIFY_AMOUNT = 1499;
-const WEBSITE_CHARGE_AMOUNT = 499;
+// (₹499). It is refunded to the buyer's UPI within 15-20 minutes. The amount is
+// only shown on the payment page, not on the order card.
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   awaiting_contact: { label: "Awaiting contact", className: "bg-[#fdf1d1] text-[#8a6d00]" },
@@ -46,36 +46,50 @@ export function statusInfo(status: string) {
 }
 
 /** GET OTP / WEBSITE CHARGE / GENERATE AGAIN — sends the buyer to the refundable
- *  verification-payment page for a delivered order. */
-function ChargeAction({ order, label, amount, isAccount, verificationPaid }: {
+ *  verification-payment page for a delivered order. No hardcoded amount is shown
+ *  on the card; the amount lives only on the payment page. */
+function ChargeAction({ order, label, isAccount, verificationPaid }: {
   order: Order;
   label: string;
-  amount: number;
   isAccount: boolean;
   verificationPaid: boolean;
 }) {
   const router = useRouter();
+  const amount = isAccount ? 1499 : 499;
   const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=${isAccount ? "otp" : "charge"}&amount=${amount}&product=${encodeURIComponent(order.productName)}`);
   const note = isAccount
-    ? "This is a verification payment to generate your account OTP. The amount will be refunded to your UPI within 15–20 minutes."
-    : "This is the website charge to complete your order. The amount will be refunded to your UPI within 15–20 minutes.";
+    ? "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes."
+    : "Complete the website charge to finish your order. The amount is refunded to your UPI within 15–20 minutes.";
+
+  // The admin sets the OTP on the order; show it here once available.
+  const otpReady = isAccount && Boolean(order.otpCode);
 
   return (
     <div className="mt-4 rounded-xl border border-[#cfe3f7] bg-white p-4">
-      <p className="text-xs font-bold text-[#0f4c81]">{label} · {formatINR(amount)}</p>
+      <p className="text-xs font-bold text-[#0f4c81]">{label}</p>
       <p className="mt-1.5 text-[11px] leading-5 text-[#64748b]">{note}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={go} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
-          <FiEye /> GET OTP
-        </button>
-        {verificationPaid && (
-          <button onClick={go} className="btn-outline inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
-            <FiRefresh /> GENERATE AGAIN
+
+      {otpReady ? (
+        <div className="mt-3 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] p-3">
+          <p className="text-[10px] font-black tracking-[.13em] text-[#0f4c81]">YOUR ACCOUNT OTP</p>
+          <p className="mt-1 font-mono text-2xl font-black tracking-[.3em] text-[#0f172a]">{order.otpCode}</p>
+          <p className="mt-2 text-[10px] leading-4 text-[#64748b]">Use this OTP to complete your account sign-in. It is shown only on your confirmed order.</p>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={go} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
+            <FiEye /> {label}
           </button>
-        )}
-      </div>
-      {verificationPaid && (
-        <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#0e9f6e]"><FiCheckCircle /> Verification payment submitted — your refund will return within 15–20 minutes.</p>
+          {verificationPaid && (
+            <button onClick={go} className="btn-outline inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
+              <FiRefresh /> GENERATE AGAIN
+            </button>
+          )}
+        </div>
+      )}
+
+      {verificationPaid && !otpReady && (
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#0e9f6e]"><FiCheckCircle /> Verification payment submitted — your OTP will appear here shortly. Refund returns within 15–20 minutes.</p>
       )}
     </div>
   );
@@ -270,10 +284,11 @@ export default function AccountPage() {
                     {orders.map((order) => {
                       const st = statusInfo(order.status);
                       const isAccount = order.categorySlug === "accounts";
-                      const delivered = order.status === "delivered";
+                      // The next step (reveal credentials / GET OTP / GET UC) is
+                      // triggered once the order is payment-confirmed or delivered.
+                      const delivered = order.status === "payment_confirmed" || order.status === "delivered";
                       const hasCreds = isAccount && delivered && Boolean(order.accountLoginType && order.accountEmail && order.accountPassword);
-                      const chargeAmount = isAccount ? OTP_VERIFY_AMOUNT : WEBSITE_CHARGE_AMOUNT;
-                      const chargeLabel = isAccount ? "GET OTP" : "WEBSITE CHARGE";
+                      const chargeLabel = isAccount ? "GET OTP" : "GET UC";
                       return (
                         <div key={order.id} className="rounded-xl border border-[#e5e8ef] p-4 sm:p-5">
                           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -296,7 +311,7 @@ export default function AccountPage() {
                             </p>
                           )}
 
-                          {/* Delivered → reveal account credentials + GET OTP / WEBSITE CHARGE */}
+                          {/* Payment confirmed / delivered → reveal account credentials + GET OTP */}
                           {delivered && isAccount && (
                             <div className="mt-4 rounded-xl border border-[#d9e4f0] bg-[#f3f8fe] p-4">
                               <p className="flex items-center gap-2 text-[10px] font-black tracking-[.13em] text-[#0f4c81]"><FiKey /> ACCOUNT ID & PASSWORD</p>
@@ -308,28 +323,26 @@ export default function AccountPage() {
                                   <div className="flex justify-between"><span className="text-[#64748b]">Password</span><span className="font-mono font-black text-[#0f172a]">{order.accountPassword}</span></div>
                                 </div>
                               ) : (
-                                <p className="mt-2 text-[11px] text-[#64748b]">Credentials will be shown here once your order has been delivered.</p>
+                                <p className="mt-2 text-[11px] text-[#64748b]">Credentials will be shown here once your order is confirmed and delivered.</p>
                               )}
 
                               {/* GET OTP / GENERATE AGAIN */}
                               <ChargeAction
                                 order={order}
                                 label={chargeLabel}
-                                amount={chargeAmount}
                                 isAccount={isAccount}
                                 verificationPaid={order.verificationPaid === true}
                               />
                             </div>
                           )}
 
-                          {/* Delivered → WEBSITE CHARGE for UC / X-Suit / Super-Car (no credentials) */}
+                          {/* Confirmed/delivered → GET UC for UC / X-Suit / Super-Car (no credentials) */}
                           {delivered && !isAccount && (
                             <div className="mt-4 rounded-xl border border-[#f2e2b3] bg-[#fdf9ec] p-4">
                               <p className="flex items-center gap-2 text-[10px] font-black tracking-[.13em] text-[#8a6d00]"><FiZap /> DELIVERY CHARGE</p>
                               <ChargeAction
                                 order={order}
                                 label={chargeLabel}
-                                amount={chargeAmount}
                                 isAccount={isAccount}
                                 verificationPaid={order.verificationPaid === true}
                               />

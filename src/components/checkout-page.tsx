@@ -28,6 +28,25 @@ export default function CheckoutPage() {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CheckoutForm>();
   const [authedUser, setAuthedUser] = useState<{ name: string; whatsapp: string | null; email: string | null } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // If the product's category was disabled in admin, block checkout entirely
+  // so no BUY button can route to a usable form.
+  const [categoryBlocked, setCategoryBlocked] = useState(false);
+  const [categoryChecked, setCategoryChecked] = useState(false);
+
+  useEffect(() => {
+    if (!categorySlug) {
+      setCategoryChecked(true);
+      return;
+    }
+    fetch("/api/store")
+      .then((r) => r.json())
+      .then((d: { categories?: { slug: string }[] } | null) => {
+        const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
+        if (d?.categories) setCategoryBlocked(!activeSlugs.has(categorySlug));
+      })
+      .catch(() => undefined)
+      .finally(() => setCategoryChecked(true));
+  }, [categorySlug]);
 
   // Prefill name/WhatsApp if the customer is signed in (order is linked to the
   // account server-side via the session cookie).
@@ -207,6 +226,14 @@ export default function CheckoutPage() {
       <GridBackdrop />
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-5 py-14 lg:px-8 lg:py-20">
+        {categoryBlocked ? (
+          <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 px-6 py-20 text-center">
+            <p className="text-lg font-black text-[#0f172a]">This product is no longer available.</p>
+            <p className="mt-2 text-sm text-[#64748b]">The store has updated its catalog. Please choose another item from the store.</p>
+            <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
+          </div>
+        ) : (
+        <>
         <Link href="/accounts" className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[.12em] text-[#64748b] hover:text-[#0f172a]"><FiArrowLeft /> BACK TO STORE</Link>
         <div className="mt-7 grid gap-5 lg:grid-cols-[.88fr_1.12fr]">
           <aside className="premium-card p-6">
@@ -337,6 +364,8 @@ export default function CheckoutPage() {
             </form>
           </section>
         </div>
+        </>
+        )}
       </main>
       <SiteFooter />
     </>

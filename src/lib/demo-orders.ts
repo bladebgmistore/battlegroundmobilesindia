@@ -28,6 +28,7 @@ export type DemoOrder = Record<string, unknown> & {
   accountLoginType?: string | null;
   accountEmail?: string | null;
   accountPassword?: string | null;
+  otpCode?: string | null;
   verificationPaid?: boolean;
   verificationScreenshot?: string | null;
   verificationPaidAt?: string | Date | null;
@@ -56,6 +57,30 @@ export function demoUpdateOrder(orderCode: string, patch: Partial<DemoOrder>): D
 
 export function demoGetOrderByCode(orderCode: string): DemoOrder | null {
   return demoGet<DemoOrder>(COLLECTION, orderCode) ?? null;
+}
+
+/**
+ * Creates a fresh duplicate of an existing order (new id + orderCode) and
+ * persists it to the demo store. Used after a buyer pays the OTP verification
+ * fee so the admin sees a new "OTP order" row to set the OTP on.
+ */
+export function demoReplicateOrder(orderCode: string, overrides: Partial<DemoOrder> = {}): DemoOrder | null {
+  const existing = demoGetOrderByCode(orderCode);
+  if (!existing) return null;
+  const newCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+  const newId = `demo_${Date.now().toString(36)}_${Math.floor(100 + Math.random() * 900)}`;
+  const replica: DemoOrder = {
+    ...existing,
+    id: newId,
+    orderCode: newCode,
+    verificationPaid: false,
+    verificationScreenshot: null,
+    verificationPaidAt: null,
+    otpCode: null,
+    ...overrides,
+  };
+  demoSet(COLLECTION, newCode, replica);
+  return replica;
 }
 
 export function demoListAllOrders(): DemoOrder[] {

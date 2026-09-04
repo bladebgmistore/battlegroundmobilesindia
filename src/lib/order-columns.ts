@@ -20,6 +20,7 @@ const STATEMENTS = [
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS account_login_type varchar(48)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS account_email varchar(180)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS account_password text`,
+  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS otp_code varchar(24)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS verification_paid boolean NOT NULL DEFAULT false`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS verification_screenshot text`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS verification_paid_at timestamptz`,

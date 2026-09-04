@@ -8,7 +8,7 @@ import { Category, Product, formatINR, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
-type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
+type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { username: string; role: string };
@@ -174,21 +174,22 @@ export default function AdminDashboard() {
     else toast((await r.json().catch(() => null))?.error ?? "Could not update order status.");
   };
 
-  // Mark an account order delivered + attach the login credentials that get
-  // revealed to the buyer (GET ID PASSWORD). For non-account orders just sets
-  // the status.
-  const deliverOrder = async (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string }) => {
-    const payload: Record<string, unknown> = { id, status: "delivered" };
+  // Attach account credentials / OTP and advance the order to the point where
+  // they get revealed to the buyer (payment_confirmed by default, or delivered
+  // when the flow is fully complete). For non-account orders just sets status.
+  const deliverOrder = async (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }, status = "payment_confirmed") => {
+    const payload: Record<string, unknown> = { id, status };
     if (creds.accountLoginType) payload.accountLoginType = creds.accountLoginType;
     if (creds.accountEmail) payload.accountEmail = creds.accountEmail;
     if (creds.accountPassword) payload.accountPassword = creds.accountPassword;
+    if (creds.otpCode) payload.otpCode = creds.otpCode;
     const r = await fetch("/api/orders", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (r.ok) { toast("Order delivered."); await load(); }
-    else toast((await r.json().catch(() => null))?.error ?? "Could not deliver order.");
+    if (r.ok) { toast("Order confirmed & saved."); await load(); }
+    else toast((await r.json().catch(() => null))?.error ?? "Could not update order.");
   };
 
-  // Update credentials without changing status (e.g. fix a typo).
-  const updateCredentials = async (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string }) => {
+  // Update credentials or OTP without changing status (e.g. fix a typo).
+  const updateCredentials = async (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }) => {
     const r = await fetch("/api/orders", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...creds }) });
     if (r.ok) { toast("Credentials saved."); await load(); }
     else toast((await r.json().catch(() => null))?.error ?? "Could not save credentials.");
@@ -520,13 +521,13 @@ const ORDER_STATUSES = ["awaiting_contact", "payment_review", "payment_confirmed
 function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
   orders: Order[];
   setStatus: (id: string, status: string) => void;
-  deliver: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string }) => void;
-  updateCreds: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string }) => void;
+  deliver: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }, status?: string) => void;
+  updateCreds: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Order | null>(null);
   const [credModal, setCredModal] = useState<Order | null>(null);
-  const [credForm, setCredForm] = useState({ accountLoginType: "", accountEmail: "", accountPassword: "" });
+  const [credForm, setCredForm] = useState({ accountLoginType: "", accountEmail: "", accountPassword: "", otpCode: "" });
   const allSelected = orders.length > 0 && selected.length === orders.length;
   const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
   const toggleAll = () => setSelected(allSelected ? [] : orders.map((o) => o.id));
@@ -545,6 +546,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
       accountLoginType: o.accountLoginType ?? "FACEBOOK",
       accountEmail: o.accountEmail ?? "",
       accountPassword: o.accountPassword ?? "",
+      otpCode: o.otpCode ?? "",
     });
   };
 
@@ -620,11 +622,11 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
                         <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="admin-input !h-9 w-44 text-[10px]">{ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replaceAll("_", " ").toUpperCase()}</option>)}</select>
                         {o.categorySlug === "accounts" && (
                           <button onClick={() => openCredModal(o)} className="inline-flex items-center justify-center gap-1 rounded border border-[#0f4c81]/30 px-2 py-1 text-[9px] font-black text-[#0f4c81] transition-colors hover:bg-[#0f4c81] hover:text-white">
-                            <FiKey /> {o.status === "delivered" ? "EDIT ID/PASSWORD" : "SET CREDENTIALS + DELIVER"}
+                            <FiKey /> {o.status === "delivered" || o.status === "payment_confirmed" ? "EDIT ID/PASSWORD / OTP" : "SET CREDENTIALS + CONFIRM"}
                           </button>
                         )}
                         {o.categorySlug !== "accounts" && (
-                          <button onClick={() => setStatus(o.id, "delivered")} className="rounded border border-[#0e9f6e]/30 px-2 py-1 text-[9px] font-black text-[#0e9f6e] transition-colors hover:bg-[#0e9f6e] hover:text-white">MARK DELIVERED</button>
+                          <button onClick={() => setStatus(o.id, "payment_confirmed")} className="rounded border border-[#0e9f6e]/30 px-2 py-1 text-[9px] font-black text-[#0e9f6e] transition-colors hover:bg-[#0e9f6e] hover:text-white">MARK CONFIRMED</button>
                         )}
                         <button onClick={async () => { if (!confirm('Delete this order permanently?')) return; const r = await fetch('/api/orders', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id }) }); if (r.ok) window.location.reload(); }} className="rounded border border-red-200 px-2 py-1 text-[9px] font-black text-red-600 transition-colors hover:bg-red-50">DELETE ORDER</button>
                       </div>
@@ -669,14 +671,14 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
           <div onClick={(e) => e.stopPropagation()} className="modal-card w-full max-w-lg rounded-2xl border border-[#dbe2ec] bg-white p-6 shadow-[0_30px_80px_rgba(15,40,70,.3)]">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[10px] font-black tracking-[.14em] text-[#0f4c81]">DELIVER ACCOUNT</p>
+                <p className="text-[10px] font-black tracking-[.14em] text-[#0f4c81]">ACCOUNT CREDENTIALS & OTP</p>
                 <p className="mt-1 font-mono text-sm font-black text-[#0f172a]">{credModal.orderCode}</p>
                 <p className="mt-1 text-xs text-[#64748b]">{credModal.productName}</p>
               </div>
               <button onClick={() => setCredModal(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
             </div>
             <p className="mt-4 rounded-lg border border-[#d9e4f0] bg-[#f3f8fe] px-3 py-2 text-[11px] leading-5 text-[#64748b]">
-              These credentials are revealed to the buyer (<b className="text-[#0f4c81]">GET ID PASSWORD</b>) once the order is marked <b className="text-[#0f4c81]">Delivered</b>.
+              These credentials are revealed to the buyer (<b className="text-[#0f4c81]">GET ID PASSWORD</b>) once the order is marked <b className="text-[#0f4c81]">Payment Confirmed</b> or <b className="text-[#0f4c81]">Delivered</b>. Set the OTP here after the buyer's verification payment.
             </p>
             <div className="mt-5 grid gap-3">
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">ACCOUNT LOGIN TYPE
@@ -688,9 +690,13 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">PASSWORD
                 <input value={credForm.accountPassword} onChange={(e) => setCredForm({ ...credForm, accountPassword: e.target.value })} placeholder="account password" className="admin-input" />
               </label>
+              <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">OTP CODE <span className="font-normal normal-case tracking-normal text-[#94a3b8]">(shown to buyer in their order after verification payment)</span>
+                <input value={credForm.otpCode} onChange={(e) => setCredForm({ ...credForm, otpCode: e.target.value })} placeholder="e.g. 492816" className="admin-input font-mono" />
+              </label>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button onClick={() => { deliver(credModal.id, credForm); setCredModal(null); }} className="admin-primary flex-[1.2]"><FiKey /> DELIVER & SAVE</button>
+              <button onClick={() => { deliver(credModal.id, credForm); setCredModal(null); }} className="admin-primary flex-[1.2]"><FiKey /> CONFIRM & SAVE</button>
+              <button onClick={() => { deliver(credModal.id, credForm, "delivered"); setCredModal(null); }} className="rounded-xl border border-[#0e9f6e]/40 px-4 py-3 text-[10px] font-black text-[#0e9f6e] transition-colors hover:bg-[#0e9f6e] hover:text-white">MARK DELIVERED</button>
               <button onClick={() => { updateCreds(credModal.id, credForm); setCredModal(null); }} className="rounded-xl border border-[#dbe2ec] px-4 py-3 text-[10px] font-black text-[#64748b] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]">SAVE ONLY (no status)</button>
             </div>
           </div>

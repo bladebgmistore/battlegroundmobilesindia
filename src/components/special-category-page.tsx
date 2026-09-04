@@ -21,18 +21,21 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   const router = useRouter();
   const { whatsapp } = useStoreSettings();
   const [items, setItems] = useState<Product[]>([]);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     fetch("/api/store")
       .then((r) => r.json())
-      .then((data: { products?: Product[] }) => {
-        const filtered = (data?.products ?? []).filter((p) => p.categorySlug === category);
-        if (filtered.length) {
-          setItems(filtered);
-        } else {
-          // Fallback to our seeded matching defaults
-          setItems(defaultProducts.filter((p) => p.categorySlug === category));
+      .then((data: { products?: Product[]; categories?: { slug: string }[] }) => {
+        const activeSlugs = new Set((data?.categories ?? []).map((c) => c.slug));
+        // If the category was disabled in admin, don't surface any BUY buttons.
+        if (data?.categories && !activeSlugs.has(category)) {
+          setItems([]);
+          setUnavailable(true);
+          return;
         }
+        const filtered = (data?.products ?? []).filter((p) => p.categorySlug === category);
+        setItems(filtered.length ? filtered : defaultProducts.filter((p) => p.categorySlug === category));
       })
       .catch(() => {
         setItems(defaultProducts.filter((p) => p.categorySlug === category));
@@ -59,7 +62,13 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
         <PageTitle eyebrow={eyebrow} title={title} copy={copy} />
 
         <section className="mx-auto max-w-7xl px-5 pb-20 lg:px-8">
-          {items.length ? (
+          {unavailable ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">This category is temporarily unavailable.</p>
+              <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
+              <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
+            </div>
+          ) : items.length ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
               {items.map((item, index) => (
                 <motion.article

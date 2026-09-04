@@ -100,6 +100,7 @@ export const orders = pgTable("orders", {
   accountLoginType: varchar("account_login_type", { length: 48 }),
   accountEmail: varchar("account_email", { length: 180 }),
   accountPassword: text("account_password"),
+  otpCode: varchar("otp_code", { length: 24 }),
   verificationPaid: boolean("verification_paid").notNull().default(false),
   verificationScreenshot: text("verification_screenshot"),
   verificationPaidAt: timestamp("verification_paid_at", { withTimezone: true }),

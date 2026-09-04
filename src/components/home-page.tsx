@@ -192,45 +192,47 @@ export default function HomePage() {
           />
         )}
 
-        {/* UC Store Section */}
-        <section id="uc" className="relative border-y border-[#eef1f6] bg-white/70 py-20">
-          <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
-            <div className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] min-h-[340px]">
-              <img src={ucCategory?.image || images.uc} alt={ucCategory?.name || "BGMI UC packages"} className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/30 to-transparent" />
-              <div className="relative flex h-full min-h-[340px] flex-col justify-end p-7">
-                <p className="text-[10px] font-bold tracking-[.18em] text-[#0f4c81]">{(ucCategory?.name || "UC").toUpperCase()} STORE</p>
-                <h2 className="mt-3 text-4xl font-black leading-none tracking-[-.05em] text-[#0f172a]">{ucCategory?.name || "UC PURCHASE"}</h2>
-                <p className="mt-4 max-w-sm text-sm leading-6 text-[#64748b]">{ucCategory?.description || "Choose a high-value UC bundle and let our team guide you through the completion process."}</p>
-                <Link href="/uc-purchase" className="mt-6 inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]">
-                  EXPLORE UC <FiArrowRight />
-                </Link>
+        {/* UC Store Section — only when the UC category is active in admin */}
+        {ucCategory && (
+          <section id="uc" className="relative border-y border-[#eef1f6] bg-white/70 py-20">
+            <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
+              <div className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] min-h-[340px]">
+                <img src={ucCategory.image || images.uc} alt={ucCategory.name || "BGMI UC packages"} className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/30 to-transparent" />
+                <div className="relative flex h-full min-h-[340px] flex-col justify-end p-7">
+                  <p className="text-[10px] font-bold tracking-[.18em] text-[#0f4c81]">{(ucCategory.name || "UC").toUpperCase()} STORE</p>
+                  <h2 className="mt-3 text-4xl font-black leading-none tracking-[-.05em] text-[#0f172a]">{ucCategory.name || "UC PURCHASE"}</h2>
+                  <p className="mt-4 max-w-sm text-sm leading-6 text-[#64748b]">{ucCategory.description || "Choose a high-value UC bundle and let our team guide you through the completion process."}</p>
+                  <Link href="/uc-purchase" className="mt-6 inline-flex w-fit items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]">
+                    EXPLORE UC <FiArrowRight />
+                  </Link>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {ucList.slice(0, 6).map((pack, i) => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
+                    key={pack.id}
+                    className="premium-card group p-5"
+                  >
+                    <div className="flex items-start justify-between">
+                      <span className="rounded bg-[#e0eefb] px-2 py-1 text-[8px] font-bold tracking-[.12em] text-[#0f4c81]">{pack.bonusLabel ?? "UC BUNDLE"}</span>
+                      <FaBolt className="text-[#f4b400]" />
+                    </div>
+                    <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
+                    <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
+                      <span className="text-base font-extrabold text-[#0f4c81]">{formatINR(pack.price)}</span>
+                      <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {ucList.slice(0, 6).map((pack, i) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  key={pack.id}
-                  className="premium-card group p-5"
-                >
-                  <div className="flex items-start justify-between">
-                    <span className="rounded bg-[#e0eefb] px-2 py-1 text-[8px] font-bold tracking-[.12em] text-[#0f4c81]">{pack.bonusLabel ?? "UC BUNDLE"}</span>
-                    <FaBolt className="text-[#f4b400]" />
-                  </div>
-                  <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
-                  <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
-                    <span className="text-base font-extrabold text-[#0f4c81]">{formatINR(pack.price)}</span>
-                    <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Super Cars, X-Suits, then any custom admin-created categories */}
         {otherCategories.map((category) => (

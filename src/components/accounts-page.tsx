@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
-import { FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
+import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
 import { defaultAccounts, formatINR, Product } from "@/lib/store-data";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 
@@ -16,12 +17,20 @@ export default function AccountsPage() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     setWishlist(JSON.parse(localStorage.getItem("bgmi-wishlist") ?? "[]"));
     fetch("/api/store")
       .then((r) => r.json())
-      .then((d: { products?: Product[] }) => {
+      .then((d: { products?: Product[]; categories?: { slug: string }[] }) => {
+        const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
+        // Disabled in admin → no products, no BUY buttons.
+        if (d?.categories && !activeSlugs.has("accounts")) {
+          setItems([]);
+          setUnavailable(true);
+          return;
+        }
         if (d?.products) {
           setItems(d.products.filter((p) => p.categorySlug === "accounts"));
         }
@@ -112,7 +121,13 @@ export default function AccountsPage() {
             </button>
           </div>
 
-          {shown.length ? (
+          {unavailable ? (
+            <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">The account store is temporarily unavailable.</p>
+              <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
+              <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
+            </div>
+          ) : shown.length ? (
             <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((item, index) => (
                 <motion.article

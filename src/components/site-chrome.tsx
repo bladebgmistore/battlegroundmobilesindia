@@ -4,17 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
+import { UserNav, UserMobileAuth } from "@/components/user-nav";
 import { images } from "@/lib/store-data";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
-const navLinks = [
-  ["Home", "/"],
-  ["Accounts", "/accounts"],
-  ["UC Purchase", "/uc-purchase"],
-  ["Super-Car", "/category/super-car"],
-  ["X-Suit", "/category/x-suit"],
-  ["Is It Safe?", "/is-it-safe"],
-  ["How To Buy", "/how-to-buy"],
+// Category-based nav entries — only rendered when that category is active.
+const CATEGORY_NAV: { slug: string; label: string; href: string }[] = [
+  { slug: "accounts", label: "Accounts", href: "/accounts" },
+  { slug: "uc", label: "UC Purchase", href: "/uc-purchase" },
+  { slug: "super-cars", label: "Super-Car", href: "/category/super-car" },
+  { slug: "x-suits", label: "X-Suit", href: "/category/x-suit" },
+];
+
+const STATIC_NAV: { label: string; href: string }[] = [
+  { label: "Home", href: "/" },
+  { label: "How To Buy", href: "/how-to-buy" },
 ];
 
 /* Soft, light premium backdrop */
@@ -28,11 +32,37 @@ export function GridBackdrop() {
   );
 }
 
+type Category = { slug: string; isActive?: boolean };
+
 export function SiteHeader() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set(CATEGORY_NAV.map((c) => c.slug)));
   const { maintenance, settings } = useStoreSettings();
   const logoUrl = settings.logo_url;
+
+  // Respect admin's enabled/disabled categories: a disabled category's nav
+  // button disappears from the header (desktop + mobile) and the footer.
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { categories?: Category[] } | null) => {
+        if (!alive) return;
+        const cats = data?.categories;
+        if (cats?.length) {
+          setActiveKeys(new Set(cats.map((c) => c.slug)));
+        }
+      })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  const categoryNav = CATEGORY_NAV.filter((item) => activeKeys.has(item.slug));
+  const navLinks: [string, string][] = [
+    ...STATIC_NAV.map((n) => [n.label, n.href] as [string, string]),
+    ...categoryNav.map((n) => [n.label, n.href] as [string, string]),
+  ];
 
   return (
     <>
@@ -68,7 +98,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
-            {/* Login and Support links removed from top navigation */}
+            <UserNav />
           </div>
           <button
             type="button"
@@ -93,7 +123,7 @@ export function SiteHeader() {
                 </Link>
               ))}
             </nav>
-            {/* Mobile login action removed */}
+            <UserMobileAuth />
           </div>
         )}
       </header>
@@ -103,6 +133,23 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   const { settings } = useStoreSettings();
+  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set(CATEGORY_NAV.map((c) => c.slug)));
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { categories?: Category[] } | null) => {
+        if (!alive) return;
+        const cats = data?.categories;
+        if (cats?.length) setActiveKeys(new Set(cats.map((c) => c.slug)));
+      })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  const footerCategories = CATEGORY_NAV.filter((item) => activeKeys.has(item.slug));
+
   return (
     <footer className="mt-20 border-t border-[#dbe2ec] bg-white/70">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 lg:grid-cols-[1.35fr_.7fr_.7fr] lg:px-8">
@@ -126,11 +173,9 @@ export function SiteFooter() {
         <div>
           <p className="text-xs font-bold tracking-[.16em] text-[#0f4c81]">EXPLORE</p>
           <div className="mt-5 grid gap-3 text-sm text-[#64748b]">
-            <Link href="/accounts" className="hover:text-[#0f172a]">Premium Accounts</Link>
-            <Link href="/uc-purchase" className="hover:text-[#0f172a]">UC Purchase</Link>
-            <Link href="/#super-cars" className="hover:text-[#0f172a]">Super Cars</Link>
-            <Link href="/#x-suits" className="hover:text-[#0f172a]">X-Suits</Link>
-            <Link href="/is-it-safe" className="hover:text-[#0f172a]">Safety Centre</Link>
+            {footerCategories.map((item) => (
+              <Link key={item.slug} href={item.href} className="hover:text-[#0f172a]">{item.label}</Link>
+            ))}
             <Link href="/how-to-buy" className="hover:text-[#0f172a]">How to Buy</Link>
           </div>
         </div>

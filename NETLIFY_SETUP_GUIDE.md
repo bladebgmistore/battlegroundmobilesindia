@@ -60,6 +60,8 @@ Drizzle will automatically connect to your database and create the following tab
 - `site_settings` (Dynamic WhatsApp number, Logo override, and Maintenance toggle)
 - `admins` (Database-backed administrators)
 - `admin_sessions` (Active login sessions)
+- `users` (Customer accounts — email/WhatsApp + password)
+- `user_sessions` (Customer login sessions)
 
 > ⚠️ **Troubleshooting tip:** if the admin panel shows *"Neon catalog could not be
 > loaded"*, the usual causes are (1) `DATABASE_URL` is missing / pointing at a deleted

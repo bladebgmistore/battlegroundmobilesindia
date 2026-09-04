@@ -17,6 +17,15 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Dynamic WhatsApp number, social links, maintenance banner
 - Mobile responsive + SEO metadata + branded 404
 
+### Customer accounts (`/login`, `/signup`, `/account`)
+- Register / sign in with **email OR WhatsApp number** + password
+- Signed-in session cookie (30 days, HTTP-only, server-side protected)
+- **My Orders** — see order history and status
+- **Profile** — edit name, email, WhatsApp
+- **Change password** and **forgot password** (6-digit email OTP)
+- Checkout **autofills** name/WhatsApp for signed-in users and links the order to their account
+- "Sign in" / "My Account" menu in the header (desktop and mobile)
+
 ### Admin panel (`/admin`)
 - Login: **MANAV / MANAV7412**
 - Secure cookie session (12 hours, server-side protected)
@@ -81,6 +90,7 @@ against the production database once.
 | `orders` | Checkout requests |
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
+| `users` / `user_sessions` | Customer accounts + login sessions |
 | `admins` / `admin_sessions` | Optional (login is cookie-based without DB) |
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
@@ -115,6 +125,9 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
 | `/checkout` | Buy flow + coupon |
+| `/login` / `/signup` | Customer sign in / create account |
+| `/account` | Customer orders + profile |
+| `/forgot-password` | Password reset |
 | `/admin` | Admin login |
 | `/admin/dashboard` | Control centre |
 | `/api/health` | Health check |

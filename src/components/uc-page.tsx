@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
-import { FiArrowRight, FiShield } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiShield } from "react-icons/fi";
 import { Category, defaultCategories, defaultUcPackages, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -15,12 +16,17 @@ export default function UcPage() {
   const [category, setCategory] = useState<Category>(
     defaultCategories.find((item) => item.slug === "uc") ?? defaultCategories[0],
   );
+  const [unavailable, setUnavailable] = useState(false);
   const { whatsapp } = useStoreSettings();
 
   useEffect(() => {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((data: { ucPackages?: UcPackageItem[]; categories?: Category[] }) => {
+        if (data.categories && !data.categories.some((item) => item.slug === "uc")) {
+          setUnavailable(true);
+          return;
+        }
         if (data.ucPackages) setPacks(data.ucPackages);
         const ucCategory = data.categories?.find((item) => item.slug === "uc");
         if (ucCategory) setCategory(ucCategory);
@@ -52,6 +58,13 @@ export default function UcPage() {
             </div>
           </div>
 
+          {unavailable ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">UC Purchase is temporarily unavailable.</p>
+              <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
+              <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
+            </div>
+          ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {packs.map((pack, index) => (
               <motion.article
@@ -72,7 +85,7 @@ export default function UcPage() {
                 <div className="relative mt-7 flex items-center justify-between border-t border-[#e5e8ef] pt-5">
                   <span className="text-xl font-black text-[#0f172a]">{formatINR(pack.price)}</span>
                   <button
-                    onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1`)}
+                    onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`)}
                     className="btn-primary group !py-2.5 !px-4 text-[11px]"
                   >
                     BUY NOW <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
@@ -81,6 +94,7 @@ export default function UcPage() {
               </motion.article>
             ))}
           </div>
+          )}
 
           <div className="mt-14 grid gap-4 rounded-2xl border border-[#dbe2ec] bg-white p-6 md:grid-cols-4 shadow-sm">
             {[["01", "SELECT PACKAGE"], ["02", "CLICK BUY"], ["03", "CONTACT WHATSAPP"], ["04", "COMPLETE PAYMENT"]].map(([no, text]) => (

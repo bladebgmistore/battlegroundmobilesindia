@@ -58,6 +58,11 @@ export async function GET() {
         .where(inArray(siteSettings.settingKey, PUBLIC_SETTING_KEYS)),
     ]);
 
+    // Only surface products that belong to an active category, so a disabled
+    // category's BUY buttons disappear from every page (home, category pages).
+    const activeCategorySlugs = new Set(categoryRows.map((c) => c.slug));
+    const visibleProductRows = productRows.filter((p) => activeCategorySlugs.has(p.categorySlug));
+
     const settings: Record<string, string> = {};
     for (const row of settingRows) settings[row.settingKey] = String(row.value ?? "");
     if (!settings.whatsapp_number) settings.whatsapp_number = DEFAULT_WHATSAPP_NUMBER;
@@ -69,7 +74,7 @@ export async function GET() {
     return Response.json(
       {
         categories: categoryRows.map((category) => ({ ...category, image: convertGoogleDriveUrl(category.image ?? "") })),
-        products: productRows.map((product) => ({ ...product, image: convertGoogleDriveUrl(product.image) })),
+        products: visibleProductRows.map((product) => ({ ...product, image: convertGoogleDriveUrl(product.image) })),
         ucPackages: ucRows,
         settings,
         databaseOnline: true,

@@ -19,12 +19,55 @@ export default function CheckoutPage() {
   const router = useRouter();
   const product = params.get("product") ?? "Selected product";
   const baseAmount = Number(params.get("amount") ?? 0);
+  const categorySlug = params.get("category") ?? "";
   const [busy, setBusy] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponError, setCouponError] = useState("");
   const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<CheckoutForm>();
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CheckoutForm>();
+  const [authedUser, setAuthedUser] = useState<{ name: string; whatsapp: string | null; email: string | null } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  // If the product's category was disabled in admin, block checkout entirely
+  // so no BUY button can route to a usable form.
+  const [categoryBlocked, setCategoryBlocked] = useState(false);
+  const [categoryChecked, setCategoryChecked] = useState(false);
+
+  useEffect(() => {
+    if (!categorySlug) {
+      setCategoryChecked(true);
+      return;
+    }
+    fetch("/api/store")
+      .then((r) => r.json())
+      .then((d: { categories?: { slug: string }[] } | null) => {
+        const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
+        if (d?.categories) setCategoryBlocked(!activeSlugs.has(categorySlug));
+      })
+      .catch(() => undefined)
+      .finally(() => setCategoryChecked(true));
+  }, [categorySlug]);
+
+  // Prefill name/WhatsApp if the customer is signed in (order is linked to the
+  // account server-side via the session cookie).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (data?.authenticated && data.user) {
+          const u = data.user as { name: string; whatsapp: string | null; email: string | null };
+          setAuthedUser(u);
+          if (u.name) setValue("name", u.name);
+          if (u.whatsapp) setValue("whatsapp", u.whatsapp);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setAuthChecked(true);
+      }
+    })();
+  }, [setValue]);
   const { whatsappWithText, whatsappNumber, checkoutMode } = useStoreSettings();
 
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
@@ -137,6 +180,7 @@ export default function CheckoutPage() {
           playerUid: values.playerUid?.trim() || null,
           playerName: playerName || null,
           productName: product,
+          categorySlug: categorySlug || null,
           baseAmount,
           couponCode: couponResult?.code ?? null,
         }),
@@ -182,6 +226,14 @@ export default function CheckoutPage() {
       <GridBackdrop />
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-5 py-14 lg:px-8 lg:py-20">
+        {categoryBlocked ? (
+          <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 px-6 py-20 text-center">
+            <p className="text-lg font-black text-[#0f172a]">This product is no longer available.</p>
+            <p className="mt-2 text-sm text-[#64748b]">The store has updated its catalog. Please choose another item from the store.</p>
+            <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
+          </div>
+        ) : (
+        <>
         <Link href="/accounts" className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[.12em] text-[#64748b] hover:text-[#0f172a]"><FiArrowLeft /> BACK TO STORE</Link>
         <div className="mt-7 grid gap-5 lg:grid-cols-[.88fr_1.12fr]">
           <aside className="premium-card p-6">
@@ -230,6 +282,19 @@ export default function CheckoutPage() {
             </div>
 
             <form onSubmit={handleSubmit(submit)} className="mt-8 border-t border-[#e5e8ef] pt-6">
+              {authedUser ? (
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-[#bbe7d4] bg-[#effaf5] px-3.5 py-2.5 text-xs font-bold text-[#0e9f6e]">
+                  <FiCheckCircle className="shrink-0 text-base" />
+                  <span>Signed in as {authedUser.name} — details filled in. <Link href="/account" className="underline">My orders</Link></span>
+                </div>
+              ) : (
+                authChecked && (
+                  <div className="mb-4 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3.5 py-2.5 text-[11px] font-semibold text-[#64748b]">
+                    Have an account?{" "}
+                    <Link href="/login?next=/checkout" className="font-black text-[#0f4c81] hover:underline">Sign in</Link> to save your details & track orders.
+                  </div>
+                )
+              )}
               <p className="text-xs font-bold text-[#334155]">Enter your details to generate {isQrMode ? "QR & place order" : "support reference"}.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-2 text-[10px] font-bold tracking-[.1em] text-[#334155]">YOUR NAME
@@ -299,6 +364,8 @@ export default function CheckoutPage() {
             </form>
           </section>
         </div>
+        </>
+        )}
       </main>
       <SiteFooter />
     </>

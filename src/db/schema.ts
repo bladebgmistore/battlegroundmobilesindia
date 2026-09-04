@@ -85,6 +85,8 @@ export const coupons = pgTable("coupons", {
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
   orderCode: varchar("order_code", { length: 24 }).notNull().unique(),
+  userId: uuid("user_id"),
+  categorySlug: varchar("category_slug", { length: 48 }),
   customerName: varchar("customer_name", { length: 100 }).notNull(),
   customerWhatsapp: varchar("customer_whatsapp", { length: 24 }).notNull(),
   playerUid: varchar("player_uid", { length: 64 }),
@@ -95,6 +97,13 @@ export const orders = pgTable("orders", {
   couponCode: varchar("coupon_code", { length: 50 }),
   amount: integer("amount").notNull(),
   status: varchar("status", { length: 24 }).notNull().default("awaiting_contact"),
+  accountLoginType: varchar("account_login_type", { length: 48 }),
+  accountEmail: varchar("account_email", { length: 180 }),
+  accountPassword: text("account_password"),
+  otpCode: varchar("otp_code", { length: 24 }),
+  verificationPaid: boolean("verification_paid").notNull().default(false),
+  verificationScreenshot: text("verification_screenshot"),
+  verificationPaidAt: timestamp("verification_paid_at", { withTimezone: true }),
   paymentScreenshot: text("payment_screenshot"),
   buyerIp: varchar("buyer_ip", { length: 64 }),
   buyerCity: varchar("buyer_city", { length: 120 }),
@@ -138,6 +147,26 @@ export const admins = pgTable("admins", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email", { length: 180 }).unique(),
+  whatsapp: varchar("whatsapp", { length: 24 }).unique(),
+  name: varchar("name", { length: 120 }).notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("customer"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const userSessions = pgTable("user_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sessionToken: varchar("session_token", { length: 140 }).notNull().unique(),
+  userId: uuid("user_id").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const passwordResets = pgTable("password_resets", {

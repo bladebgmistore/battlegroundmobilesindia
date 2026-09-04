@@ -56,6 +56,8 @@ Drizzle will automatically connect to your database, create the following tables
 - `site_settings` (Dynamic WhatsApp number, Logo override, and Maintenance toggle)
 - `admins` (Database-backed administrators)
 - `admin_sessions` (Active login sessions)
+- `users` (Customer accounts — email/WhatsApp + password)
+- `user_sessions` (Customer login sessions)
 
 ---
 

@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
+import { demoUpdateOrder } from "@/lib/demo-orders";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -83,8 +84,13 @@ export async function POST(request: NextRequest) {
       await db.update(orders).set(patch).where(eq(orders.id, existing.id));
       return Response.json({ ok: true, saved: true });
     } catch {
-      // Database offline — never surface a hard failure to the buyer.
-      return Response.json({ ok: true, saved: false, message: "Database temporarily unavailable; confirmation recorded locally." });
+      // Database offline — record the change on the demo order instead.
+      demoUpdateOrder(orderCode, {
+        paymentScreenshot: screenshot ?? undefined,
+        buyerIp: geo.ip ?? undefined,
+        ...(markPaid ? { status: "payment_review", paidAt: new Date() } : {}),
+      });
+      return Response.json({ ok: true, saved: true, demo: true });
     }
   } catch {
     return Response.json({ ok: false, error: "Could not process payment confirmation." }, { status: 500 });

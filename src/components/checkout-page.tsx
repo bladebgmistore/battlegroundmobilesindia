@@ -24,7 +24,30 @@ export default function CheckoutPage() {
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponError, setCouponError] = useState("");
   const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<CheckoutForm>();
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CheckoutForm>();
+  const [authedUser, setAuthedUser] = useState<{ name: string; whatsapp: string | null; email: string | null } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Prefill name/WhatsApp if the customer is signed in (order is linked to the
+  // account server-side via the session cookie).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (data?.authenticated && data.user) {
+          const u = data.user as { name: string; whatsapp: string | null; email: string | null };
+          setAuthedUser(u);
+          if (u.name) setValue("name", u.name);
+          if (u.whatsapp) setValue("whatsapp", u.whatsapp);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setAuthChecked(true);
+      }
+    })();
+  }, [setValue]);
   const { whatsappWithText, whatsappNumber, checkoutMode } = useStoreSettings();
 
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
@@ -230,6 +253,19 @@ export default function CheckoutPage() {
             </div>
 
             <form onSubmit={handleSubmit(submit)} className="mt-8 border-t border-[#e5e8ef] pt-6">
+              {authedUser ? (
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-[#bbe7d4] bg-[#effaf5] px-3.5 py-2.5 text-xs font-bold text-[#0e9f6e]">
+                  <FiCheckCircle className="shrink-0 text-base" />
+                  <span>Signed in as {authedUser.name} — details filled in. <Link href="/account" className="underline">My orders</Link></span>
+                </div>
+              ) : (
+                authChecked && (
+                  <div className="mb-4 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3.5 py-2.5 text-[11px] font-semibold text-[#64748b]">
+                    Have an account?{" "}
+                    <Link href="/login?next=/checkout" className="font-black text-[#0f4c81] hover:underline">Sign in</Link> to save your details & track orders.
+                  </div>
+                )
+              )}
               <p className="text-xs font-bold text-[#334155]">Enter your details to generate {isQrMode ? "QR & place order" : "support reference"}.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-2 text-[10px] font-bold tracking-[.1em] text-[#334155]">YOUR NAME

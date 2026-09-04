@@ -85,6 +85,7 @@ export const coupons = pgTable("coupons", {
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
   orderCode: varchar("order_code", { length: 24 }).notNull().unique(),
+  userId: uuid("user_id"),
   customerName: varchar("customer_name", { length: 100 }).notNull(),
   customerWhatsapp: varchar("customer_whatsapp", { length: 24 }).notNull(),
   playerUid: varchar("player_uid", { length: 64 }),
@@ -138,6 +139,26 @@ export const admins = pgTable("admins", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email", { length: 180 }).unique(),
+  whatsapp: varchar("whatsapp", { length: 24 }).unique(),
+  name: varchar("name", { length: 120 }).notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("customer"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const userSessions = pgTable("user_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sessionToken: varchar("session_token", { length: 140 }).notNull().unique(),
+  userId: uuid("user_id").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const passwordResets = pgTable("password_resets", {

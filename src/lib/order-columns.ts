@@ -15,6 +15,7 @@ import { sql } from "drizzle-orm";
 type G = typeof globalThis & { __bgmiOrderColumnsReady?: Promise<boolean> };
 
 const STATEMENTS = [
+  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id uuid`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS player_name varchar(120)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_screenshot text`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_ip varchar(64)`,

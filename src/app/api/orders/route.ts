@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { coupons, orders } from "@/db/schema";
 import { getAdminSession } from "@/lib/admin-auth";
+import { getCurrentUser } from "@/lib/user-store";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { desc, eq, inArray } from "drizzle-orm";
@@ -56,10 +57,20 @@ export async function POST(request: NextRequest) {
     // Automatic buyer IP + location trace — fully server-side, never blocks.
     const geo = await resolveBuyerLocation(request);
 
+    // Link the order to a logged-in customer so they can see it in their account.
+    let userId: string | null = null;
+    try {
+      const current = await getCurrentUser(request);
+      userId = current?.id ?? null;
+    } catch {
+      userId = null;
+    }
+
     const orderCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
     try {
       await ensureOrderColumns();
       await db.insert(orders).values({
+        userId,
         customerName,
         customerWhatsapp,
         playerUid,

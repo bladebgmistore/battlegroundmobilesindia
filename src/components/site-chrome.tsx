@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
+import { UserNav, UserMobileAuth } from "@/components/user-nav";
 import { images } from "@/lib/store-data";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -68,7 +69,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
-            {/* Login and Support links removed from top navigation */}
+            <UserNav />
           </div>
           <button
             type="button"
@@ -93,7 +94,7 @@ export function SiteHeader() {
                 </Link>
               ))}
             </nav>
-            {/* Mobile login action removed */}
+            <UserMobileAuth />
           </div>
         )}
       </header>

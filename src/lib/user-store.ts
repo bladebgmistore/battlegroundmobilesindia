@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, userSessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { ensureUserTables } from "@/lib/user-tables";
 import { createUserToken, verifyUserToken, USER_COOKIE, USER_ROLE } from "@/lib/user-session";
 import type { NextRequest, NextResponse } from "next/server";
 
@@ -74,6 +75,9 @@ export async function findUserByIdentifier(identifier: string): Promise<DbUserRo
   const id = detectIdentifier(identifier);
   if (!id.value) return null;
 
+  // Ensure the tables exist before querying (idempotent, memoised per process).
+  await ensureUserTables();
+
   // Try DB first.
   try {
     const [row] = await db
@@ -95,6 +99,7 @@ export async function findUserByIdentifier(identifier: string): Promise<DbUserRo
 }
 
 export async function findUserById(id: string): Promise<DbUserRow | null> {
+  await ensureUserTables();
   try {
     const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
     if (row) return row as DbUserRow;
@@ -142,6 +147,10 @@ export async function createUser(input: {
   }
 
   const passwordHash = hashPassword(String(input.password));
+
+  // Ensure users / user_sessions tables exist before inserting.
+  await ensureUserTables();
+
   const row: DbUserRow = {
     id: randomUUID(),
     email,
@@ -261,6 +270,7 @@ export function buildUserToken(user: UserRecord): string {
 
 export async function persistUserSession(request: NextRequest, user: UserRecord): Promise<string> {
   const token = buildUserToken(user);
+  await ensureUserTables();
   try {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
     await db.insert(userSessions).values({ sessionToken: token, userId: user.id, expiresAt });

@@ -11,7 +11,12 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error ?? "Could not send a reset code." }, { status: 400 });
     }
-    return NextResponse.json({ ok: true, delivered: result.delivered, demoOtp: result.demoOtp });
+    return NextResponse.json({
+      ok: true,
+      delivered: result.delivered,
+      deliveryMode: result.deliveryMode,
+      demoOtp: result.demoOtp,
+    });
   } catch {
     return NextResponse.json({ error: "Could not send a reset code. Please try again." }, { status: 500 });
   }

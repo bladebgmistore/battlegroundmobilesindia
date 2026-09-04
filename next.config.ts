@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Allow the Arena live-preview host (and any *.e2b.app subdomain) so Next.js
+  // dev resources (HMR) work when the site is opened inside the sandbox preview.
+  allowedDevOrigins: ["*.e2b.app"],
   // Gzip/brotli compression for faster page loads.
   compress: true,
   // Strip the x-powered-by header.

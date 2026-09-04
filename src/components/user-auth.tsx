@@ -129,7 +129,11 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
         return;
       }
       setToken(data);
-      setInfo("A 6-digit code has been sent to your email.");
+      setInfo(
+        data?.deliveryMode === "smtp"
+          ? "A 6-digit verification code has been sent to your email."
+          : "Email delivery isn't configured yet, so your verification code is shown below.",
+      );
       setForgotStep("otp");
     } catch {
       setError("Unable to send a reset code. Please try again.");
@@ -257,7 +261,12 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
           {mode === "forgot" && forgotStep === "otp" && (
             <form onSubmit={submitReset} className="mt-8 grid gap-4">
               {info && <p className="rounded-lg bg-[#e0eefb] p-3 text-xs font-bold text-[#0f4c81]">{info}</p>}
-              {demoOtp && <p className="rounded-lg bg-[#fdf1d1] p-3 text-xs font-bold text-[#8a6d00]">{`Demo code: ${demoOtp}`}</p>}
+              {demoOtp && (
+                <div className="rounded-lg bg-[#fdf1d1] p-3">
+                  <p className="text-[10px] font-black tracking-[.12em] text-[#8a6d00]">YOUR VERIFICATION CODE (DEMO)</p>
+                  <p className="mt-1 text-3xl font-black tracking-[.35em] text-[#231a02]">{demoOtp}</p>
+                </div>
+              )}
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
                 6-DIGIT CODE
                 <input value={forgotOtp} onChange={(e) => setForgotOtp(e.target.value)} maxLength={6} className="form-input tracking-[.4em]" placeholder="••••••" />

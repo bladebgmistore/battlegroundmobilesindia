@@ -4,6 +4,7 @@ import { users, userSessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { ensureUserTables } from "@/lib/user-tables";
+import { demoSet, demoValues, demoGet } from "@/lib/demo-store";
 import { createUserToken, verifyUserToken, USER_COOKIE, USER_ROLE } from "@/lib/user-session";
 import type { NextRequest, NextResponse } from "next/server";
 
@@ -12,9 +13,9 @@ import type { NextRequest, NextResponse } from "next/server";
  *
  * Primary storage is PostgreSQL (via Drizzle). When the database is
  * unreachable — e.g. the live preview here has no DATABASE_URL — we fall
- * back to a small in-memory store so the signup / login / account flow can
- * still be demonstrated. In production (DATABASE_URL set) the database is
- * always used.
+ * back to a small file-backed demo store so the signup / login / account
+ * flow keeps working across dev-server restarts. In production
+ * (DATABASE_URL set) the database is always used.
  */
 
 export type UserRecord = {
@@ -38,8 +39,27 @@ type DbUserRow = {
   createdAt: string | Date;
 };
 
-// ── In-memory fallback (demo / DB-offline) ───────────────────────────
+// ── In-process cache over the file-backed demo store ───────────────
 const memUsers = new Map<string, DbUserRow>();
+
+// Hydrate from disk once so users persist across dev-server restarts.
+(function hydrateDemoUsers() {
+  try {
+    for (const user of demoValues<DbUserRow>("users")) {
+      memUsers.set(user.id, user);
+    }
+  } catch {
+    // ignore
+  }
+})();
+
+function persistDemoUser(row: DbUserRow): void {
+  try {
+    demoSet("users", row.id, row);
+  } catch {
+    // ignore
+  }
+}
 
 function normalizeEmail(value?: string | null): string | null {
   if (!value) return null;
@@ -94,6 +114,16 @@ export async function findUserByIdentifier(identifier: string): Promise<DbUserRo
   for (const user of memUsers.values()) {
     if (id.type === "email" && user.email === id.value) return user;
     if (id.type === "whatsapp" && user.whatsapp === id.value) return user;
+  }
+  return null;
+}
+
+export function getUserPasswordHashForDemo(identifier: string): string | null {
+  const id = detectIdentifier(identifier);
+  if (!id.value) return null;
+  for (const user of memUsers.values()) {
+    if (id.type === "email" && user.email === id.value) return user.passwordHash;
+    if (id.type === "whatsapp" && user.whatsapp === id.value) return user.passwordHash;
   }
   return null;
 }
@@ -162,8 +192,9 @@ export async function createUser(input: {
     createdAt: new Date(),
   };
 
-  // Store in memory first so it is available even if DB insert is slow/unavailable.
+  // Store in memory + on disk so it survives a dev-server restart.
   memUsers.set(row.id, row);
+  persistDemoUser(row);
 
   try {
     await db.insert(users).values({
@@ -205,7 +236,11 @@ export async function updateUserProfile(
   const updated: DbUserRow = { ...current, name, email, whatsapp, createdAt: current.createdAt };
   // Keep the memory copy fresh and re-hash nothing.
   const memCopy = memUsers.get(id);
-  if (memCopy) memUsers.set(id, { ...memCopy, name, email, whatsapp });
+  if (memCopy) {
+    const next = { ...memCopy, name, email, whatsapp };
+    memUsers.set(id, next);
+    persistDemoUser(next);
+  }
 
   try {
     await db
@@ -247,7 +282,11 @@ export async function setUserPassword(id: string, newPassword: string): Promise<
   const passwordHash = hashPassword(String(newPassword));
 
   const memCopy = memUsers.get(id);
-  if (memCopy) memUsers.set(id, { ...memCopy, passwordHash });
+  if (memCopy) {
+    const next = { ...memCopy, passwordHash };
+    memUsers.set(id, next);
+    persistDemoUser(next);
+  }
 
   try {
     await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));

@@ -4,10 +4,34 @@ import { eq } from "drizzle-orm";
 import { generateOtp, hashOtp } from "@/lib/password";
 import { sendOtpEmail } from "@/lib/mailer";
 import { findUserByIdentifier } from "@/lib/user-store";
+import { demoSet, demoValues, demoDelete } from "@/lib/demo-store";
 
 // Demo fallback OTP store — used when the DB is offline so the reset flow can
-// still be verified in the preview.
-const memOtp = new Map<string, { hash: string; expires: number }>();
+// still be verified in the preview (file-backed, survives a restart).
+type StoredOtp = { hash: string; expires: number };
+const memOtp = new Map<string, StoredOtp>();
+
+(function hydrateOtp() {
+  try {
+    const entries = demoValues<{ email: string; hash: string; expires: number }>("otp");
+    for (const entry of entries) {
+      if (entry?.email) memOtp.set(entry.email, { hash: entry.hash, expires: entry.expires });
+    }
+  } catch {
+    // ignore
+  }
+})();
+
+function setMemOtp(email: string, value: StoredOtp): void {
+  memOtp.set(email, value);
+  // The demo store persists per-key. We keep a self-describing entry so
+  // hydration can rebuild the map across restarts.
+  try {
+    demoSet("otp", email, { email, hash: value.hash, expires: value.expires });
+  } catch {
+    // ignore
+  }
+}
 
 export type RequestResetResult = {
   ok: boolean;
@@ -47,8 +71,8 @@ export async function requestPasswordReset(identifier: string): Promise<RequestR
   try {
     await db.insert(passwordResets).values({ email: user.email, otpHash: hash, expiresAt });
   } catch {
-    // DB offline — memory copy lets reset be verified anyway.
-    memOtp.set(user.email, { hash, expires: expiresAt.getTime() });
+    // DB offline — memory + disk copy lets reset be verified anyway.
+    setMemOtp(user.email, { hash, expires: expiresAt.getTime() });
   }
 
   const { delivered } = await sendOtpEmail(user.email, otp, user.name);
@@ -91,6 +115,7 @@ export async function verifyPasswordResetOtp(email: string, otp: string): Promis
 export async function consumePasswordResetTokens(email: string): Promise<void> {
   const normalized = String(email ?? "").trim().toLowerCase();
   memOtp.delete(normalized);
+  demoDelete("otp", normalized);
   try {
     await db.update(passwordResets).set({ isUsed: true }).where(eq(passwordResets.email, normalized));
   } catch {

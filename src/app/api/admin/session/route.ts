@@ -1,3 +1,4 @@
+import { ensureDbReady } from "@/lib/db-init";
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, getAdminSession } from "@/lib/admin-auth";
 import { db } from "@/db";
@@ -11,12 +12,14 @@ export async function GET(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
+  await ensureDbReady();
   return NextResponse.json({ authenticated: true, ...session });
 }
 
 export async function DELETE(request: NextRequest) {
   const token = request.cookies.get(ADMIN_COOKIE)?.value;
   if (token) {
+    await ensureDbReady();
     try {
       await db.delete(adminSessions).where(eq(adminSessions.sessionToken, token));
     } catch (e) {

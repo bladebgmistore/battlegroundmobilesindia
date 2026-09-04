@@ -3,6 +3,7 @@ import { admins } from "@/db/schema";
 import { getAdminSession, isOwner } from "@/lib/admin-auth";
 import { hashPassword } from "@/lib/password";
 import { and, desc, eq, ne } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ function unauthorized() {
 
 export async function GET(request: NextRequest) {
   if (!(await isOwner(request))) return unauthorized();
+  await ensureDbReady();
+  await ensureDbReady();
   try {
     const rows = await db
       .select({
@@ -66,6 +69,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const owner = await isOwner(request);
   if (!owner) return unauthorized();
+  await ensureDbReady();
+  await ensureDbReady();
   try {
     const { id, password, role, isActive, email } = await request.json();
     if (!id) return Response.json({ error: "Missing admin id." }, { status: 400 });

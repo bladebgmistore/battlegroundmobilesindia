@@ -1,3 +1,4 @@
+import { ensureDbReady } from "@/lib/db-init";
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, authenticateAdmin, createSessionToken } from "@/lib/admin-auth";
 import { db } from "@/db";
@@ -6,6 +7,7 @@ import { adminSessions } from "@/db/schema";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json().catch(() => ({}));
     const identity = await authenticateAdmin(String(body?.username ?? ""), String(body?.password ?? ""));

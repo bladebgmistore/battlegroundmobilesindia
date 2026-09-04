@@ -4,6 +4,7 @@ import { getAdminSession } from "@/lib/admin-auth";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { desc, eq, inArray } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ function computeCoupon(amount: number, coupon: { discountType: string; discountV
 }
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json();
     const customerName = String(body.customerName ?? "Website visitor").trim().slice(0, 100);
@@ -87,6 +89,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureDbReady();
+  await ensureDbReady();
+  await ensureDbReady();
   try {
     await ensureOrderColumns();
     const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);

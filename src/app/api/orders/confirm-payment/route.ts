@@ -3,6 +3,7 @@ import { orders } from "@/db/schema";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { eq } from "drizzle-orm";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export const dynamic = "force-dynamic";
 const MAX_SCREENSHOT_CHARS = 2_900_000;
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json().catch(() => null);
     const orderCode = String(body?.orderCode ?? "").trim().slice(0, 24);

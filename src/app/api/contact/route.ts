@@ -1,10 +1,12 @@
 import { db } from "@/db";
 import { customerMessages } from "@/db/schema";
+import { ensureDbReady } from "@/lib/db-init";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  await ensureDbReady();
   try {
     const body = await request.json();
     const name = String(body.name ?? "").trim().slice(0, 100);

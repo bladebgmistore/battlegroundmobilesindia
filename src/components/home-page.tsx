@@ -17,7 +17,7 @@ export function BuyButton({ item, requiresUid = false, category }: { item: { tit
   const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
   return (
     <button onClick={buy} className="btn-primary group w-full">
-      BUY NOW <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
+      CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
     </button>
   );
 }
@@ -27,7 +27,7 @@ export function UcBuyButton({ item }: { item: { title: string; price: number } }
   const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
   return (
     <button onClick={buy} className="btn-primary group !py-2 !px-3.5 !text-[10px] uppercase font-bold tracking-wide">
-      BUY NOW <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
+      CHECKOUT <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
     </button>
   );
 }
@@ -142,7 +142,7 @@ export default function HomePage() {
                   EXPLORE ACCOUNTS <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link href="/uc-purchase" className="btn-outline">
-                  BUY UC <FaBolt className="text-[#f4b400]" />
+                  EXPLORE UC <FaBolt className="text-[#f4b400]" />
                 </Link>
                 <Link href="#super-cars" className="btn-outline">
                   SUPER-CAR <FiArrowRight className="text-base" />

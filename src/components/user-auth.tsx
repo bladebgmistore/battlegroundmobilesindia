@@ -262,9 +262,9 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
             <form onSubmit={submitReset} className="mt-8 grid gap-4">
               {info && <p className="rounded-lg bg-[#e0eefb] p-3 text-xs font-bold text-[#0f4c81]">{info}</p>}
               {demoOtp && (
-                <div className="rounded-lg bg-[#fdf1d1] p-3">
-                  <p className="text-[10px] font-black tracking-[.12em] text-[#8a6d00]">YOUR VERIFICATION CODE (DEMO)</p>
-                  <p className="mt-1 text-3xl font-black tracking-[.35em] text-[#231a02]">{demoOtp}</p>
+                <div className="rounded-lg border border-[#cfe3f7] bg-[#e0eefb] p-3">
+                  <p className="text-[10px] font-black tracking-[.12em] text-[#0f4c81]">YOUR VERIFICATION CODE (DEMO)</p>
+                  <p className="mt-1 text-3xl font-black tracking-[.35em] text-[#0f172a]">{demoOtp}</p>
                 </div>
               )}
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">

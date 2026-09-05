@@ -39,7 +39,7 @@ export default function InfoPage({ kind }: { kind: InfoKind }) {
 function HowContent() {
   const steps = [
     ["01", "Select Your Product", "Browse the store and choose the account or UC package that suits your game."],
-    ["02", "Tap Buy Now", "Select the item you want and press the Buy Now button to open the secure checkout."],
+    ["02", "Tap Checkout", "Select the item you want and press the Checkout button to open the secure checkout."],
     ["03", "Complete Payment", "Fill in your details and complete the payment. Your order is saved and shown in your account immediately."],
     ["04", "Receive In Order Section", "For accounts, your ID & password login details are shared in your order section after the payment is confirmed. For UC, the credit reaches your UC account within 10–15 minutes of payment confirmation."],
   ];

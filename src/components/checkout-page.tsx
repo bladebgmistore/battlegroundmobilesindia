@@ -29,7 +29,7 @@ export default function CheckoutPage() {
   const [authedUser, setAuthedUser] = useState<{ name: string; whatsapp: string | null; email: string | null } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   // If the product's category was disabled in admin, block checkout entirely
-  // so no BUY button can route to a usable form.
+  // so no Checkout button can route to a usable form.
   const [categoryBlocked, setCategoryBlocked] = useState(false);
   const [categoryChecked, setCategoryChecked] = useState(false);
 
@@ -73,7 +73,7 @@ export default function CheckoutPage() {
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
   const discountAmount = couponResult?.discountAmount ?? 0;
   // UID verification is enabled ONLY for UC, SUPER-CARS and X-SUIT categories.
-  // Those category pages append uid=1 to the Buy Now URL; account deals never do.
+  // Those category pages append uid=1 to the Checkout URL; account deals never do.
   const needsUid = params.get("uid") === "1";
 
   // ── BGMI UID auto-verification state ─────────────────────────────

@@ -25,7 +25,7 @@ export default function AccountsPage() {
       .then((r) => r.json())
       .then((d: { products?: Product[]; categories?: { slug: string }[] }) => {
         const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
-        // Disabled in admin → no products, no BUY buttons.
+        // Disabled in admin → no products, no Checkout buttons.
         if (d?.categories && !activeSlugs.has("accounts")) {
           setItems([]);
           setUnavailable(true);
@@ -143,15 +143,17 @@ export default function AccountsPage() {
                       alt={item.title}
                       className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_30%,rgba(4,6,5,.9))]" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                     {item.badge && (
-                      <span className="absolute left-4 top-4 rounded border border-[#d4f256]/40 bg-black/35 px-2 py-1 text-[9px] font-black tracking-[.12em] text-[#d9fa5f]">
+                      <span className="absolute left-4 top-4 rounded-md bg-[#0f4c81] px-2.5 py-1 text-[9px] font-bold tracking-[.14em] text-white">
                         {item.badge}
                       </span>
                     )}
                     <button
                       onClick={() => toggleWishlist(item.id)}
-                      className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/45 text-[#e5f968] backdrop-blur"
+                      className={`absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg backdrop-blur transition ${
+                        wishlist.includes(item.id) ? "bg-[#0f4c81] text-white" : "bg-white/90 text-[#0f4c81]"
+                      }`}
                       aria-label="Add to wishlist"
                     >
                       {wishlist.includes(item.id) ? <FaHeart /> : <FaRegHeart />}
@@ -179,7 +181,7 @@ export default function AccountsPage() {
                       onClick={() => checkout(item)}
                       className="btn-primary mt-5 w-full !py-3.5 text-[11px]"
                     >
-                      BUY THIS ACCOUNT
+                      PROCEED TO CHECKOUT
                     </button>
                   </div>
                 </motion.article>
@@ -220,7 +222,7 @@ export default function AccountsPage() {
               <div className="grid md:grid-cols-2">
                 <div className="relative min-h-[300px] overflow-hidden rounded-xl">
                   <img src={selected.image} alt={selected.title} className="absolute inset-0 h-full w-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
                   <p className="absolute bottom-5 left-5 text-2xl font-black text-[#0f172a]">{formatINR(selected.price)}</p>
                 </div>
                 <div className="p-6">
@@ -240,7 +242,7 @@ export default function AccountsPage() {
                       {copied ? "LINK COPIED" : "COPY LINK"}
                     </button>
                     <button onClick={() => checkout(selected)} className="btn-primary py-3 text-[10px]">
-                      BUY NOW
+                      CHECKOUT NOW
                     </button>
                   </div>
                 </div>

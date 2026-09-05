@@ -57,7 +57,7 @@ export async function GET() {
     ]);
 
     // Only surface products that belong to an active category, so a disabled
-    // category's BUY buttons disappear from every page (home, category pages).
+    // category's Checkout buttons disappear from every page (home, category pages).
     const activeCategorySlugs = new Set(categoryRows.map((c) => c.slug));
     const visibleProductRows = productRows.filter((p) => activeCategorySlugs.has(p.categorySlug));
 

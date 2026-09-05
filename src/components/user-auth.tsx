@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiAlertCircle, FiArrowRight, FiLock, FiUser } from "react-icons/fi";
@@ -29,6 +29,16 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+
+  // Optional ?next= redirect target (e.g. /checkout?product=...&amount=...).
+  // Checkout is account-only, so after signing in / signing up the buyer is
+  // sent straight back to their checkout. Only same-origin relative paths are
+  // allowed (prevents open redirects).
+  const [nextUrl, setNextUrl] = useState("");
+  useEffect(() => {
+    const target = new URLSearchParams(window.location.search).get("next");
+    if (target && target.startsWith("/") && !target.startsWith("//")) setNextUrl(target);
+  }, []);
 
   const heading =
     mode === "login" ? "Welcome back" : mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Set a new password";
@@ -64,7 +74,7 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
         setError(data?.error ?? "Invalid credentials.");
         return;
       }
-      router.replace("/account");
+      router.replace(nextUrl || "/account");
       router.refresh();
     } catch {
       setError("Unable to sign in. Please try again.");
@@ -102,7 +112,7 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
         setError(data?.error ?? "Could not create your account.");
         return;
       }
-      router.replace("/account");
+      router.replace(nextUrl || "/account");
       router.refresh();
     } catch {
       setError("Unable to create your account. Please try again.");
@@ -288,9 +298,9 @@ export default function UserAuthPage({ mode }: { mode: AuthMode }) {
 
           <div className="mt-7 border-t border-[#e5e8ef] pt-5 text-center text-sm">
             {mode === "login" ? (
-              <span className="text-[#64748b]">New here?{" "}<Link href="/signup" className="font-bold text-[#0f4c81] hover:underline">Create an account</Link></span>
+              <span className="text-[#64748b]">New here?{" "}<Link href={nextUrl ? `/signup?next=${encodeURIComponent(nextUrl)}` : "/signup"} className="font-bold text-[#0f4c81] hover:underline">Create an account</Link></span>
             ) : mode === "signup" ? (
-              <span className="text-[#64748b]">Already have an account?{" "}<Link href="/login" className="font-bold text-[#0f4c81] hover:underline">Sign in</Link></span>
+              <span className="text-[#64748b]">Already have an account?{" "}<Link href={nextUrl ? `/login?next=${encodeURIComponent(nextUrl)}` : "/login"} className="font-bold text-[#0f4c81] hover:underline">Sign in</Link></span>
             ) : (
               <Link href="/login" className="font-bold text-[#0f4c81] hover:underline">Back to sign in</Link>
             )}

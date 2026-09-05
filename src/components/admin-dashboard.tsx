@@ -6,6 +6,8 @@ import { FaWhatsapp } from "react-icons/fa";
 import { FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
+import { downloadInvoice } from "@/lib/invoice";
+import { useStoreSettings } from "@/lib/use-store-settings";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
 type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
@@ -524,6 +526,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
   deliver: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }, status?: string) => void;
   updateCreds: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }) => void;
 }) {
+  const { upiId, whatsappNumber } = useStoreSettings();
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Order | null>(null);
   const [credModal, setCredModal] = useState<Order | null>(null);
@@ -623,6 +626,11 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
                         {o.categorySlug === "accounts" && (
                           <button onClick={() => openCredModal(o)} className="inline-flex items-center justify-center gap-1 rounded border border-[#0f4c81]/30 px-2 py-1 text-[9px] font-black text-[#0f4c81] transition-colors hover:bg-[#0f4c81] hover:text-white">
                             <FiKey /> {o.status === "delivered" || o.status === "payment_confirmed" ? "EDIT ID/PASSWORD / OTP" : "SET CREDENTIALS + CONFIRM"}
+                          </button>
+                        )}
+                        {o.status === "delivered" && (
+                          <button onClick={() => downloadInvoice(o, { upiId, whatsappNumber })} className="inline-flex items-center justify-center gap-1 rounded border border-[#0f4c81]/30 px-2 py-1 text-[9px] font-black text-[#0f4c81] transition-colors hover:bg-[#0f4c81] hover:text-white" title="Generate & download invoice for this delivered order">
+                            <FiDownload /> INVOICE
                           </button>
                         )}
                         {o.categorySlug !== "accounts" && (

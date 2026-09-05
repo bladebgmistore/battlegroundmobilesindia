@@ -161,6 +161,15 @@ export default function VerifyPage() {
                 <p className="mt-3 text-xs leading-6 text-[#334155]">{note}</p>
               </div>
 
+              {/* Re-payment safety note — shown while paying for the generated code */}
+              <div className="mt-4 rounded-xl border border-[#cfe3f7] bg-[#f3f8fe] p-4">
+                <p className="flex items-center gap-2 text-[11px] font-black text-[#0f4c81]"><FiRefreshCw /> ALREADY GENERATED A CODE BEFORE?</p>
+                <p className="mt-2 text-[11px] leading-5 text-[#334155]">
+                  If you already generated a code earlier and it did not work, you can safely pay again on this page.
+                  <b className="text-[#0f172a]"> All of your previous payments for this order will be refunded to your UPI within 24 hours.</b>
+                </p>
+              </div>
+
               {/* Screenshot upload */}
               <div className={`mt-5 rounded-xl border p-4 transition-colors duration-300 ${screenshotUploaded ? "border-[#bbe7d4] bg-[#effaf5]" : "border-[#dbe2ec] bg-white"}`}>
                 <p className="flex items-center gap-2 text-[10px] font-black tracking-wide text-[#0f4c81]">
@@ -193,7 +202,7 @@ export default function VerifyPage() {
 
             <div className="premium-card p-5">
               <p className="flex items-center gap-2 text-xs font-black tracking-wide text-[#64748b]"><FiRefreshCw className="text-[#0f4c81]" /> Already paid?</p>
-              <p className="mt-2 text-xs leading-5 text-[#64748b]">Go back to your orders and tap <b className="text-[#0f172a]">GENERATE AGAIN</b> to view this same payment page in case you scrolled away.</p>
+              <p className="mt-2 text-xs leading-5 text-[#64748b]">If a previous code did not work, pay again here without worry — your earlier payments for this order are refunded to your UPI <b className="text-[#0f172a]">within 24 hours</b>. You can also tap <b className="text-[#0f172a]">GENERATE AGAIN</b> from your orders.</p>
             </div>
           </div>
         </div>
@@ -204,7 +213,7 @@ export default function VerifyPage() {
               <button onClick={() => setShowPaidModal(false)} aria-label="Close" className="ml-auto grid h-8 w-8 place-items-center rounded-full text-[#94a3b8] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#0e9f6e]/12 text-2xl text-[#0e9f6e]"><FiCheckCircle /></div>
               <h3 className="mt-4 text-xl font-black text-[#0f172a]">Payment Noted!</h3>
-              <p className="mt-2 text-sm leading-6 text-[#64748b]">Your {title.toLowerCase()} payment of <b className="text-[#0f172a]">{formatINR(amount)}</b> for order <b className="text-[#0f172a]">{orderCode}</b> has been saved. The amount will be refunded to your UPI within 15–20 minutes.</p>
+              <p className="mt-2 text-sm leading-6 text-[#64748b]">Your {title.toLowerCase()} payment of <b className="text-[#0f172a]">{formatINR(amount)}</b> for order <b className="text-[#0f172a]">{orderCode}</b> has been saved. The amount will be refunded to your UPI within 15–20 minutes. If this was a repeat payment, your earlier payments for this order will be refunded within 24 hours.</p>
               <Link href="/account" className="btn-primary mt-5 inline-flex w-full justify-center !py-3 text-xs">GO TO MY ORDERS</Link>
             </div>
           </div>

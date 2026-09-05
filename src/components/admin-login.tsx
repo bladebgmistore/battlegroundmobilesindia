@@ -40,33 +40,33 @@ export default function AdminLogin() {
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden px-5 py-10">
       <GridBackdrop />
-      <section className="relative w-full max-w-md rounded-2xl border border-white/[.12] bg-[#111511]/90 p-7 shadow-2xl backdrop-blur-xl sm:p-9">
-        <div className="mx-auto grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-[#d7f454]/35 bg-[#d7f454]/10">
+      <section className="glass relative w-full max-w-md rounded-2xl p-7 sm:p-9">
+        <div className="mx-auto grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white shadow-sm">
           <img src={images.logo} alt="Battleground Mobile India Store" className="h-full w-full object-cover" />
         </div>
         <div className="mt-6 text-center">
-          <p className="text-[10px] font-black tracking-[.18em] text-[#d9f558]">RESTRICTED ACCESS</p>
-          <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-white">Control Centre</h1>
-          <p className="mt-3 text-sm leading-6 text-white/50">Sign in to manage the store.</p>
+          <p className="text-[10px] font-black tracking-[.18em] text-[#0f4c81]">RESTRICTED ACCESS</p>
+          <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Control Centre</h1>
+          <p className="mt-3 text-sm leading-6 text-[#64748b]">Sign in to manage the store.</p>
         </div>
         <form onSubmit={handleSubmit(login)} className="mt-8 grid gap-5">
-          <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-white/45">USERNAME
+          <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">USERNAME
             <input {...register("username", { required: true })} autoComplete="username" className="form-input" placeholder="Enter username" />
           </label>
-          <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-white/45">PASSWORD
+          <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">PASSWORD
             <input {...register("password", { required: true })} type="password" autoComplete="current-password" className="form-input" placeholder="Enter password" />
           </label>
           {error && (
-            <p className="flex items-center gap-2 rounded-lg bg-red-400/10 p-3 text-xs font-bold text-red-200">
+            <p className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-600">
               <FiAlertCircle />{error}
             </p>
           )}
-          <button disabled={busy} className="flex items-center justify-center gap-2 rounded-xl bg-[#ccf138] py-4 text-xs font-black tracking-[.12em] text-[#0c1007] disabled:opacity-50">
+          <button disabled={busy} className="btn-primary !py-4 disabled:opacity-50">
             <FiLock />{busy ? "AUTHENTICATING..." : "SECURE SIGN IN"}
           </button>
         </form>
-        <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-bold tracking-[.08em] text-white/35">
-          <FiShield className="text-[#d9f558]" /> SESSION PROTECTED · 12 HOUR EXPIRY
+        <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-bold tracking-[.08em] text-[#94a3b8]">
+          <FiShield className="text-[#0f4c81]" /> SESSION PROTECTED · 12 HOUR EXPIRY
         </div>
       </section>
     </main>

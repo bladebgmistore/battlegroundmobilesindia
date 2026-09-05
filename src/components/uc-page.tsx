@@ -88,7 +88,7 @@ export default function UcPage() {
                     onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`)}
                     className="btn-primary group !py-2.5 !px-4 text-[11px]"
                   >
-                    BUY NOW <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                    CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </div>
               </motion.article>
@@ -97,7 +97,7 @@ export default function UcPage() {
           )}
 
           <div className="mt-14 grid gap-4 rounded-2xl border border-[#dbe2ec] bg-white p-6 md:grid-cols-4 shadow-sm">
-            {[["01", "SELECT PACKAGE"], ["02", "CLICK BUY"], ["03", "CONTACT WHATSAPP"], ["04", "COMPLETE PAYMENT"]].map(([no, text]) => (
+            {[["01", "SELECT PACKAGE"], ["02", "TAP CHECKOUT"], ["03", "CONTACT WHATSAPP"], ["04", "COMPLETE PAYMENT"]].map(([no, text]) => (
               <div className="flex items-center gap-3" key={no}>
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e0eefb] text-xs font-bold text-[#0f4c81]">{no}</span>
                 <span className="text-[10px] font-bold tracking-[.12em] text-[#64748b]">{text}</span>

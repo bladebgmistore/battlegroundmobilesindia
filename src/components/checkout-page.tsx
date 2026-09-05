@@ -28,8 +28,11 @@ export default function CheckoutPage() {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CheckoutForm>();
   const [authedUser, setAuthedUser] = useState<{ name: string; whatsapp: string | null; email: string | null } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // Becomes true if the server rejects the order with 401 (session expired
+  // mid-checkout) — flips the page back to the sign-in gate.
+  const [authRequired, setAuthRequired] = useState(false);
   // If the product's category was disabled in admin, block checkout entirely
-  // so no BUY button can route to a usable form.
+  // so no Checkout button can route to a usable form.
   const [categoryBlocked, setCategoryBlocked] = useState(false);
   const [categoryChecked, setCategoryChecked] = useState(false);
 
@@ -73,7 +76,7 @@ export default function CheckoutPage() {
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
   const discountAmount = couponResult?.discountAmount ?? 0;
   // UID verification is enabled ONLY for UC, SUPER-CARS and X-SUIT categories.
-  // Those category pages append uid=1 to the Buy Now URL; account deals never do.
+  // Those category pages append uid=1 to the Checkout URL; account deals never do.
   const needsUid = params.get("uid") === "1";
 
   // ── BGMI UID auto-verification state ─────────────────────────────
@@ -186,6 +189,11 @@ export default function CheckoutPage() {
         }),
       });
       const data = await response.json().catch(() => null);
+      // Session expired (or guest) — server refuses orders without an account.
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
       const finalAmount = data?.finalAmount ?? payableAmount;
       const orderCode = data?.orderCode ?? `BG-${Date.now().toString(36).toUpperCase()}`;
       const uid = values.playerUid?.trim() || "";
@@ -220,6 +228,11 @@ export default function CheckoutPage() {
   };
 
   const isQrMode = checkoutMode === "qr";
+  // Login is compulsory to checkout — guests see a sign-in gate instead of the form.
+  const checkoutLocked = authChecked && (!authedUser || authRequired);
+  // Preserve the full product/amount/uid/category query when sending the buyer
+  // to sign-in / signup so they land right back on this checkout after auth.
+  const checkoutNext = encodeURIComponent(`/checkout${params.toString() ? `?${params.toString()}` : ""}`);
 
   return (
     <>
@@ -232,6 +245,31 @@ export default function CheckoutPage() {
             <p className="mt-2 text-sm text-[#64748b]">The store has updated its catalog. Please choose another item from the store.</p>
             <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
           </div>
+        ) : !authChecked ? (
+          <div className="grid place-items-center py-24">
+            <div className="spinner" />
+          </div>
+        ) : checkoutLocked ? (
+          <section className="mx-auto mt-7 max-w-md">
+            <div className="premium-card p-8 text-center sm:p-10">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#e0eefb] text-2xl text-[#0f4c81]"><FiLock /></div>
+              <p className="mt-6 text-[10px] font-black tracking-[.18em] text-[#0f4c81]">ACCOUNT REQUIRED</p>
+              <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Sign in to continue checkout</h1>
+              <p className="mt-3 text-sm leading-6 text-[#64748b]">
+                An account is required to place an order. Sign in or create a free account — your order, payment screenshot and delivery details stay saved in your account.
+              </p>
+              <div className="mt-7 grid gap-3">
+                <Link href={`/login?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> SIGN IN TO CONTINUE</Link>
+                <Link href={`/signup?next=${checkoutNext}`} className="btn-outline w-full"><FiUser /> CREATE FREE ACCOUNT</Link>
+              </div>
+              {authRequired && authedUser && (
+                <p className="mt-5 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] px-3.5 py-2.5 text-[11px] font-semibold text-[#8a6d1a]">
+                  Your session expired. Please sign in again to place this order.
+                </p>
+              )}
+              <Link href="/" className="mt-6 inline-flex items-center gap-2 text-[10px] font-bold tracking-[.12em] text-[#64748b] hover:text-[#0f172a]"><FiArrowLeft /> BACK TO STORE</Link>
+            </div>
+          </section>
         ) : (
         <>
         <Link href="/accounts" className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[.12em] text-[#64748b] hover:text-[#0f172a]"><FiArrowLeft /> BACK TO STORE</Link>
@@ -282,18 +320,11 @@ export default function CheckoutPage() {
             </div>
 
             <form onSubmit={handleSubmit(submit)} className="mt-8 border-t border-[#e5e8ef] pt-6">
-              {authedUser ? (
+              {authedUser && (
                 <div className="mb-4 flex items-center gap-2 rounded-lg border border-[#bbe7d4] bg-[#effaf5] px-3.5 py-2.5 text-xs font-bold text-[#0e9f6e]">
                   <FiCheckCircle className="shrink-0 text-base" />
                   <span>Signed in as {authedUser.name} — details filled in. <Link href="/account" className="underline">My orders</Link></span>
                 </div>
-              ) : (
-                authChecked && (
-                  <div className="mb-4 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3.5 py-2.5 text-[11px] font-semibold text-[#64748b]">
-                    Have an account?{" "}
-                    <Link href="/login?next=/checkout" className="font-black text-[#0f4c81] hover:underline">Sign in</Link> to save your details & track orders.
-                  </div>
-                )
               )}
               <p className="text-xs font-bold text-[#334155]">Enter your details to generate {isQrMode ? "QR & place order" : "support reference"}.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">

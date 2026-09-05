@@ -28,7 +28,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
       .then((r) => r.json())
       .then((data: { products?: Product[]; categories?: { slug: string }[] }) => {
         const activeSlugs = new Set((data?.categories ?? []).map((c) => c.slug));
-        // If the category was disabled in admin, don't surface any BUY buttons.
+        // If the category was disabled in admin, don't surface any Checkout buttons.
         if (data?.categories && !activeSlugs.has(category)) {
           setItems([]);
           setUnavailable(true);
@@ -84,9 +84,9 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                       alt={item.title}
                       className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_35%,rgba(15,23,42,.55)_100%)]" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                     {item.badge && (
-                      <span className="absolute left-4 top-4 rounded-md border border-[#f4b400]/40 bg-white/90 px-2.5 py-1 text-[9px] font-black tracking-[.14em] text-[#b07d00] backdrop-blur">
+                      <span className="absolute left-4 top-4 rounded-md bg-[#0f4c81] px-2.5 py-1 text-[9px] font-bold tracking-[.14em] text-white">
                         {item.badge}
                       </span>
                     )}
@@ -111,7 +111,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                       onClick={() => buy(item.title, item.price)}
                       className="btn-primary group mt-5 w-full !py-3.5 text-xs tracking-[.1em]"
                     >
-                      BUY NOW <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
+                      CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
                     </button>
                   </div>
                 </motion.article>

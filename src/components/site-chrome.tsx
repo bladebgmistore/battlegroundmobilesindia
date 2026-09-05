@@ -78,7 +78,7 @@ export function SiteHeader() {
               <img src={logoUrl || images.logo} alt="Battleground Mobile India Store emblem" className="h-full w-full object-cover" />
             </span>
             <span className="leading-none">
-              <span className="block text-[10px] font-bold tracking-[.22em] text-[#0f4c81]">BATTLEGORUND MOBILE</span>
+              <span className="block text-[10px] font-bold tracking-[.22em] text-[#0f4c81]">BATTLEGROUNDS MOBILE</span>
               <span className="mt-1 block text-sm font-extrabold tracking-[.12em] text-[#0f172a]">INDIA STORE</span>
             </span>
           </Link>
@@ -156,7 +156,7 @@ export function SiteFooter() {
         <div>
           <Link href="/" className="inline-flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-[#e3e9f2] bg-white"><img src={settings.logo_url || images.logo} alt="" className="h-full w-full object-cover" /></span>
-            <span className="text-sm font-extrabold tracking-[.14em] text-[#0f172a]">BATTLEGORUND MOBILE <span className="text-[#0f4c81]">INDIA</span></span>
+            <span className="text-sm font-extrabold tracking-[.14em] text-[#0f172a]">BATTLEGROUNDS MOBILE <span className="text-[#0f4c81]">INDIA</span></span>
           </Link>
           <p className="mt-5 max-w-md text-sm leading-6 text-[#64748b]">A refined digital marketplace built for the BGMI community. Clear listing details, guided handovers, and prompt WhatsApp support.</p>
           <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#e3e9f2] bg-[#f8fafc] p-3 text-xs leading-5 text-[#64748b]">
@@ -190,7 +190,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-[#dbe2ec] px-5 py-5 text-center text-[11px] font-medium tracking-wide text-[#94a3b8]">
-        © {new Date().getFullYear()} BATTLEGORUND MOBILE INDIA STORE · COMMUNITY MARKETPLACE
+        © {new Date().getFullYear()} BATTLEGROUNDS MOBILE INDIA STORE · COMMUNITY MARKETPLACE
       </div>
     </footer>
   );

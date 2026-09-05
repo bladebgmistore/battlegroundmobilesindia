@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh, FiZap } from "react-icons/fi";
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh, FiZap } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { formatINR } from "@/lib/store-data";
+import { downloadInvoice } from "@/lib/invoice";
+import { useStoreSettings } from "@/lib/use-store-settings";
 
 type User = { id: string; email: string | null; whatsapp: string | null; name: string; role: string };
 type Order = {
@@ -13,6 +15,8 @@ type Order = {
   orderCode: string;
   productName: string;
   categorySlug?: string | null;
+  customerName?: string | null;
+  customerWhatsapp?: string | null;
   amount: number;
   originalAmount: number;
   discountAmount: number;
@@ -58,8 +62,8 @@ function ChargeAction({ order, label, isAccount, verificationPaid }: {
   const amount = isAccount ? 1499 : 499;
   const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=${isAccount ? "otp" : "charge"}&amount=${amount}&product=${encodeURIComponent(order.productName)}`);
   const note = isAccount
-    ? "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes."
-    : "Complete the website charge to finish your order. The amount is refunded to your UPI within 15–20 minutes.";
+    ? "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours."
+    : "Complete the website charge to finish your order. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours.";
 
   // The admin sets the OTP on the order; show it here once available.
   const otpReady = isAccount && Boolean(order.otpCode);
@@ -97,6 +101,7 @@ function ChargeAction({ order, label, isAccount, verificationPaid }: {
 
 export default function AccountPage() {
   const router = useRouter();
+  const { upiId, whatsappNumber } = useStoreSettings();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -305,10 +310,24 @@ export default function AccountPage() {
                               <p className="mt-2 text-sm font-black text-[#0f172a]">{formatINR(order.amount)}</p>
                             </div>
                           </div>
-                          {(order.couponCode && order.discountAmount > 0) && (
-                            <p className="mt-3 border-t border-[#f1f5fb] pt-3 text-xs text-[#64748b]">
-                              Coupon <span className="font-bold text-[#0f4c81]">{order.couponCode}</span> saved {formatINR(order.discountAmount)}.
-                            </p>
+                          {/* Delivered → invoice (generate, print & download) */}
+                          {order.status === "delivered" && (
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#cfe3f7] bg-[#f3f8fe] p-3.5">
+                              <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#0e9f6e]">
+                                <FiCheckCircle /> Product delivered — your invoice is ready
+                              </p>
+                              <button
+                                onClick={() =>
+                                  downloadInvoice(
+                                    { ...order, customerName: order.customerName ?? user.name, customerWhatsapp: order.customerWhatsapp ?? user.whatsapp },
+                                    { upiId, whatsappNumber },
+                                  )
+                                }
+                                className="btn-outline inline-flex items-center gap-2 !py-2.5 !px-4 text-[10px] font-black tracking-[.1em]"
+                              >
+                                <FiDownload /> INVOICE — GENERATE & DOWNLOAD
+                              </button>
+                            </div>
                           )}
 
                           {/* Payment confirmed / delivered → reveal account credentials + GET OTP */}

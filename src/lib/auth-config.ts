@@ -56,6 +56,7 @@ export const PUBLIC_PATHS: string[] = [
   "/auth/logout",
   "/api/auth/google",
   "/api/auth/session",
+  "/api/auth/config-check",
   "/api/auth/logout",
   "/api/health",
   "/api/favicon",

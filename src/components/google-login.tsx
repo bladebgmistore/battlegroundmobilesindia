@@ -5,7 +5,8 @@ import { FcGoogle } from "react-icons/fc";
 import { FiLock, FiShield } from "react-icons/fi";
 
 const ERRORS: Record<string, string> = {
-  config: "Google sign-in is not configured on this server yet. Please contact the administrator.",
+  config:
+    "Google sign-in is not configured on this server yet — the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET environment variables are missing. Add them in your hosting dashboard and redeploy.",
   denied: "You cancelled the Google sign-in. Please try again to continue.",
   state: "Your sign-in session expired. Please try again.",
   token: "Google could not verify this sign-in. Please try again.",
@@ -38,9 +39,14 @@ export default function GoogleLogin({ next, error, signedOut }: { next: string; 
         </p>
 
         {error && ERRORS[error] && (
-          <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
-            {ERRORS[error]}
-          </p>
+          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+            <p>{ERRORS[error]}</p>
+            {error === "config" && (
+              <a href="/api/auth/config-check" className="mt-2 inline-block underline">
+                Run the configuration check →
+              </a>
+            )}
+          </div>
         )}
         {signedOut && !error && (
           <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">

@@ -157,3 +157,58 @@ npm run dev                     # http://localhost:3000
   store — the root layout therefore sets `robots: noindex`. If you ever want the
   catalog public again, add those paths to `PUBLIC_PATHS` in
   `src/lib/auth-config.ts` and restore `index: true`.
+
+---
+
+## 8. Troubleshooting
+
+### "Google sign-in is not configured on this server yet"
+
+This means the server booted **without** `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+The code never falls back to hardcoded secrets, so you must set them on the host.
+
+1. Open `https://<your-domain>/api/auth/config-check` — it reports exactly which
+   variables are missing (values are never exposed).
+2. **Vercel** → Project → *Settings* → *Environment Variables* → add each one for
+   the **Production** (and *Preview*, if you test there) environment:
+
+   | Key | Value |
+   |---|---|
+   | `GOOGLE_CLIENT_ID` | `822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com` |
+   | `GOOGLE_CLIENT_SECRET` | your (rotated) client secret |
+   | `GOOGLE_REDIRECT_URI` | `https://battlegroundmobilesindia.shop/auth/google/callback` |
+   | `AUTH_SECRET` | output of `openssl rand -base64 32` |
+   | `OWNER_EMAIL` | `manavjeph800@gmail.com` |
+   | `DATABASE_URL` | your Neon connection string |
+
+3. **Redeploy** — environment variables are baked in at deploy time, so an
+   existing deployment will not pick them up. *Deployments → ⋯ → Redeploy*
+   (uncheck "Use existing build cache" if unsure).
+4. Reload `/api/auth/config-check`; `"ready": true` means you are good to go.
+
+### `redirect_uri_mismatch` from Google
+
+`effectiveRedirectUri` in the config check must appear **character-for-character**
+in Google Cloud Console → *Credentials* → your OAuth client → *Authorised redirect URIs*.
+Add both of these if you test on the Vercel URL too:
+
+```
+https://battlegroundmobilesindia.shop/auth/google/callback
+https://<your-project>.vercel.app/auth/google/callback
+```
+
+### "Access blocked: app not verified" / only some accounts can log in
+
+Google Cloud Console → *OAuth consent screen* → **Publish app**. While it is in
+*Testing* mode only the listed test users can sign in.
+
+### Logged in but `/admin` bounces to the dashboard
+
+The signed-in email is not in the allow-list. Check `OWNER_EMAIL` in the config
+check output and sign in with exactly that Google account.
+
+### Visitor logs stay empty
+
+`site_logs` needs a reachable database. Confirm `DATABASE_URL` is set
+(`/api/auth/config-check`) and that `sql/001_google_auth_and_site_logs.sql` ran —
+the app also creates the table automatically on the first authenticated request.

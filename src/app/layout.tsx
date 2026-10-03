@@ -7,6 +7,16 @@ import { getPublicSettings } from "@/lib/site-settings";
 import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
 
+/**
+ * Every route is request-scoped: the root layout reads live site settings from
+ * Neon (`cache: "no-store"`) and `src/middleware.ts` resolves the session per
+ * request. Forcing dynamic rendering here stops Next.js from trying to
+ * prerender pages at build time — which is what produced the noisy
+ * "DYNAMIC_SERVER_USAGE / Error connecting to database" logs during deploys.
+ * It cascades to every nested route, so individual pages don't need it.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://battlegroundmobileindiastore.netlify.app"),
   title: {

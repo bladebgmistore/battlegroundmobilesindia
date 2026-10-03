@@ -15,7 +15,7 @@ how to configure and deploy it for **battlegroundmobilesindia.shop**.
 | User dashboard | `/dashboard` — Google name, email and profile picture, recent orders, quick links. |
 | RBAC | `OWNER_EMAIL` allow-list (default `manavjeph800@gmail.com`) ⇒ role `owner`; everyone else is `customer`. Owners see an **Open Admin Panel** button. |
 | Admin area | `/admin` — owner-only (enforced in middleware *and* in the page via `requireOwner()`). |
-| Visitor tracking | Every page view is written to `site_logs` (email, IP, page URL, timestamp, device, referrer) and shown in the **Visitor Logs** tab of the admin panel, with search, CSV export, pagination and auto-refresh. |
+| Visitor tracking | Every page view is written to `site_logs` (email, IP, page URL, timestamp, device, referrer) and shown in the **Visitor Logs** tab of the admin panel, with search, CSV export, pagination and auto-refresh. Signed-out homepage visitors are logged as **Guest**. |
 
 ### Key files
 
@@ -133,8 +133,9 @@ npm run dev                     # http://localhost:3000
 ## 6. Verify after deploying
 
 1. Open `https://battlegroundmobilesindia.shop/` in a private window →
-   you must be redirected to `/login`.
-2. Click **Continue with Google** → consent → you land on `/dashboard`
+   the homepage loads with a **Login** button in the header. Click any other
+   section (Accounts, UC Purchase, My Account…) → you are sent to `/login`.
+2. Click **Login / Continue with Google** → consent → you land on `/dashboard`
    showing your name, email and photo.
 3. Sign in as `manavjeph800@gmail.com` → the **Open Admin Panel** button
    appears → `/admin` → **Visitor Logs** tab shows your page views with
@@ -153,10 +154,9 @@ npm run dev                     # http://localhost:3000
 - `next=` redirects are restricted to same-site relative paths (no open redirect).
 - The client never sees the client secret; the page-view beacon cannot forge the
   email or IP because both are read server-side from the session and headers.
-- Because **every** page now requires a login, search engines cannot crawl the
-  store — the root layout therefore sets `robots: noindex`. If you ever want the
-  catalog public again, add those paths to `PUBLIC_PATHS` in
-  `src/lib/auth-config.ts` and restore `index: true`.
+- The homepage stays crawlable (`robots: index`); gated pages set their own
+  `noindex`. To open more pages to guests, add them to `PUBLIC_PAGES` in
+  `src/lib/auth-config.ts` (e.g. `"/terms"`, `"/refund-policy"`).
 
 ---
 

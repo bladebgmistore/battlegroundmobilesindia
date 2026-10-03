@@ -9,9 +9,10 @@ import { FcGoogle } from "react-icons/fc";
 type User = { id: string; name: string; email: string | null; picture: string | null; isOwner: boolean };
 
 /**
- * Header account control. Authentication is compulsory site-wide, so in
- * practice this always renders the account menu — the signed-out state only
- * appears for the brief moment before the session resolves.
+ * Header account control.
+ *
+ * The homepage is public, so signed-out visitors see a "Login with Google"
+ * button here; every other page redirects to /login first.
  */
 export function UserNav() {
   const pathname = usePathname();
@@ -48,10 +49,14 @@ export function UserNav() {
   }
 
   if (!user) {
+    // Signed-out visitor on the public homepage.
     return (
       <div className="hidden items-center gap-2 sm:flex">
-        <a href="/auth/google" className="btn-primary flex items-center gap-2 px-4 py-2 text-xs font-black tracking-[.1em]">
-          <FcGoogle className="text-base" /> CONTINUE WITH GOOGLE
+        <a
+          href="/auth/google?next=/dashboard"
+          className="flex items-center gap-2 rounded-xl border border-[#dbe2ec] bg-white px-4 py-2.5 text-xs font-black tracking-[.1em] text-[#0f172a] shadow-sm transition hover:border-[#0f4c81] hover:shadow-md"
+        >
+          <FcGoogle className="text-base" /> LOGIN
         </a>
       </div>
     );
@@ -107,10 +112,44 @@ export function UserNav() {
 
 /** Compact account actions used inside the mobile menu. */
 export function UserMobileAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (alive && data?.authenticated && data.user) setUser(data.user as User);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (loading) return null;
+
+  if (!user) {
+    return (
+      <div className="mt-3 grid gap-2 border-t border-[#dbe2ec] pt-4 lg:hidden">
+        <a href="/auth/google?next=/dashboard" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
+          <FcGoogle className="text-base" /> LOGIN WITH GOOGLE
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 grid gap-2 border-t border-[#dbe2ec] pt-4 lg:hidden">
       <Link href="/dashboard" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">MY DASHBOARD</Link>
       <Link href="/account" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">MY ORDERS</Link>
+      {user.isOwner && (
+        <Link href="/admin" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">ADMIN PANEL</Link>
+      )}
       <a href="/auth/logout" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em] !text-[#c62828]">SIGN OUT</a>
     </div>
   );

@@ -48,29 +48,48 @@ export function getAuthSecret(): string {
   );
 }
 
-/** Paths that must stay reachable without a session. */
-export const PUBLIC_PATHS: string[] = [
+/**
+ * Pages that can be viewed WITHOUT signing in.
+ *
+ * Only the homepage is public — the header shows a "Login with Google" button
+ * there. Every other page (accounts, UC, checkout, account, dashboard, admin,
+ * info pages…) redirects to /login first.
+ *
+ * To make another page public, just add its path here, e.g. "/terms".
+ */
+export const PUBLIC_PAGES: string[] = [
+  "/", // homepage
   "/login",
-  "/auth/google",
-  "/auth/google/callback",
-  "/auth/logout",
-  "/api/auth/google",
-  "/api/auth/session",
-  "/api/auth/config-check",
-  "/api/auth/logout",
-  "/api/health",
-  "/api/favicon",
-  "/robots.txt",
-  "/sitemap.xml",
-  "/favicon.ico",
-  "/404.html",
 ];
 
+/** API routes the public homepage + login screen need in order to render. */
+export const PUBLIC_API: string[] = [
+  "/api/store", // catalog shown on the homepage
+  "/api/feedbacks", // customer reviews carousel
+  "/api/auth/session", // header: logged in or not?
+  "/api/auth/config-check", // deployment diagnostics
+  "/api/track", // page-view beacon (also logs guest visits to the homepage)
+  "/api/health",
+  "/api/favicon",
+];
+
+/** Misc. files that must never be gated. */
+const PUBLIC_FILES: string[] = ["/robots.txt", "/sitemap.xml", "/favicon.ico", "/404.html"];
+
+export const PUBLIC_PATHS: string[] = [...PUBLIC_PAGES, ...PUBLIC_API, ...PUBLIC_FILES];
+
 export function isPublicPath(pathname: string): boolean {
-  if (PUBLIC_PATHS.includes(pathname)) return true;
+  // Trailing slashes aside, match the allow-list exactly so that e.g. "/"
+  // stays public while "/accounts" does not.
+  const clean = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  if (PUBLIC_PATHS.includes(clean)) return true;
+
+  // The OAuth round-trip itself (/auth/google, /auth/google/callback, /auth/logout).
+  if (clean === "/auth" || clean.startsWith("/auth/")) return true;
+
   // Next.js internals, static files and image assets.
-  if (pathname.startsWith("/_next/")) return true;
-  if (pathname.startsWith("/auth/")) return true;
-  if (/\.(?:png|jpe?g|gif|svg|webp|ico|txt|xml|css|js|map|woff2?|ttf)$/i.test(pathname)) return true;
+  if (clean.startsWith("/_next/")) return true;
+  if (/\.(?:png|jpe?g|gif|svg|webp|ico|txt|xml|css|js|map|woff2?|ttf)$/i.test(clean)) return true;
+
   return false;
 }

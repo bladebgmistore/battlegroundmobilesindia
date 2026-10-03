@@ -139,7 +139,7 @@ export default function VisitorLogsPanel() {
     () => [
       { label: "Total page views", value: stats?.total ?? 0, icon: FiEye },
       { label: "Views today", value: stats?.today ?? 0, icon: FiActivity },
-      { label: "Unique visitors", value: stats?.uniqueVisitors ?? 0, icon: FiUsers },
+      { label: "Unique signed-in users", value: stats?.uniqueVisitors ?? 0, icon: FiUsers },
     ],
     [stats],
   );
@@ -238,8 +238,10 @@ export default function VisitorLogsPanel() {
                 {logs.map((log, index) => (
                   <tr key={log.id} className="hover:bg-[#f8fafc]">
                     <td className="px-4 py-3 text-xs text-[#94a3b8]">{page * PAGE_SIZE + index + 1}</td>
-                    <td className="px-4 py-3 font-bold text-[#0f172a]">{log.userName ?? "—"}</td>
-                    <td className="px-4 py-3 text-xs text-[#334155]">{log.userEmail ?? "—"}</td>
+                    <td className="px-4 py-3 font-bold text-[#0f172a]">{log.userName ?? "Guest"}</td>
+                    <td className="px-4 py-3 text-xs text-[#334155]">
+                      {log.userEmail ?? <span className="rounded bg-[#f1f5fb] px-2 py-1 text-[10px] font-black text-[#94a3b8]">NOT SIGNED IN</span>}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-[#334155]">{log.ipAddress ?? "—"}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-[#0f4c81]">{log.pageUrl}</td>
                     <td className="px-4 py-3 text-xs text-[#64748b]">{deviceOf(log.userAgent)}</td>

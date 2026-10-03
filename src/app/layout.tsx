@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     locale: "en_IN",
     images: ["/logo.png"],
   },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

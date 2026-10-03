@@ -6,9 +6,9 @@ import { useEffect, useRef } from "react";
 /**
  * Fires a lightweight page-view beacon on every route change.
  *
- * The server (/api/track) attaches the authenticated email, the real client
- * IP and the timestamp — the browser only supplies the path, so the log
- * cannot be forged by a visitor.
+ * The server (/api/track) attaches the authenticated email (or "Guest" for
+ * signed-out homepage visitors), the real client IP and the timestamp — the
+ * browser only supplies the path, so the log cannot be forged by a visitor.
  */
 function Beacon() {
   const pathname = usePathname();

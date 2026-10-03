@@ -10,10 +10,12 @@ export const runtime = "nodejs";
  * Page-view beacon. The <VisitTracker /> client component posts here on every
  * route change; the IP / user-agent are read server-side so they can't be
  * spoofed by the payload.
+ *
+ * Guests are logged too (the homepage is public) — they appear in the admin
+ * table as "Guest" with no email.
  */
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
-  if (!session) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = (await request.json().catch(() => ({}))) as { path?: string; referrer?: string };
   const path = typeof body.path === "string" && body.path.startsWith("/") ? body.path : null;
@@ -21,9 +23,9 @@ export async function POST(request: NextRequest) {
 
   // Never block the UI on telemetry.
   const ok = await recordVisit({
-    userId: session.id,
-    userEmail: session.email,
-    userName: session.name,
+    userId: session?.id ?? null,
+    userEmail: session?.email ?? null,
+    userName: session?.name ?? "Guest",
     ipAddress: getClientIp(request),
     pageUrl: path,
     referrer: body.referrer ?? request.headers.get("referer"),

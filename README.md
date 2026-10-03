@@ -17,10 +17,11 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Dynamic WhatsApp number, social links, maintenance banner
 - Mobile responsive + SEO metadata + branded 404
 
-### Authentication — Google Sign-In only (compulsory)
+### Authentication — Google Sign-In only
 - **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — no passwords anywhere
-- `src/middleware.ts` protects **every** page and API route; unauthenticated
-  visitors are redirected to `/login?next=…`
+- **Homepage is public** with a *Login* button in the header; `src/middleware.ts`
+  gates every other page and API route and redirects guests to `/login?next=…`
+  (allow-list: `PUBLIC_PAGES` in `src/lib/auth-config.ts`)
 - Signed (HMAC-SHA256), `httpOnly`, 30-day session cookie
 - Old email/WhatsApp + password login, signup, OTP reset and admin password
   login have been removed

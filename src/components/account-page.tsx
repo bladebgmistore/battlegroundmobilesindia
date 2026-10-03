@@ -115,12 +115,6 @@ export default function AccountPage() {
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  // Password form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [passwordBusy, setPasswordBusy] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-
   // Logout
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -159,7 +153,7 @@ export default function AccountPage() {
       const res = await fetch("/api/account/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, whatsapp }),
+        body: JSON.stringify({ name, whatsapp }),
         credentials: "same-origin",
       });
       const data = await res.json().catch(() => null);
@@ -180,40 +174,10 @@ export default function AccountPage() {
     }
   };
 
-  const changePassword = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    setPasswordBusy(true);
-    setPasswordMsg(null);
-    try {
-      const res = await fetch("/api/account/password", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
-        credentials: "same-origin",
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setPasswordMsg({ type: "err", text: data?.error ?? "Could not change password." });
-        return;
-      }
-      setCurrentPassword("");
-      setNewPassword("");
-      setPasswordMsg({ type: "ok", text: "Password changed successfully." });
-    } catch {
-      setPasswordMsg({ type: "err", text: "Could not change password." });
-    } finally {
-      setPasswordBusy(false);
-    }
-  };
-
-  const logout = async () => {
+  const logout = () => {
     setLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
-    } catch {
-      // ignore
-    }
-    router.replace("/login");
+    // Clears the signed Google session cookie server-side, then back to login.
+    window.location.href = "/auth/logout";
   };
 
   if (loading) {
@@ -385,11 +349,12 @@ export default function AccountPage() {
                       <input value={name} onChange={(e) => setName(e.target.value)} required className="form-input" />
                     </label>
                     <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
-                      EMAIL ADDRESS
+                      EMAIL ADDRESS (GOOGLE)
                       <div className="relative">
-                        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="form-input pl-10" placeholder="name@example.com" />
+                        <input value={email} readOnly disabled type="email" className="form-input pl-10 opacity-70" />
                         <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
                       </div>
+                      <span className="text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">Managed by your Google account.</span>
                     </label>
                     <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
                       WHATSAPP NUMBER
@@ -409,27 +374,19 @@ export default function AccountPage() {
                   </div>
                 </form>
 
-                <form onSubmit={changePassword} className="premium-card p-6 sm:p-8">
-                  <h2 className="text-xl font-black tracking-[-.03em] text-[#0f172a]">Change Password</h2>
-                  <div className="mt-6 grid gap-4">
-                    <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
-                      CURRENT PASSWORD
-                      <input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" required className="form-input" placeholder="Current password" />
-                    </label>
-                    <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
-                      NEW PASSWORD
-                      <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" required minLength={6} className="form-input" placeholder="Min. 6 characters" />
-                    </label>
-                    {passwordMsg && (
-                      <p className={`flex items-center gap-2 rounded-lg p-3 text-xs font-bold ${passwordMsg.type === "ok" ? "bg-[#dcf5e8] text-[#0e9f6e]" : "bg-red-500/10 text-[#c62828]"}`}>
-                        {passwordMsg.type === "ok" ? <FiCheckCircle /> : <FiAlertCircle />}{passwordMsg.text}
-                      </p>
-                    )}
-                    <button disabled={passwordBusy} className="btn-primary flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em] disabled:opacity-50">
-                      <FiShield />{passwordBusy ? "UPDATING..." : "UPDATE PASSWORD"}
-                    </button>
+                <div className="premium-card p-6 sm:p-8">
+                  <h2 className="text-xl font-black tracking-[-.03em] text-[#0f172a]">Sign-in &amp; Security</h2>
+                  <p className="mt-3 text-sm leading-6 text-[#64748b]">
+                    This store uses <strong>Google Sign-In only</strong>. There is no store password to manage —
+                    your password, 2-step verification and device security are handled by Google.
+                  </p>
+                  <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#dcf5e8] bg-[#f3fbf7] px-4 py-3 text-xs font-bold text-[#0e9f6e]">
+                    <FiCheckCircle className="text-base" /> Signed in with Google as {user.email}
                   </div>
-                </form>
+                  <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="btn-outline mt-5 flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em]">
+                    <FiShield /> MANAGE GOOGLE SECURITY
+                  </a>
+                </div>
               </div>
             )}
           </section>

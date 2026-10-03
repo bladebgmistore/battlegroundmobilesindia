@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import VisitorLogsPanel from "@/components/admin-visitor-logs";
+import AdminUsersPanel from "@/components/admin-users-panel";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
 type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
-type SessionInfo = { username: string; role: string };
-type AdminRow = { id: string; username: string; email: string; role: string; isActive: boolean };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "feedbacks" | "coupons" | "orders" | "messages" | "site" | "team";
+type SessionInfo = { name: string; email: string; role: string; picture: string | null };
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "feedbacks" | "coupons" | "orders" | "messages" | "visitors" | "site" | "team";
 
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
@@ -32,14 +33,15 @@ const menu: { view: View; label: string; icon: typeof FiBox }[] = [
   { view: "coupons", label: "Coupons", icon: FiGift },
   { view: "orders", label: "Orders", icon: FiArchive },
   { view: "messages", label: "Messages", icon: FiMail },
+  { view: "visitors", label: "Visitor Logs", icon: FiActivity },
   { view: "site", label: "Site Controls", icon: FiSliders },
-  { view: "team", label: "Team & Security", icon: FiUsers },
+  { view: "team", label: "Users & Access", icon: FiUsers },
 ];
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const [view, setView] = useState<View>("overview");
   const [drawer, setDrawer] = useState(false);
-  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [session] = useState<SessionInfo | null>(owner);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [packs, setPacks] = useState<UcPackageItem[]>([]);
@@ -63,17 +65,12 @@ export default function AdminDashboard() {
     };
 
     try {
-      const [ses, cat, ord, mgmt] = await Promise.all([
-        safeJson("/api/admin/session"),
+      const [cat, ord, mgmt] = await Promise.all([
         safeJson("/api/admin/catalog"),
         safeJson("/api/orders"),
         safeJson("/api/admin/management"),
       ]);
 
-      setSession({
-        username: ses?.username ?? "MANAV",
-        role: ses?.role ?? "owner",
-      });
       setDatabaseError(cat ? "" : "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables.");
       setCategories(cat?.categories ?? []);
       setProducts(cat?.products ?? []);
@@ -94,13 +91,9 @@ export default function AdminDashboard() {
 
   const toast = (message: string) => { setNotice(message); setTimeout(() => setNotice(""), 2600); };
 
-  const signout = async () => {
-    try {
-      await fetch("/api/admin/session", { method: "DELETE", credentials: "same-origin" });
-    } catch {
-      // ignore
-    }
-    window.location.href = "/admin";
+  const signout = () => {
+    // Clears the Google session cookie and returns to the login page.
+    window.location.href = "/auth/logout";
   };
 
   const create: CatalogMutation = async (entity, data) => {
@@ -247,12 +240,17 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-3"><button onClick={() => setDrawer(true)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#e5e8ef] text-[#0f172a] lg:hidden"><FiMenu /></button><div><p className="text-[10px] font-black tracking-[.16em] text-[#0f4c81]">ADMIN WORKSPACE</p><h1 className="text-lg font-black">{menu.find((x) => x.view === view)?.label}</h1></div></div>
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
-            <p className="text-xs font-black text-[#0f172a]">{session?.username ?? "MANAV"}</p>
-            <p className="text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{(session?.role ?? "owner").toUpperCase()}</p>
+            <p className="text-xs font-black text-[#0f172a]">{session?.name ?? "Owner"}</p>
+            <p className="text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{(session?.role ?? "owner").toUpperCase()} · {session?.email}</p>
           </div>
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e0eefb] font-black text-[#0f4c81]">
-            {(session?.username ?? "M")[0]}
-          </span>
+          {session?.picture ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={session.picture} alt="" referrerPolicy="no-referrer" className="h-9 w-9 rounded-full border border-[#e0eefb]" />
+          ) : (
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e0eefb] font-black text-[#0f4c81]">
+              {(session?.name ?? "O")[0]}
+            </span>
+          )}
         </div>
       </header>
       <div className="p-5 lg:p-8">
@@ -273,7 +271,8 @@ export default function AdminDashboard() {
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
-        {view === "team" && <TeamPanel session={session} toast={toast} />}
+        {view === "visitors" && <VisitorLogsPanel />}
+        {view === "team" && <AdminUsersPanel ownerEmail={session?.email ?? ""} />}
       </div>
     </div>
   </main>;
@@ -763,58 +762,6 @@ function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: strin
       </div>
     </section>
     <section className="rounded-xl border border-[#e5e8ef] bg-white p-6 xl:col-span-2"><PanelTitle icon={FiImage} title="Operations" copy="Maintenance & content areas." /><div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><label className="flex flex-1 items-center justify-between rounded-lg border border-[#e5e8ef] bg-[#f8fafc] p-4 cursor-pointer"><span><span className="block text-sm font-black text-[#0f172a]">Maintenance mode</span><span className="mt-1 block text-xs text-[#64748b]">Live notice banner across storefront.</span></span><input checked={maintenance} onChange={(e) => { setMaintenance(e.target.checked); save("maintenance_mode", e.target.checked); }} type="checkbox" className="h-5 w-5 accent-[#0f4c81] cursor-pointer" /></label><p className="text-xs text-[#94a3b8] hidden sm:block">Payment settings upar alag se save hote hain</p></div></section></div>;
-}
-
-function TeamPanel({ session, toast }: { session: SessionInfo | null; toast: (m: string) => void }) {
-  const [admins, setAdmins] = useState<AdminRow[]>([]);
-  const [denied, setDenied] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "", role: "admin" });
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-  const isOwner = session?.role === "owner";
-
-  const loadAdmins = async () => {
-    if (!isOwner) return;
-    try {
-      const r = await fetch("/api/admin/admins", { cache: "no-store", credentials: "same-origin" });
-      if (r.status === 401) { setDenied(true); return; }
-      const d = await r.json();
-      setAdmins(d.admins ?? []);
-    } catch {
-      setDenied(true);
-    }
-  };
-  useEffect(() => { loadAdmins().catch(() => undefined); }, [isOwner]);
-
-  const changeOwnPassword = async () => {
-    if (!passwordForm.currentPassword || !passwordForm.newPassword) { toast("Fill current and new password."); return; }
-    if (passwordForm.newPassword.length < 6) { toast("New password must be at least 6 characters."); return; }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast("New passwords do not match."); return; }
-    const r = await fetch("/api/admin/password", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword }) });
-    const d = await r.json().catch(() => null);
-    if (r.ok) { toast("Password changed successfully."); setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); }
-    else toast(d?.error ?? "Could not change password.");
-  };
-
-  const addAdmin = async () => {
-    if (!form.username || !form.password) { toast("Username and password are required."); return; }
-    const r = await fetch("/api/admin/admins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    const d = await r.json().catch(() => null);
-    if (r.ok) { toast(`Admin "${form.username}" created.`); setForm({ username: "", password: "", role: "admin" }); loadAdmins(); }
-    else toast(d?.error ?? "Could not create admin.");
-  };
-  const changeRole = async (id: string, role: string) => { const r = await fetch("/api/admin/admins", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, role }) }); if (r.ok) { toast("Role updated."); loadAdmins(); } };
-  const resetPassword = async (id: string, username: string) => { const password = prompt(`New password for "${username}" (min 6 chars):`); if (!password) return; if (password.length < 6) { toast("Password must be at least 6 characters."); return; } const r = await fetch("/api/admin/admins", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, password }) }); if (r.ok) { toast(`Password updated for ${username}.`); loadAdmins(); } };
-  const toggleActive = async (admin: AdminRow) => { const r = await fetch("/api/admin/admins", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: admin.id, isActive: !admin.isActive }) }); if (r.ok) { toast(admin.isActive ? "Login disabled." : "Login enabled."); loadAdmins(); } };
-  const deleteAdmin = async (admin: AdminRow) => { if (!confirm(`Delete admin "${admin.username}" permanently?`)) return; const r = await fetch("/api/admin/admins", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: admin.id }) }); const d = await r.json().catch(() => null); if (r.ok) { toast("Admin deleted."); loadAdmins(); } else toast(d?.error ?? "Could not delete admin."); };
-
-  return <div className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]">
-    <section className="space-y-5">
-      <div className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiLock} title="Change your password" copy="Change your password from here after login." /><div className="mt-5 grid gap-3"><input value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} type="password" placeholder="Current password" className="admin-input" /><input value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} type="password" placeholder="New password" className="admin-input" /><input value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} type="password" placeholder="Confirm new password" className="admin-input" /><button onClick={changeOwnPassword} className="admin-primary"><FiKey /> CHANGE PASSWORD</button></div></div>
-      {isOwner && <div className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiPlus} title="Add new admin" copy="Create a working login using only username, password, and role." /><div className="mt-5 grid gap-3"><input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="Username" className="admin-input" /><input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} type="password" placeholder="Password (min 6 chars)" className="admin-input" /><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="admin-input"><option value="admin">Admin — catalog, coupons, orders</option><option value="moderator">Moderator — orders & messages</option><option value="owner">Owner — full access</option></select><button onClick={addAdmin} className="admin-primary"><FiPlus /> CREATE ADMIN</button></div></div>}
-      {!isOwner && <div className="rounded-xl border border-[#e8bd45]/25 bg-[#17140c]/60 p-6 text-sm text-[#64748b]">Only the owner can add, delete, or manage other admin users. Your own password change is available above.</div>}
-    </section>
-    <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white"><ListHeader title="Admin accounts" count={admins.length} /><div className="divide-y divide-[#e5e8ef]">{isOwner && !denied ? admins.map((a) => <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#f1f5fb] text-xs font-black uppercase text-[#0f4c81]">{a.username[0]}</span><div><p className="text-sm font-black uppercase text-[#0f172a]">{a.username} {a.username === session?.username && <span className="ml-1 text-[9px] text-[#64748b]">(you)</span>}</p><p className="mt-0.5 text-xs text-[#64748b]">{a.role.toUpperCase()} · {a.isActive ? "active" : "disabled"}</p></div></div><div className="flex flex-wrap items-center gap-2"><select value={a.role} onChange={(e) => changeRole(a.id, e.target.value)} className="admin-input !h-9 w-32 text-[10px]" disabled={a.username === session?.username}><option value="owner">OWNER</option><option value="admin">ADMIN</option><option value="moderator">MODERATOR</option></select><Action onClick={() => resetPassword(a.id, a.username)} label="Password" icon={FiKey} />{a.username !== session?.username && <><Action onClick={() => toggleActive(a)} label={a.isActive ? "Disable" : "Enable"} icon={FiSettings} /><Action onClick={() => deleteAdmin(a)} label="Delete" icon={FiTrash2} danger /></>}</div></div>) : <Empty text={isOwner ? "Sign in once with MANAV / MANAV7412 to provision the owner account." : "Owner-only admin list."} />}</div></section>
-  </div>;
 }
 
 function PanelTitle({ icon: Icon, title, copy }: { icon: typeof FiPlus; title: string; copy: string }) { return <div><div className="flex items-center gap-2 text-[#0f4c81]"><Icon /><p className="text-[10px] font-black tracking-[.14em]">MANAGEMENT</p></div><h2 className="mt-3 text-xl font-black text-[#0f172a]">{title}</h2><p className="mt-2 text-xs leading-5 text-[#64748b]">{copy}</p></div>; }

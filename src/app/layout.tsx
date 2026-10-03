@@ -4,6 +4,8 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
+import { Suspense } from "react";
+import VisitTracker from "@/components/visit-tracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://battlegroundmobileindiastore.netlify.app"),
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
     locale: "en_IN",
     images: ["/logo.png"],
   },
-  robots: { index: true, follow: true },
+  robots: { index: false, follow: false },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -36,6 +38,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
+        <Suspense fallback={null}>
+          <VisitTracker />
+        </Suspense>
         <Analytics />
       </body>
     </html>

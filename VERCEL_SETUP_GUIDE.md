@@ -20,6 +20,11 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
    | Key | Required | Value |
    |---|---|---|
    | `DATABASE_URL` | ✅ Yes (production ke liye) | Neon/Postgres connection string (`postgresql://...sslmode=require`) — same jo abhi Netlify pe use ho raha hai |
+   | `GOOGLE_CLIENT_ID` | ✅ Yes | `822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com` |
+   | `GOOGLE_CLIENT_SECRET` | ✅ Yes | Google Cloud Console wala client secret |
+   | `GOOGLE_REDIRECT_URI` | ✅ Yes | `https://battlegroundmobilesindia.shop/auth/google/callback` |
+   | `AUTH_SECRET` | ✅ Yes | `openssl rand -base64 32` se banao (session cookie sign hoti hai) |
+   | `OWNER_EMAIL` | ✅ Yes | `manavjeph800@gmail.com` — sirf isi account ko `/admin` milega |
    | `SMTP_HOST` | Optional | `smtp.gmail.com` (admin OTP email ke liye) |
    | `SMTP_PORT` | Optional | `465` |
    | `SMTP_USER` | Optional | aapki email |
@@ -42,7 +47,12 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 npm install -g vercel
 vercel login                 # browser se login
 vercel link                  # project link karo
-vercel env add DATABASE_URL  # production DB string paste karo
+vercel env add DATABASE_URL         # production DB string paste karo
+vercel env add GOOGLE_CLIENT_ID
+vercel env add GOOGLE_CLIENT_SECRET
+vercel env add GOOGLE_REDIRECT_URI
+vercel env add AUTH_SECRET
+vercel env add OWNER_EMAIL
 vercel --prod                # production deploy
 ```
 

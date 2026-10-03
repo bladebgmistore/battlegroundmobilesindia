@@ -256,11 +256,10 @@ export default function CheckoutPage() {
               <p className="mt-6 text-[10px] font-black tracking-[.18em] text-[#0f4c81]">ACCOUNT REQUIRED</p>
               <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Sign in to continue checkout</h1>
               <p className="mt-3 text-sm leading-6 text-[#64748b]">
-                An account is required to place an order. Sign in or create a free account — your order, payment screenshot and delivery details stay saved in your account.
+                A Google account is required to place an order — your order, payment screenshot and delivery details stay saved in your account.
               </p>
               <div className="mt-7 grid gap-3">
-                <Link href={`/login?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> SIGN IN TO CONTINUE</Link>
-                <Link href={`/signup?next=${checkoutNext}`} className="btn-outline w-full"><FiUser /> CREATE FREE ACCOUNT</Link>
+                <a href={`/auth/google?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> CONTINUE WITH GOOGLE</a>
               </div>
               {authRequired && authedUser && (
                 <p className="mt-5 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] px-3.5 py-2.5 text-[11px] font-semibold text-[#8a6d1a]">

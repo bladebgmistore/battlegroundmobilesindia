@@ -154,6 +154,23 @@ export const reviews = [
 export const formatINR = (amount: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
 
+/**
+ * Store-wide promotional discount shown on every listing.
+ *
+ * The price saved in the database is the FINAL payable price. The struck-out
+ * "MRP" is derived from it, so a ₹1,000 product is displayed as
+ * ~~₹2,000~~ ₹1,000 with a "50% OFF" badge. Nothing in checkout changes —
+ * the buyer always pays the stored price.
+ */
+export const DISCOUNT_PERCENT = 50;
+
+/** Struck-out original price derived from the payable price. */
+export const mrpOf = (price: number) =>
+  Math.round(price * (100 / (100 - DISCOUNT_PERCENT)));
+
+/** Rupees the buyer "saves" versus the struck-out price. */
+export const savingsOf = (price: number) => mrpOf(price) - price;
+
 // ─── Special products (Supercars & X-Suit) shared type ────────────────
 // Kept for compatibility with pages/components that expect this shape.
 export type SpecialCategory = "car" | "xsuit";

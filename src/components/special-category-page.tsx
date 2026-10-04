@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
-import { defaultProducts, formatINR, Product } from "@/lib/store-data";
+import { defaultProducts, Product } from "@/lib/store-data";
+import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -90,8 +91,8 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                         {item.badge}
                       </span>
                     )}
-                    <span className="absolute bottom-4 right-4 rounded-lg bg-white/92 px-3 py-1.5 text-sm font-black text-[#0f172a] shadow-sm backdrop-blur">
-                      {formatINR(item.price)}
+                    <span className="absolute bottom-4 right-4 rounded-lg bg-white/92 px-3 py-1.5 shadow-sm backdrop-blur">
+                      <PriceTag price={item.price} priceClass="text-sm font-black text-[#0f172a]" />
                     </span>
                   </div>
                   <div className="p-5">

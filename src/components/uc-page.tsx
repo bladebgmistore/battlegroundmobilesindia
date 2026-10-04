@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiShield } from "react-icons/fi";
-import { Category, defaultCategories, defaultUcPackages, formatINR, images, UcPackageItem } from "@/lib/store-data";
+import { Category, defaultCategories, defaultUcPackages, images, UcPackageItem } from "@/lib/store-data";
+import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -83,7 +84,7 @@ export default function UcPage() {
                   <p className="mt-1 text-xs font-bold text-[#64748b]">UNKNOWN CASH</p>
                 </div>
                 <div className="relative mt-7 flex items-center justify-between border-t border-[#e5e8ef] pt-5">
-                  <span className="text-xl font-black text-[#0f172a]">{formatINR(pack.price)}</span>
+                  <PriceTag price={pack.price} align="start" priceClass="text-xl font-black text-[#0f172a]" />
                   <button
                     onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`)}
                     className="btn-primary group !py-2.5 !px-4 text-[11px]"

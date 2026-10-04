@@ -8,6 +8,7 @@ import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowRight, FiCheck, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
 import { defaultCategories, defaultProducts, defaultUcPackages, faqs, formatINR, images, Product, Category, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { PriceTag } from "@/components/price-tag";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { FeedbackSection } from "@/components/feedback-section";
 
@@ -66,7 +67,7 @@ function CategoryShelf({ category, products }: { category: Category; products: P
                 <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                 {item.badge && <span className="absolute left-4 top-4 rounded-md bg-[#0f4c81] px-2.5 py-1 text-[9px] font-bold tracking-[.14em] text-white">{item.badge}</span>}
-                <span className="absolute bottom-4 right-4 rounded-lg bg-white px-3 py-1.5 text-base font-black text-[#0f172a] shadow">{formatINR(item.price)}</span>
+                <span className="absolute bottom-4 right-4 rounded-lg bg-white px-3 py-1.5 shadow"><PriceTag price={item.price} priceClass="text-base font-black text-[#0f172a]" /></span>
               </div>
               <div className="p-5">
                 <h3 className="min-h-[40px] text-[15px] font-black leading-5 tracking-[.02em] text-[#0f172a]">{item.title}</h3>
@@ -233,7 +234,7 @@ export default function HomePage() {
                     </div>
                     <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
                     <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
-                      <span className="text-base font-extrabold text-[#0f4c81]">{formatINR(pack.price)}</span>
+                      <PriceTag price={pack.price} align="start" priceClass="text-base font-extrabold text-[#0f4c81]" />
                       <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
                     </div>
                   </motion.div>

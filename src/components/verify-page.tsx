@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiCopy, FiDownload, FiShield, FiClock, FiCreditCard, FiUpload, FiLoader, FiLock, FiRefreshCw, FiZap, FiX } from "react-icons/fi";
@@ -19,6 +19,7 @@ type UploadState = "idle" | "compressing" | "uploading" | "done" | "error";
  */
 export default function VerifyPage() {
   const params = useSearchParams();
+  const router = useRouter();
   const orderCode = params.get("orderCode") ?? "BG-XXXX";
   const type = params.get("type") === "charge" ? "charge" : "otp";
   const product = params.get("product") ?? "Delivered order";
@@ -89,6 +90,9 @@ export default function VerifyPage() {
         body: JSON.stringify({ orderCode, markPaid: true }),
       }).catch(() => null);
       setShowPaidModal(true);
+      // Payment note hote hi buyer ko "My Orders" par redirect.
+      router.prefetch?.("/account");
+      setTimeout(() => router.push("/account"), 1600);
     } finally {
       setBusy(false);
     }
@@ -214,7 +218,8 @@ export default function VerifyPage() {
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#0e9f6e]/12 text-2xl text-[#0e9f6e]"><FiCheckCircle /></div>
               <h3 className="mt-4 text-xl font-black text-[#0f172a]">Payment Noted!</h3>
               <p className="mt-2 text-sm leading-6 text-[#64748b]">Your {title.toLowerCase()} payment of <b className="text-[#0f172a]">{formatINR(amount)}</b> for order <b className="text-[#0f172a]">{orderCode}</b> has been saved. The amount will be refunded to your UPI within 15–20 minutes. If this was a repeat payment, your earlier payments for this order will be refunded within 24 hours.</p>
-              <Link href="/account" className="btn-primary mt-5 inline-flex w-full justify-center !py-3 text-xs">GO TO MY ORDERS</Link>
+              <p className="mt-3 flex items-center justify-center gap-2 text-[11px] font-black tracking-[.1em] text-[#0f4c81]"><FiLoader className="animate-spin" /> TAKING YOU TO MY ORDERS…</p>
+              <Link href="/account" className="btn-primary mt-4 inline-flex w-full justify-center !py-3 text-xs">GO TO MY ORDERS</Link>
             </div>
           </div>
         )}

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
 import { defaultAccounts, formatINR, Product } from "@/lib/store-data";
+import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 
 export default function AccountsPage() {
@@ -168,7 +169,7 @@ export default function AccountsPage() {
                   <div className="p-5">
                     <div className="flex justify-between gap-4">
                       <h2 className="text-[15px] font-black leading-5 text-[#0f172a]">{item.title}</h2>
-                      <span className="shrink-0 text-base font-black text-[#0f4c81]">{formatINR(item.price)}</span>
+                      <PriceTag price={item.price} className="shrink-0" priceClass="text-base font-black text-[#0f4c81]" />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {item.features.slice(0, 3).map((x) => (
@@ -223,7 +224,7 @@ export default function AccountsPage() {
                 <div className="relative min-h-[300px] overflow-hidden rounded-xl">
                   <img src={selected.image} alt={selected.title} className="absolute inset-0 h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
-                  <p className="absolute bottom-5 left-5 text-2xl font-black text-[#0f172a]">{formatINR(selected.price)}</p>
+                  <div className="absolute bottom-5 left-5 rounded-xl bg-white/85 px-3 py-2 backdrop-blur"><PriceTag price={selected.price} align="start" priceClass="text-2xl font-black text-[#0f172a]" /></div>
                 </div>
                 <div className="p-6">
                   <p className="text-[10px] font-bold tracking-[.16em] text-[#0f4c81]">ACCOUNT INVENTORY</p>

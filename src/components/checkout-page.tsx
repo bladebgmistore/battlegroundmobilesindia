@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield } from "react-icons/fi";
-import { formatINR } from "@/lib/store-data";
+import { DISCOUNT_PERCENT, formatINR, mrpOf, savingsOf } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -277,6 +277,8 @@ export default function CheckoutPage() {
             <p className="text-[10px] font-bold tracking-[.17em] text-[#0f4c81]">YOUR SELECTION</p>
             <h1 className="mt-4 text-2xl font-black leading-7 tracking-[-.04em] text-[#0f172a]">{product}</h1>
             <div className="mt-7 space-y-3 border-y border-[#e5e8ef] py-5 text-sm">
+              <div className="flex items-center justify-between"><span className="text-[#64748b]">MRP</span><s className="font-bold text-[#94a3b8] decoration-[#ef4444]/70">{baseAmount ? formatINR(mrpOf(baseAmount)) : "—"}</s></div>
+              <div className="flex items-center justify-between"><span className="text-[#64748b]">Store discount ({DISCOUNT_PERCENT}%)</span><strong className="text-[#0e9f6e]">{baseAmount ? `- ${formatINR(savingsOf(baseAmount))}` : "—"}</strong></div>
               <div className="flex items-center justify-between"><span className="text-[#64748b]">Listed price</span><strong className="text-[#0f172a]">{baseAmount ? formatINR(baseAmount) : "On request"}</strong></div>
               <div className="flex items-center justify-between"><span className="text-[#64748b]">Coupon discount</span><strong className="text-[#0e9f6e]">{discountAmount ? `- ${formatINR(discountAmount)}` : "—"}</strong></div>
               <div className="flex items-center justify-between text-base"><span className="text-[#64748b]">Final amount</span><strong className="text-xl text-[#0f172a]">{baseAmount ? formatINR(payableAmount) : "On request"}</strong></div>

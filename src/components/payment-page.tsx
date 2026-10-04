@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiCopy, FiDownload, FiShield, FiClock, FiCreditCard, FiUpload, FiLoader, FiLock, FiUser, FiX } from "react-icons/fi";
@@ -13,6 +13,7 @@ type UploadState = "idle" | "compressing" | "uploading" | "done" | "error";
 
 export default function PaymentPage() {
   const params = useSearchParams();
+  const router = useRouter();
   const orderCode = params.get("orderCode") ?? "BG-XXXX";
   const product = params.get("product") ?? "Selected product";
   const amount = Number(params.get("amount") ?? 0);
@@ -85,6 +86,10 @@ export default function PaymentPage() {
         body: JSON.stringify({ orderCode, markPaid: true }),
       }).catch(() => null);
       setShowPaidModal(true);
+      // Buyer ko seedha "My Orders" page par bhej dete hain jahan order ka
+      // live status dikhta hai. Modal 1.6s dikhta hai, phir redirect.
+      router.prefetch?.("/account");
+      setTimeout(() => router.push("/account"), 1600);
     } finally {
       setBusy(false);
     }
@@ -246,7 +251,8 @@ export default function PaymentPage() {
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#0e9f6e]/12 text-2xl text-[#0e9f6e]"><FiCheckCircle /></div>
               <h3 className="mt-4 text-xl font-black text-[#0f172a]">Payment Noted!</h3>
               <p className="mt-2 text-sm leading-6 text-[#64748b]">Your order <b className="text-[#0f172a]">{orderCode}</b> for <b className="text-[#0f172a]">{formatINR(amount)}</b> has been saved with your payment screenshot. Admin verification will happen shortly before delivery.</p>
-              <button onClick={() => setShowPaidModal(false)} className="btn-primary mt-5 w-full !py-3 text-xs">CLOSE & FINISH</button>
+              <p className="mt-3 flex items-center justify-center gap-2 text-[11px] font-black tracking-[.1em] text-[#0f4c81]"><FiLoader className="animate-spin" /> TAKING YOU TO MY ORDERS…</p>
+              <button onClick={() => router.push("/account")} className="btn-primary mt-4 w-full justify-center !py-3 text-xs">GO TO MY ORDERS</button>
             </div>
           </div>
         )}

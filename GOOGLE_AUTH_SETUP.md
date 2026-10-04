@@ -11,16 +11,16 @@ how to configure and deploy it for **battlegroundmobilesindia.shop**.
 |---|---|
 | Remove password login | `/api/auth/login`, `/register`, `/forgot-password`, `/reset-password`, `/api/account/password`, `/api/admin/login`, `/api/admin/password`, `/signup`, the admin password screen and the password helper libs were **deleted**. `users.password_hash` is now nullable and unused. |
 | Continue with Google | OAuth 2.0 **Authorization Code + PKCE** flow: `/auth/google` → Google → `/auth/google/callback`. |
-| Compulsory auth | `src/middleware.ts` runs on every request. No session ⇒ redirect to `/login?next=…` (HTML) or `401 JSON` (API). |
+| Compulsory auth | `src/proxy.ts` runs on every request. No session ⇒ redirect to `/login?next=…` (HTML) or `401 JSON` (API). |
 | User dashboard | `/dashboard` — Google name, email and profile picture, recent orders, quick links. |
 | RBAC | `OWNER_EMAIL` allow-list (default `manavjeph800@gmail.com`) ⇒ role `owner`; everyone else is `customer`. Owners see an **Open Admin Panel** button. |
-| Admin area | `/admin` — owner-only (enforced in middleware *and* in the page via `requireOwner()`). |
+| Admin area | `/admin` — owner-only (enforced in the proxy (edge) *and* in the page via `requireOwner()`). |
 | Visitor tracking | Every page view is written to `site_logs` (email, IP, page URL, timestamp, device, referrer) and shown in the **Visitor Logs** tab of the admin panel, with search, CSV export, pagination and auto-refresh. Signed-out homepage visitors are logged as **Guest**. |
 
 ### Key files
 
 ```
-src/middleware.ts                      # compulsory auth + owner gate (Edge)
+src/proxy.ts                      # compulsory auth + owner gate (Edge)
 src/lib/auth-config.ts                 # cookie names, OWNER_EMAIL, public paths
 src/lib/auth-session.ts                # HMAC-SHA256 signed session cookie (Edge-safe)
 src/lib/auth.ts                        # getSession / requireSession / requireOwner

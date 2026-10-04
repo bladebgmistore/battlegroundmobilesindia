@@ -9,7 +9,7 @@ import VisitTracker from "@/components/visit-tracker";
 
 /**
  * Every route is request-scoped: the root layout reads live site settings from
- * Neon (`cache: "no-store"`) and `src/middleware.ts` resolves the session per
+ * Neon (`cache: "no-store"`) and `src/proxy.ts` resolves the session per
  * request. Forcing dynamic rendering here stops Next.js from trying to
  * prerender pages at build time — which is what produced the noisy
  * "DYNAMIC_SERVER_USAGE / Error connecting to database" logs during deploys.

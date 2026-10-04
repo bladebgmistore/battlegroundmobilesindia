@@ -2,7 +2,7 @@
  * Central auth configuration.
  *
  * Edge-safe: this file must only read `process.env` and export constants —
- * no Node-only imports — because it is pulled in by `src/middleware.ts`.
+ * no Node-only imports — because it is pulled in by `src/proxy.ts`.
  */
 
 /** Name of the signed, httpOnly session cookie. */

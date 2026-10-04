@@ -2,7 +2,7 @@
  * Stateless, HMAC-SHA256 signed session tokens for Google-authenticated users.
  *
  * IMPORTANT: Edge-safe. Uses only Web Crypto (`globalThis.crypto.subtle`) and
- * base64url text helpers, so it can be imported from `src/middleware.ts`,
+ * base64url text helpers, so it can be imported from `src/proxy.ts`,
  * route handlers, and server components alike.
  *
  * Token layout:  base64url(JSON payload) + "." + base64url(HMAC-SHA256)

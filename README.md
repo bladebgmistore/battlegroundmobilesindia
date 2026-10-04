@@ -19,7 +19,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 
 ### Authentication — Google Sign-In only
 - **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — no passwords anywhere
-- **Homepage is public** with a *Login* button in the header; `src/middleware.ts`
+- **Homepage is public** with a *Login* button in the header; `src/proxy.ts`
   gates every other page and API route and redirects guests to `/login?next=…`
   (allow-list: `PUBLIC_PAGES` in `src/lib/auth-config.ts`)
 - Signed (HMAC-SHA256), `httpOnly`, 30-day session cookie

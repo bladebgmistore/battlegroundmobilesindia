@@ -3,14 +3,16 @@ import { SESSION_COOKIE, isPublicPath } from "@/lib/auth-config";
 import { verifySession } from "@/lib/auth-session";
 
 /**
- * Compulsory Google authentication.
+ * Compulsory Google authentication (Next.js 16 `proxy` file convention —
+ * the former `middleware.ts`, renamed per
+ * https://nextjs.org/docs/messages/middleware-to-proxy).
  *
  * Runs on the Edge runtime for every request that isn't a static asset.
  * - No session  →  /login?next=<original path>   (JSON 401 for /api/*)
  * - Session     →  request continues, with the resolved identity forwarded
  *                  to server components via `x-pathname` / `x-user-email`.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   const forwardHeaders = () => {

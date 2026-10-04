@@ -51,10 +51,16 @@ first request through `ensureAuthTables()`):
 
 ```bash
 psql "$DATABASE_URL" -f sql/001_google_auth_and_site_logs.sql
+psql "$DATABASE_URL" -f sql/002_feedback_moderation.sql
 ```
 
 `site_logs` columns: `user_email`, `ip_address`, `page_url`, `created_at`
 (plus `user_name`, `referrer`, `user_agent`, `country`, `city`).
+
+`feedbacks` moderation columns (migration 002, auto-applied by
+`ensureFeedbackTables()`): `status` (`pending` | `approved` | `rejected`),
+`submitted_by_email`, `moderated_at`. Existing rows are migrated to
+`approved` so nothing disappears from the live site.
 
 ---
 
@@ -212,3 +218,42 @@ check output and sign in with exactly that Google account.
 `site_logs` needs a reachable database. Confirm `DATABASE_URL` is set
 (`/api/auth/config-check`) and that `sql/001_google_auth_and_site_logs.sql` ran —
 the app also creates the table automatically on the first authenticated request.
+
+---
+
+## 9. Storefront features added on top of auth
+
+### 9.1 Separate logo and favicon (Admin → Site Controls)
+
+| Setting key   | Used by                                   |
+| ------------- | ----------------------------------------- |
+| `logo_url`    | Header, footer and the admin sidebar logo |
+| `favicon_url` | Browser tab icon only (`/api/favicon`)    |
+
+Dono alag-alag image fields hain. `/api/favicon` pehle `favicon_url` padta hai
+aur sirf tab `logo_url` par fallback karta hai jab alag favicon set na ho.
+Dono fields PNG (transparency ke saath), JPG, WEBP aur SVG accept karte hain —
+upload hone par PNG source ka alpha channel preserve hota hai (pehle sab kuch
+JPEG me flatten ho jaata tha). Favicon change karne ke baad tab ko hard-refresh
+karein, browsers icon ~5 minute cache karte hain.
+
+### 9.2 Disabled category = sab kuch hide
+
+`/api/store` sirf `is_active = true` categories return karta hai. Homepage ke
+hero buttons ab usi list se generate hote hain, isliye ek category disable
+karte hi uska hero button, uska section/shelf, header nav item aur footer link
+— sab automatically gayab ho jaate hain.
+
+### 9.3 Player reviews: submit → moderate → publish
+
+1. Homepage ke "Player feedback" section me logged-in user **WRITE A REVIEW**
+   se rating + text bhej sakta hai (`POST /api/feedbacks`, Google login
+   zaroori, 3 reviews/day per user limit).
+2. Har submission `status = 'pending'` ke saath save hoti hai — site par
+   turant **nahi** dikhti.
+3. Admin → **Feedbacks** me Pending / Live / Denied / All tabs hain, sidebar me
+   pending count ka orange badge dikhta hai.
+   - **ACCEPT & SHOW** → `status = 'approved'` → review homepage par live.
+   - **DENY** → `status = 'rejected'` → hamesha hidden rehta hai.
+4. Public `GET /api/feedbacks` sirf `approved` + `is_active` rows deta hai.
+5. Reviews grid framer-motion se animated hai (staggered reveal + hover lift).

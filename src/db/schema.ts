@@ -209,9 +209,19 @@ export const feedbacks = pgTable("feedbacks", {
   rating: integer("rating").notNull().default(5),
   avatar: text("avatar"),
   isActive: boolean("is_active").notNull().default(true),
+  /**
+   * Moderation state for player-submitted reviews:
+   * `pending` (awaiting admin review) | `approved` (live on the site) | `rejected`.
+   * Only `approved` + `is_active` rows are returned by the public API.
+   */
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  submittedByEmail: varchar("submitted_by_email", { length: 180 }),
+  moderatedAt: timestamp("moderated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export type FeedbackStatus = "pending" | "approved" | "rejected";
 
 /**
  * Visitor / page-view tracking log.

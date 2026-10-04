@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { siteSettings } from "@/db/schema";
 import { images } from "@/lib/store-data";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -23,26 +23,38 @@ function decodeDataUrl(dataUrl: string): { bytes: Buffer; contentType: string } 
 }
 
 /**
- * Serves the SAME logo the admin configured in Site Controls as the favicon,
- * so the browser tab icon always matches the site logo. Falls back to the
- * default store logo when no custom logo is set.
+ * Serves the browser tab icon.
+ *
+ * Priority:
+ *   1. `favicon_url`  — the DEDICATED favicon set in Admin → Site Controls
+ *                       (independent image, PNG transparency supported).
+ *   2. `logo_url`     — fallback for stores that never set a separate favicon.
+ *   3. the bundled default logo, then a 1x1 transparent PNG.
  */
 export async function GET() {
+  let faviconUrl = "";
   let logoUrl = "";
   try {
     const rows = await db
       .select()
       .from(siteSettings)
-      .where(eq(siteSettings.settingKey, "logo_url"))
-      .limit(1);
-    logoUrl = String(rows[0]?.value ?? "").trim();
+      .where(inArray(siteSettings.settingKey, ["favicon_url", "logo_url"]));
+    for (const row of rows) {
+      const value = String(row.value ?? "").trim();
+      if (row.settingKey === "favicon_url") faviconUrl = value;
+      if (row.settingKey === "logo_url") logoUrl = value;
+    }
   } catch {
     // DB offline — fall through to the default logo.
   }
 
-  // Uploaded logos are stored as Base64 data URLs — serve them directly.
-  if (logoUrl.startsWith("data:")) {
-    const decoded = decodeDataUrl(logoUrl);
+  // Dedicated favicon wins; the logo is only a fallback.
+  const sources = [faviconUrl, logoUrl].filter(Boolean);
+
+  // Uploaded images are stored as Base64 data URLs — serve them directly.
+  for (const source of sources) {
+    if (!source.startsWith("data:")) continue;
+    const decoded = decodeDataUrl(source);
     if (decoded) {
       return new Response(new Uint8Array(decoded.bytes), {
         headers: { "Content-Type": decoded.contentType, ...CACHE_HEADERS },
@@ -50,7 +62,7 @@ export async function GET() {
     }
   }
 
-  const candidates = [logoUrl, images.logo].filter(
+  const candidates = [...sources, images.logo].filter(
     (url) => url && /^https?:\/\//i.test(url),
   );
 

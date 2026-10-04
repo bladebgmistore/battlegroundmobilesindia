@@ -45,7 +45,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
 
 > Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
-> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**
+> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**
 
 ---
 

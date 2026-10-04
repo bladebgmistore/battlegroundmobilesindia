@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
-import { Category, Product, formatINR, UcPackageItem } from "@/lib/store-data";
+import { FiAlertCircle, FiActivity, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
+import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -52,6 +52,10 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [databaseError, setDatabaseError] = useState("");
+  const [pendingFeedbacks, setPendingFeedbacks] = useState(0);
+  // Admin-configured logo, shown at the top of the dashboard.
+  const { settings: publicSettings } = useStoreSettings();
+  const logoSrc = publicSettings.logo_url || images.logo;
 
   const load = async () => {
     const safeJson = async (url: string) => {
@@ -65,10 +69,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     };
 
     try {
-      const [cat, ord, mgmt] = await Promise.all([
+      const [cat, ord, mgmt, fb] = await Promise.all([
         safeJson("/api/admin/catalog"),
         safeJson("/api/orders"),
         safeJson("/api/admin/management"),
+        safeJson("/api/admin/feedbacks"),
       ]);
 
       setDatabaseError(cat ? "" : "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables.");
@@ -79,6 +84,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       setOrders(ord?.orders ?? []);
       setMessages(mgmt?.messages ?? []);
       setSettings(mgmt?.settings ?? []);
+      // Pending review badge in the sidebar.
+      setPendingFeedbacks(Number(fb?.counts?.pending ?? 0));
     } finally {
       setLoading(false);
     }
@@ -214,15 +221,43 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 
   const unread = messages.filter((m) => !m.isRead).length;
   const side = <>
-    <div className="flex h-[78px] items-center gap-3 border-b border-[#e5e8ef] px-5">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e0eefb] text-lg text-[#0f4c81]"><FiShield /></div>
-      <div><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">BATTLEGROUNDS MOBILE</p><p className="text-sm font-black text-[#0f172a]">INDIA STORE</p></div>
-      <button onClick={() => setDrawer(false)} className="ml-auto text-[#64748b] lg:hidden"><FiX /></button>
+    <div className="flex h-[86px] items-center gap-3 border-b border-[#e5e8ef] bg-gradient-to-r from-[#0f4c81] to-[#1b6fb0] px-5">
+      {/* Website logo — managed from Site Controls */}
+      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/30 bg-white shadow-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoSrc} alt="Store logo" className="h-full w-full object-contain p-1" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-black tracking-[.15em] text-white/70">BATTLEGROUNDS MOBILE</p>
+        <p className="truncate text-sm font-black text-white">INDIA STORE</p>
+        <p className="mt-0.5 text-[8px] font-black tracking-[.2em] text-[#ffd76a]">ADMIN CONTROL CENTRE</p>
+      </div>
+      <button onClick={() => setDrawer(false)} className="ml-auto text-white/80 lg:hidden"><FiX /></button>
     </div>
     <nav className="flex-1 space-y-1 p-3">
-      {menu.map(({ view: itemView, label, icon: Icon }) => (
-        <button key={itemView} onClick={() => { setView(itemView); setDrawer(false); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold transition ${view === itemView ? "bg-[#e0eefb] text-[#0f4c81]" : "text-[#0f172a]/52 hover:bg-white/[.05] hover:text-[#0f172a]"}`}><Icon className="text-base" />{label}{itemView === "messages" && unread > 0 && <span className="ml-auto rounded-full bg-[#d6f454] px-1.5 py-0.5 text-[9px] text-black">{unread}</span>}</button>
-      ))}
+      {menu.map(({ view: itemView, label, icon: Icon }) => {
+        const active = view === itemView;
+        const badge = itemView === "messages" ? unread : itemView === "feedbacks" ? pendingFeedbacks : 0;
+        return (
+          <button
+            key={itemView}
+            onClick={() => { setView(itemView); setDrawer(false); }}
+            className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
+              active
+                ? "bg-gradient-to-r from-[#e0eefb] to-[#f3f8fe] text-[#0f4c81] shadow-[inset_3px_0_0_0_#0f4c81]"
+                : "text-[#475569] hover:bg-[#f4f7fb] hover:text-[#0f172a]"
+            }`}
+          >
+            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition ${active ? "bg-[#0f4c81] text-white" : "bg-[#f1f5fb] text-[#64748b] group-hover:text-[#0f4c81]"}`}>
+              <Icon className="text-sm" />
+            </span>
+            <span className="truncate">{label}</span>
+            {badge > 0 && (
+              <span className={`ml-auto rounded-full px-2 py-0.5 text-[9px] font-black text-white ${itemView === "feedbacks" ? "bg-[#f59e0b]" : "bg-[#0f4c81]"}`}>{badge}</span>
+            )}
+          </button>
+        );
+      })}
     </nav>
     <div className="border-t border-[#e5e8ef] p-3">
       <button onClick={signout} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-bold text-red-600/80 hover:bg-red-50">
@@ -232,13 +267,27 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   </>;
 
   return <main className="min-h-screen bg-[#eef1f6] text-[#0f172a]">
-    <div className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-[#e5e8ef] bg-white lg:flex lg:flex-col">{side}</div>
+    <div className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-[#e5e8ef] bg-white shadow-[2px_0_24px_-18px_rgba(15,76,129,.6)] lg:flex lg:flex-col">{side}</div>
     <div className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[#e5e8ef] bg-white transition-transform lg:hidden ${drawer ? "translate-x-0" : "-translate-x-full"}`}>{side}</div>
     {drawer && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setDrawer(false)} />}
     <div className="lg:pl-64">
-      <header className="flex h-[78px] items-center justify-between border-b border-[#e5e8ef] bg-white/75 px-5 backdrop-blur lg:px-8">
-        <div className="flex items-center gap-3"><button onClick={() => setDrawer(true)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#e5e8ef] text-[#0f172a] lg:hidden"><FiMenu /></button><div><p className="text-[10px] font-black tracking-[.16em] text-[#0f4c81]">ADMIN WORKSPACE</p><h1 className="text-lg font-black">{menu.find((x) => x.view === view)?.label}</h1></div></div>
+      <header className="sticky top-0 z-30 flex h-[86px] items-center justify-between border-b border-[#e5e8ef] bg-white/85 px-5 backdrop-blur-xl lg:px-8">
         <div className="flex items-center gap-3">
+          <button onClick={() => setDrawer(true)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#e5e8ef] text-[#0f172a] lg:hidden"><FiMenu /></button>
+          {/* Website logo at the top of the dashboard (mobile + desktop) */}
+          <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e3e9f2] bg-white shadow-sm lg:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoSrc} alt="Store logo" className="h-full w-full object-contain p-1" />
+          </span>
+          <div>
+            <p className="text-[10px] font-black tracking-[.16em] text-[#0f4c81]">ADMIN WORKSPACE</p>
+            <h1 className="text-lg font-black">{menu.find((x) => x.view === view)?.label}</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <a href="/" target="_blank" rel="noopener noreferrer" className="hidden items-center gap-2 rounded-lg border border-[#dbe2ec] px-3 py-2 text-[10px] font-black text-[#0f4c81] transition hover:bg-[#f1f5fb] md:inline-flex">
+            <FiEye /> VIEW SITE
+          </a>
           <div className="hidden text-right sm:block">
             <p className="text-xs font-black text-[#0f172a]">{session?.name ?? "Owner"}</p>
             <p className="text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{(session?.role ?? "owner").toUpperCase()} · {session?.email}</p>
@@ -266,7 +315,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "super-cars" && <ProductsManager heading="Super Cars" fixedCategorySlug="super-cars" products={products.filter(p => p.categorySlug === "super-cars")} categories={categories} create={create} update={update} remove={remove} />}
         {view === "x-suits" && <ProductsManager heading="X-Suits" fixedCategorySlug="x-suits" products={products.filter(p => p.categorySlug === "x-suits")} categories={categories} create={create} update={update} remove={remove} />}
         {view === "categories" && <CategoryWorkspace categories={categories} products={products} create={create} update={update} remove={remove} />}
-        {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} />}
+        {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} onCountsChange={setPendingFeedbacks} />}
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
@@ -279,8 +328,22 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 }
 
 function Overview({ accounts, packs, orders, messages, totalRevenue, deliveredCount, charts }: { accounts: Product[]; packs: UcPackageItem[]; orders: Order[]; messages: Message[]; totalRevenue: number; deliveredCount: number; charts: { day: string; requests: number }[] }) {
-  const stats = [["Catalog products", accounts.length + packs.length, FiBox], ["Total orders", orders.length, FiArchive], ["Delivered", deliveredCount, FiMail], ["Delivered revenue", formatINR(totalRevenue), FiBarChart2]];
-  return <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, Icon]) => { const IconComp = Icon as typeof FiBox; return <article className="rounded-xl border border-[#e5e8ef] bg-white p-5" key={label as string}><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#64748b]">{label as string}</p><IconComp className="text-[#0f4c81]" /></div><p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value as string | number}</p><p className="mt-1 text-[9px] font-black tracking-[.11em] text-[#0f4c81]">LIVE DATABASE</p></article>; })}</div><div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><div className="flex items-center justify-between"><div><h2 className="font-black">Checkout requests</h2><p className="mt-1 text-xs text-[#64748b]">Last seven days</p></div><FiBarChart2 className="text-[#0f4c81]" /></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={charts}><XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #dbe2ec", borderRadius: 10 }} cursor={{ fill: "#0f4c8114" }} /><Bar dataKey="requests" fill="#0f4c81" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></section><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p><h2 className="mt-3 text-xl font-black">Storefront status</h2><div className="mt-6 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Payment gateway", "Maintenance"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div></section></div></div>;
+  const stats: { label: string; value: string | number; icon: typeof FiBox; tint: string }[] = [
+    { label: "Catalog products", value: accounts.length + packs.length, icon: FiBox, tint: "from-[#0f4c81] to-[#1b6fb0]" },
+    { label: "Total orders", value: orders.length, icon: FiArchive, tint: "from-[#7c3aed] to-[#a855f7]" },
+    { label: "Delivered", value: deliveredCount, icon: FiMail, tint: "from-[#0e9f6e] to-[#34d399]" },
+    { label: "Delivered revenue", value: formatINR(totalRevenue), icon: FiBarChart2, tint: "from-[#f59e0b] to-[#fbbf24]" },
+  ];
+  return <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(({ label, value, icon: IconComp, tint }) => (
+    <article className="group relative overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(15,76,129,.7)]" key={label}>
+      <div className="flex items-start justify-between">
+        <p className="text-xs font-bold text-[#64748b]">{label}</p>
+        <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${tint} text-white shadow-sm`}><IconComp /></span>
+      </div>
+      <p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-[9px] font-black tracking-[.11em] text-[#0f4c81]"><span className="h-1.5 w-1.5 rounded-full bg-[#0e9f6e]" /> LIVE DATABASE</p>
+    </article>
+  ))}</div><div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><div className="flex items-center justify-between"><div><h2 className="font-black">Checkout requests</h2><p className="mt-1 text-xs text-[#64748b]">Last seven days</p></div><FiBarChart2 className="text-[#0f4c81]" /></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={charts}><XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #dbe2ec", borderRadius: 10 }} cursor={{ fill: "#0f4c8114" }} /><Bar dataKey="requests" fill="#0f4c81" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></section><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p><h2 className="mt-3 text-xl font-black">Storefront status</h2><div className="mt-6 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Payment gateway", "Maintenance"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div></section></div></div>;
 }
 
 function CategoryWorkspace({ categories, products, create, update, remove }: { categories: Category[]; products: Product[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
@@ -723,6 +786,8 @@ function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: strin
   const [whatsapp, setWhatsapp] = useState(existing("whatsapp_number", "7737073654"));
   const [hero, setHero] = useState(existing("homepage_headline", "PLAY WITHOUT THE GRIND."));
   const [logo, setLogo] = useState(existing("logo_url", ""));
+  // Favicon is a SEPARATE image from the logo (browser tab icon).
+  const [favicon, setFavicon] = useState(existing("favicon_url", ""));
   const [instagram, setInstagram] = useState(existing("instagram_url", ""));
   const [youtube, setYoutube] = useState(existing("youtube_url", ""));
   const [featuredLabel, setFeaturedLabel] = useState(existing("featured_drop_label", "FEATURED DROP"));
@@ -734,7 +799,25 @@ function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: strin
   const upiPreview = `upi://pay?pa=${encodeURIComponent(upiId || "battlegroundstore@upi")}&pn=${encodeURIComponent("Battleground Mobile India Store")}&am=100&cu=INR`;
   const qrPreview = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiPreview)}`;
   return <div className="grid gap-5 xl:grid-cols-2">
-    <section className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiLayout} title="Homepage & contact" copy="Public headline, WhatsApp & socials. Change reflects instantly on site." /><div className="mt-5 grid gap-3"><input value={hero} onChange={(e) => setHero(e.target.value)} className="admin-input" placeholder="Homepage headline" /><input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="admin-input" placeholder="WhatsApp number (10-digit)" /><ImageInput value={logo} onChange={setLogo} label="LOGO IMAGE (site logo + favicon dono yahi se)" placeholder="Logo URL or upload logo" /><input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="admin-input" placeholder="Instagram URL" /><input value={youtube} onChange={(e) => setYoutube(e.target.value)} className="admin-input" placeholder="YouTube URL" /><button onClick={() => { save("homepage_headline", hero); save("whatsapp_number", whatsapp); save("logo_url", logo); save("instagram_url", instagram); save("youtube_url", youtube); }} className="admin-primary"><FiSettings /> SAVE PUBLIC SETTINGS</button></div></section>
+    <section className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiLayout} title="Homepage & contact" copy="Public headline, WhatsApp & socials. Change reflects instantly on site." /><div className="mt-5 grid gap-3"><input value={hero} onChange={(e) => setHero(e.target.value)} className="admin-input" placeholder="Homepage headline" /><input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="admin-input" placeholder="WhatsApp number (10-digit)" /><ImageInput value={logo} onChange={setLogo} label="SITE LOGO (header + footer) — PNG transparency supported" placeholder="Logo URL or upload a PNG/JPG logo" transparent square maxDimension={512} /><input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="admin-input" placeholder="Instagram URL" /><input value={youtube} onChange={(e) => setYoutube(e.target.value)} className="admin-input" placeholder="YouTube URL" /><button onClick={() => { save("homepage_headline", hero); save("whatsapp_number", whatsapp); save("logo_url", logo); save("instagram_url", instagram); save("youtube_url", youtube); }} className="admin-primary"><FiSettings /> SAVE PUBLIC SETTINGS</button></div></section>
+    <section className="rounded-xl border border-[#e5e8ef] bg-white p-6">
+      <PanelTitle icon={FiStar} title="Browser favicon (separate from logo)" copy="Tab icon alag image se set hota hai — logo se independent. Square PNG (512x512 ya 256x256) best rehta hai, transparency bhi support hai." />
+      <div className="mt-5 grid gap-3">
+        <ImageInput value={favicon} onChange={setFavicon} label="FAVICON IMAGE (PNG / JPG / SVG)" placeholder="Favicon URL or upload a PNG" transparent square maxDimension={256} />
+        <div className="flex items-center gap-3 rounded-lg border border-[#e5e8ef] bg-[#f8fafc] p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={favicon || "/api/favicon"} alt="Favicon preview" className="h-8 w-8 rounded border border-[#e5e8ef] bg-white object-contain p-0.5" />
+          <p className="text-[11px] leading-4 text-[#64748b]">
+            {favicon ? "Yeh image browser tab me dikhegi." : "Abhi koi alag favicon set nahi hai — fallback me site logo use ho raha hai."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => save("favicon_url", favicon)} className="admin-primary"><FiSettings /> SAVE FAVICON</button>
+          {favicon && <button onClick={() => { setFavicon(""); save("favicon_url", ""); }} className="rounded-lg border border-[#dbe2ec] px-4 py-3 text-[10px] font-black text-[#64748b] hover:text-[#0f172a]">RESET TO LOGO</button>}
+        </div>
+        <p className="text-[10px] leading-4 text-[#94a3b8]">Tip: favicon update karne ke baad browser tab ko hard-refresh karein (Ctrl+Shift+R) — browsers icon 5 min cache karte hain.</p>
+      </div>
+    </section>
     <section className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiImage} title="Featured Drop (hero card)" copy="Homepage hero image ke upar wala badge — label, title aur image yahi se change hote hain." /><div className="mt-5 grid gap-3"><label className="grid gap-2 text-[10px] font-black tracking-wide text-[#64748b]">SMALL LABEL <span className="font-normal normal-case tracking-normal text-[#94a3b8]">(default: FEATURED DROP)</span><input value={featuredLabel} onChange={(e) => setFeaturedLabel(e.target.value)} className="admin-input" placeholder="FEATURED DROP" /></label><label className="grid gap-2 text-[10px] font-black tracking-wide text-[#64748b]">BIG TITLE <span className="font-normal normal-case tracking-normal text-[#94a3b8]">(default: ELITE INVENTORY)</span><input value={featuredTitle} onChange={(e) => setFeaturedTitle(e.target.value)} className="admin-input" placeholder="ELITE INVENTORY" /></label><ImageInput value={featuredImage} onChange={setFeaturedImage} label="HERO IMAGE (khaali chhoda to pehli category ki image dikhegi)" placeholder="Image URL or upload image" /><button onClick={() => { save("featured_drop_label", featuredLabel); save("featured_drop_title", featuredTitle); save("featured_drop_image", featuredImage); }} className="admin-primary"><FiSettings /> SAVE FEATURED DROP</button></div></section>
     <section className="rounded-xl border border-[#cfe3f7] bg-gradient-to-br from-[#f3f8fe] to-white p-6">
       <PanelTitle icon={FiGift} title="Payment & Checkout Control" copy="Control Checkout button behaviour & UPI QR. Premium glassmorphism panel." />
@@ -769,18 +852,35 @@ function ListHeader({ title, count }: { title: string; count: number }) { return
 function Empty({ text }: { text: string }) { return <p className="p-9 text-center text-sm text-[#64748b]">{text}</p>; }
 function Action({ onClick, label, icon: Icon, danger }: { onClick: () => void; label: string; icon: typeof FiTrash2; danger?: boolean }) { return <button onClick={onClick} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-black ${danger ? "border-red-200 text-red-600" : "border-[#dbe2ec] text-[#64748b]"}`}><Icon />{label}</button>; }
 
-function FeedbacksManager({ create, update, remove }: { create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
-  type FeedbackItem = { id: string; name: string; review: string; rating: number; avatar?: string | null; isActive?: boolean };
+function FeedbacksManager({ create, update, remove, onCountsChange }: { create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete; onCountsChange?: (pending: number) => void }) {
+  type FeedbackItem = {
+    id: string;
+    name: string;
+    review: string;
+    rating: number;
+    avatar?: string | null;
+    isActive?: boolean;
+    status?: string;
+    submittedByEmail?: string | null;
+    createdAt?: string;
+  };
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [tab, setTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const empty = { name: "", review: "", rating: "5", avatar: "" };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadFeedbacks = async () => {
     try {
       const res = await fetch("/api/admin/feedbacks", { cache: "no-store", credentials: "same-origin" });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.feedbacks) setFeedbacks(data.feedbacks);
+      if (res.ok && data?.feedbacks) {
+        setFeedbacks(data.feedbacks);
+        onCountsChange?.(
+          (data.feedbacks as FeedbackItem[]).filter((item) => (item.status ?? "approved") === "pending").length,
+        );
+      }
     } catch {}
   };
 
@@ -797,15 +897,46 @@ function FeedbacksManager({ create, update, remove }: { create: CatalogMutation;
     if (res.ok) { setForm(empty); setEditingId(null); await loadFeedbacks(); }
   };
 
+  /** Accept (show on site) / Deny (keep hidden) a player-submitted review. */
+  const moderate = async (id: string, status: "approved" | "rejected" | "pending") => {
+    setBusyId(id);
+    try {
+      await fetch("/api/admin/feedbacks", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      await loadFeedbacks();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const startEdit = (f: FeedbackItem) => {
     setEditingId(f.id);
     setForm({ name: f.name, review: f.review, rating: String(f.rating ?? 5), avatar: f.avatar ?? "" });
   };
 
+  const statusOf = (f: FeedbackItem) => (f.status ?? "approved") as "pending" | "approved" | "rejected";
+  const counts = {
+    pending: feedbacks.filter((f) => statusOf(f) === "pending").length,
+    approved: feedbacks.filter((f) => statusOf(f) === "approved").length,
+    rejected: feedbacks.filter((f) => statusOf(f) === "rejected").length,
+    all: feedbacks.length,
+  };
+  const visible = tab === "all" ? feedbacks : feedbacks.filter((f) => statusOf(f) === tab);
+
+  const STATUS_STYLE: Record<string, string> = {
+    pending: "border-amber-200 bg-amber-50 text-amber-700",
+    approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    rejected: "border-red-200 bg-red-50 text-red-600",
+  };
+
   return (
     <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]">
       <section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5">
-        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit Feedback" : "Add Player Feedback"} copy="Add/edit player reviews shown on the homepage." />
+        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit Feedback" : "Add Player Feedback"} copy="Yahan se khud review add karein (turant live). Players ke submit kiye reviews right side me approval ke liye aate hain." />
         <div className="mt-5 grid gap-3">
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Player name" className="admin-input" />
           <textarea value={form.review} onChange={(e) => setForm({ ...form, review: e.target.value })} placeholder="Review / comment" rows={4} className="admin-input resize-none py-3" style={{ height: "auto" }} />
@@ -816,25 +947,80 @@ function FeedbacksManager({ create, update, remove }: { create: CatalogMutation;
           <button onClick={submit} className="admin-primary">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "UPDATE FEEDBACK" : "ADD FEEDBACK"}</button>
           {editingId && <button onClick={() => { setEditingId(null); setForm(empty); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL</button>}
         </div>
+
+        {counts.pending > 0 && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-4 text-amber-700">
+            <FiAlertCircle className="mt-0.5 shrink-0 text-sm" />
+            {counts.pending} naya review approval ka wait kar raha hai. Accept karte hi website par live ho jayega.
+          </div>
+        )}
       </section>
 
       <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
-        <ListHeader title="Player Feedbacks" count={feedbacks.length} />
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#e5e8ef] p-4">
+          <h2 className="mr-auto font-black text-[#0f172a]">Player Feedbacks</h2>
+          {([["pending", "Pending"], ["approved", "Live"], ["rejected", "Denied"], ["all", "All"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-full border px-3 py-1.5 text-[10px] font-black transition ${
+                tab === key ? "border-[#0f4c81] bg-[#0f4c81] text-white" : "border-[#dbe2ec] bg-white text-[#64748b] hover:text-[#0f172a]"
+              }`}
+            >
+              {label} ({counts[key]})
+            </button>
+          ))}
+        </div>
         <div className="divide-y divide-[#e5e8ef]">
-          {feedbacks.length ? feedbacks.map((f) => (
-            <div className="flex gap-3 p-4" key={f.id}>
-              {f.avatar && <img src={f.avatar} alt={f.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />}
-              <div className="min-w-0 grow">
-                <div className="flex items-center gap-2"><p className="font-black text-sm text-[#0f172a]">{f.name}</p><span className="text-[#0f4c81]">★{f.rating}</span></div>
-                <p className="mt-1 text-xs text-[#64748b] line-clamp-2">{f.review}</p>
-                <div className="mt-2 flex gap-2">
-                  <Action onClick={() => startEdit(f)} label="Edit" icon={FiEdit3} />
-                  <Action onClick={async () => { await fetch("/api/admin/feedbacks", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: f.id, name: f.name, review: f.review, rating: f.rating, avatar: f.avatar ?? null, isActive: f.isActive === false }) }); await loadFeedbacks(); }} label={f.isActive === false ? "Enable" : "Disable"} icon={FiSettings} />
-                  <Action onClick={async () => { if (!confirm("Delete feedback permanently?")) return; await fetch("/api/admin/feedbacks", { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: f.id }) }); await loadFeedbacks(); }} label="Delete" icon={FiTrash2} danger />
+          {visible.length ? visible.map((f) => {
+            const status = statusOf(f);
+            return (
+              <div className="flex gap-3 p-4" key={f.id}>
+                {f.avatar
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={f.avatar} alt={f.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                  : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#e0eefb] text-sm font-black text-[#0f4c81]">{f.name?.[0]?.toUpperCase() ?? "?"}</span>}
+                <div className="min-w-0 grow">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-black text-[#0f172a]">{f.name}</p>
+                    <span className="text-[#f4b400]">{"★".repeat(Math.max(1, Math.min(5, f.rating || 5)))}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${STATUS_STYLE[status]}`}>{status}</span>
+                    {f.isActive === false && <span className="rounded-full border border-[#dbe2ec] px-2 py-0.5 text-[9px] font-black text-[#64748b]">HIDDEN</span>}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-[#64748b]">{f.review}</p>
+                  {(f.submittedByEmail || f.createdAt) && (
+                    <p className="mt-1 text-[10px] font-semibold text-[#94a3b8]">
+                      {f.submittedByEmail ? `Submitted by ${f.submittedByEmail}` : "Added by admin"}
+                      {f.createdAt ? ` · ${new Date(f.createdAt).toLocaleString("en-IN")}` : ""}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {status !== "approved" && (
+                      <button
+                        disabled={busyId === f.id}
+                        onClick={() => moderate(f.id, "approved")}
+                        className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700 disabled:opacity-50"
+                      >
+                        <FiThumbsUp /> ACCEPT &amp; SHOW
+                      </button>
+                    )}
+                    {status !== "rejected" && (
+                      <button
+                        disabled={busyId === f.id}
+                        onClick={() => moderate(f.id, "rejected")}
+                        className="inline-flex items-center gap-1 rounded border border-red-200 bg-red-50 px-2.5 py-1 text-[9px] font-black text-red-600 disabled:opacity-50"
+                      >
+                        <FiThumbsDown /> DENY
+                      </button>
+                    )}
+                    <Action onClick={() => startEdit(f)} label="Edit" icon={FiEdit3} />
+                    <Action onClick={async () => { await fetch("/api/admin/feedbacks", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: f.id, isActive: f.isActive === false }) }); await loadFeedbacks(); }} label={f.isActive === false ? "Enable" : "Disable"} icon={FiSettings} />
+                    <Action onClick={async () => { if (!confirm("Delete feedback permanently?")) return; await fetch("/api/admin/feedbacks", { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: f.id }) }); await loadFeedbacks(); }} label="Delete" icon={FiTrash2} danger />
+                  </div>
                 </div>
               </div>
-            </div>
-          )) : <Empty text="No feedbacks yet." />}
+            );
+          }) : <Empty text={tab === "pending" ? "No reviews waiting for approval." : "Nothing here yet."} />}
         </div>
       </section>
     </div>

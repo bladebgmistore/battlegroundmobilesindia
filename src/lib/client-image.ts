@@ -44,7 +44,15 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 
 export async function compressImageFile(
   file: File,
-  options?: { targetBytes?: number; maxDimension?: number },
+  options?: {
+    targetBytes?: number;
+    maxDimension?: number;
+    /**
+     * Keep the alpha channel (no white background, PNG output).
+     * Use for logos / favicons where transparency must survive.
+     */
+    preserveTransparency?: boolean;
+  },
 ): Promise<CompressedImage> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Please select an image file (PNG, JPG or WEBP).");
@@ -52,6 +60,21 @@ export async function compressImageFile(
 
   const targetBytes = options?.targetBytes ?? TARGET_BYTES;
   const maxDimension = options?.maxDimension ?? MAX_DIMENSION;
+  // Transparent sources (PNG / WEBP / SVG) are kept as PNG so logos and
+  // favicons do not get a white box behind them.
+  const keepAlpha =
+    options?.preserveTransparency ?? /png|webp|svg|gif/i.test(file.type);
+
+  // SVG is already tiny and resolution independent — store it as-is.
+  if (file.type === "image/svg+xml") {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Could not read the selected image."));
+      reader.readAsDataURL(file);
+    });
+    return { dataUrl, bytes: dataUrlBytes(dataUrl), width: 0, height: 0 };
+  }
 
   const image = await loadImage(file);
 
@@ -65,30 +88,38 @@ export async function compressImageFile(
   canvas.height = height;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Image processing is not supported in this browser.");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
+  if (!keepAlpha) {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+  }
   context.drawImage(image, 0, 0, width, height);
 
-  // Iteratively lower JPEG quality (and dimensions if needed) until we are
-  // comfortably under the target payload size.
-  let quality = 0.86;
-  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+  const mimeType = keepAlpha ? "image/png" : "image/jpeg";
 
-  while (dataUrlBytes(dataUrl) > targetBytes && quality > MIN_QUALITY) {
+  // Iteratively lower JPEG quality (and dimensions if needed) until we are
+  // comfortably under the target payload size. PNG ignores the quality
+  // argument, so for transparent images only the resize loop applies.
+  let quality = 0.86;
+  let dataUrl = canvas.toDataURL(mimeType, quality);
+
+  while (!keepAlpha && dataUrlBytes(dataUrl) > targetBytes && quality > MIN_QUALITY) {
     quality = Math.max(MIN_QUALITY, quality - 0.12);
-    dataUrl = canvas.toDataURL("image/jpeg", quality);
+    dataUrl = canvas.toDataURL(mimeType, quality);
   }
 
   // Last resort: shrink dimensions until it fits.
-  while (dataUrlBytes(dataUrl) > targetBytes && canvas.width > 480) {
+  const minWidth = keepAlpha ? 64 : 480;
+  while (dataUrlBytes(dataUrl) > targetBytes && canvas.width > minWidth) {
     canvas.width = Math.round(canvas.width * 0.8);
     canvas.height = Math.round(canvas.height * 0.8);
     const ctx = canvas.getContext("2d");
     if (!ctx) break;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!keepAlpha) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    dataUrl = canvas.toDataURL("image/jpeg", quality);
+    dataUrl = canvas.toDataURL(mimeType, quality);
   }
 
   return {

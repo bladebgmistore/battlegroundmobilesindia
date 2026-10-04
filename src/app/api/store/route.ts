@@ -21,6 +21,7 @@ const PUBLIC_SETTING_KEYS = [
   "maintenance_mode",
   "homepage_headline",
   "logo_url",
+  "favicon_url",
   "upi_id",
   "checkout_mode",
   "featured_drop_label",

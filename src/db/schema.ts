@@ -172,6 +172,27 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Owner-managed team for the /admin area.
+ * Each row grants one Google account an admin / manager / moderator role.
+ * Owners are never stored here — the owner role always comes from the
+ * OWNER_EMAIL environment variable (see src/lib/auth-config.ts).
+ */
+export const staffMembers = pgTable("staff_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Google account email of the staff member (lowercase, unique). */
+  email: varchar("email", { length: 180 }).notNull().unique(),
+  /** Optional display name (the Google name is used once they sign in). */
+  name: varchar("name", { length: 120 }),
+  /** admin | manager | moderator — see src/lib/rbac.ts */
+  role: varchar("role", { length: 20 }).notNull().default("moderator"),
+  isActive: boolean("is_active").notNull().default(true),
+  /** Email of the owner who granted access. */
+  addedBy: varchar("added_by", { length: 180 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** @deprecated Stateful customer sessions — replaced by the signed session cookie. */
 export const userSessions = pgTable("user_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),

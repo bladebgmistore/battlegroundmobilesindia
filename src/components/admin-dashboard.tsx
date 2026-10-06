@@ -3,43 +3,85 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiAlertCircle, FiActivity, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import VisitorLogsPanel from "@/components/admin-visitor-logs";
 import AdminUsersPanel from "@/components/admin-users-panel";
+import AdminTeamPanel from "@/components/admin-team-panel";
+import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
 type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "feedbacks" | "coupons" | "orders" | "messages" | "visitors" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
 type CatalogDelete = (entity: string, id: string) => Promise<boolean>;
 
-const menu: { view: View; label: string; icon: typeof FiBox }[] = [
-  { view: "overview", label: "Overview", icon: FiBarChart2 },
-  { view: "accounts", label: "Accounts", icon: FiBox },
-  { view: "uc", label: "UC Packages", icon: FiPackage },
-  { view: "super-cars", label: "Super Cars", icon: FiBox },
-  { view: "x-suits", label: "X-Suits", icon: FiShield },
-  { view: "categories", label: "Categories", icon: FiFolder },
-  { view: "feedbacks", label: "Feedbacks", icon: FiMail },
-  { view: "coupons", label: "Coupons", icon: FiGift },
-  { view: "orders", label: "Orders", icon: FiArchive },
-  { view: "messages", label: "Messages", icon: FiMail },
-  { view: "visitors", label: "Visitor Logs", icon: FiActivity },
-  { view: "site", label: "Site Controls", icon: FiSliders },
-  { view: "team", label: "Users & Access", icon: FiUsers },
+type MenuItem = { view: View; label: string; icon: typeof FiBox; scope: AdminScope };
+type MenuSection = { name: string; items: MenuItem[] };
+
+/**
+ * Systematic, sectioned workspace — each item maps to an RBAC scope, so a
+ * staff member only ever sees the sections their role can actually use
+ * (the APIs enforce the same scopes server-side).
+ */
+const MENU: MenuSection[] = [
+  {
+    name: "Main",
+    items: [{ view: "overview", label: "Overview", icon: FiHome, scope: "overview" }],
+  },
+  {
+    name: "Catalog",
+    items: [
+      { view: "accounts", label: "Accounts", icon: FiBox, scope: "catalog" },
+      { view: "uc", label: "UC Packages", icon: FiPackage, scope: "catalog" },
+      { view: "super-cars", label: "Super Cars", icon: FiBox, scope: "catalog" },
+      { view: "x-suits", label: "X-Suits", icon: FiShield, scope: "catalog" },
+      { view: "categories", label: "Categories", icon: FiFolder, scope: "catalog" },
+      { view: "coupons", label: "Coupons", icon: FiGift, scope: "catalog" },
+    ],
+  },
+  {
+    name: "Operations",
+    items: [
+      { view: "orders", label: "Orders", icon: FiArchive, scope: "orders" },
+      { view: "messages", label: "Messages", icon: FiMail, scope: "messages" },
+      { view: "feedbacks", label: "Feedbacks", icon: FiStar, scope: "feedbacks" },
+    ],
+  },
+  {
+    name: "Insights",
+    items: [
+      { view: "visitors", label: "Visitor Logs", icon: FiActivity, scope: "logs" },
+      { view: "users", label: "Users", icon: FiUsers, scope: "users" },
+    ],
+  },
+  {
+    name: "Settings",
+    items: [
+      { view: "site", label: "Site Controls", icon: FiSliders, scope: "site" },
+      { view: "team", label: "Team & Roles", icon: FiUserPlus, scope: "team" },
+    ],
+  },
 ];
 
+const ORDER_STATUS_STYLE: Record<string, string> = {
+  awaiting_contact: "bg-amber-50 text-amber-700 border-amber-200",
+  payment_review: "bg-sky-50 text-sky-700 border-sky-200",
+  payment_confirmed: "bg-violet-50 text-violet-700 border-violet-200",
+  delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-600 border-red-200",
+};
+
 export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
-  const [view, setView] = useState<View>("overview");
+  const [requestedView, setView] = useState<View>("overview");
   const [drawer, setDrawer] = useState(false);
   const [session] = useState<SessionInfo | null>(owner);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -57,6 +99,27 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const { settings: publicSettings } = useStoreSettings();
   const logoSrc = publicSettings.logo_url || images.logo;
 
+  const role = session?.role ?? "customer";
+  const roleMeta = ROLE_META[role] ?? ROLE_META.customer;
+
+  /** Sections visible to this role — scope filtered. */
+  const visibleMenu = useMemo(
+    () =>
+      MENU.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => roleHasScope(role, item.scope)),
+      })).filter((section) => section.items.length > 0),
+    [role],
+  );
+  const flatItems = useMemo(() => visibleMenu.flatMap((section) => section.items), [visibleMenu]);
+  // If the role can't open the requested view (e.g. just demoted), the first
+  // permitted view is shown instead — derived, so no sync effect is needed.
+  const view: View = flatItems.some((item) => item.view === requestedView)
+    ? requestedView
+    : (flatItems[0]?.view ?? "overview");
+  const activeItem = flatItems.find((item) => item.view === view) ?? flatItems[0];
+  const activeSection = visibleMenu.find((section) => section.items.some((item) => item.view === activeItem?.view));
+
   const load = async () => {
     const safeJson = async (url: string) => {
       try {
@@ -69,23 +132,26 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     };
 
     try {
+      // Only boot-load the datasets this role can use — moderators, for
+      // example, never hit the catalog or orders endpoints.
+      const can = (scope: AdminScope) => roleHasScope(role, scope);
       const [cat, ord, mgmt, fb] = await Promise.all([
-        safeJson("/api/admin/catalog"),
-        safeJson("/api/orders"),
-        safeJson("/api/admin/management"),
-        safeJson("/api/admin/feedbacks"),
+        can("catalog") ? safeJson("/api/admin/catalog") : Promise.resolve("skip"),
+        can("orders") ? safeJson("/api/orders") : Promise.resolve("skip"),
+        can("messages") ? safeJson("/api/admin/management") : Promise.resolve("skip"),
+        can("feedbacks") ? safeJson("/api/admin/feedbacks") : Promise.resolve("skip"),
       ]);
 
-      setDatabaseError(cat ? "" : "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables.");
-      setCategories(cat?.categories ?? []);
-      setProducts(cat?.products ?? []);
-      setPacks(cat?.ucPackages ?? []);
-      setCoupons(cat?.coupons ?? []);
-      setOrders(ord?.orders ?? []);
-      setMessages(mgmt?.messages ?? []);
-      setSettings(mgmt?.settings ?? []);
+      setDatabaseError(cat === null ? "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables." : "");
+      setCategories(cat && cat !== "skip" ? cat.categories ?? [] : []);
+      setProducts(cat && cat !== "skip" ? cat.products ?? [] : []);
+      setPacks(cat && cat !== "skip" ? cat.ucPackages ?? [] : []);
+      setCoupons(cat && cat !== "skip" ? cat.coupons ?? [] : []);
+      setOrders(ord && ord !== "skip" ? ord.orders ?? [] : []);
+      setMessages(mgmt && mgmt !== "skip" ? mgmt.messages ?? [] : []);
+      setSettings(mgmt && mgmt !== "skip" ? mgmt.settings ?? [] : []);
       // Pending review badge in the sidebar.
-      setPendingFeedbacks(Number(fb?.counts?.pending ?? 0));
+      setPendingFeedbacks(Number(fb && fb !== "skip" ? fb?.counts?.pending ?? 0 : 0));
     } finally {
       setLoading(false);
     }
@@ -203,6 +269,20 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     else toast((await r.json().catch(() => null))?.error ?? "Could not save site setting.");
   };
 
+  const unread = messages.filter((m) => !m.isRead).length;
+  const pendingOrders = useMemo(
+    () => orders.filter((o) => o.status === "awaiting_contact" || o.status === "payment_review").length,
+    [orders],
+  );
+
+  /** Live badge count shown beside a menu item. */
+  const badgeFor = (itemView: View): number => {
+    if (itemView === "messages") return unread;
+    if (itemView === "feedbacks") return pendingFeedbacks;
+    if (itemView === "orders") return pendingOrders;
+    return 0;
+  };
+
   const deliveredOrders = useMemo(() => orders.filter((o) => o.status === "delivered"), [orders]);
   const totalRevenue = useMemo(() => deliveredOrders.reduce((a, o) => a + o.amount, 0), [deliveredOrders]);
   const charts = useMemo(() => {
@@ -219,9 +299,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#eef1f6]"><div className="flex items-center gap-3 text-sm font-bold text-[#0f4c81]"><span className="h-3 w-3 animate-ping rounded-full bg-[#d9f657]" /> LOADING CONTROL CENTRE</div></main>;
 
-  const unread = messages.filter((m) => !m.isRead).length;
   const side = <>
-    <div className="flex h-[86px] items-center gap-3 border-b border-[#e5e8ef] bg-gradient-to-r from-[#0f4c81] to-[#1b6fb0] px-5">
+    <div className="flex h-[86px] shrink-0 items-center gap-3 border-b border-[#e5e8ef] bg-gradient-to-r from-[#0f4c81] to-[#1b6fb0] px-5">
       {/* Website logo — managed from Site Controls */}
       <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/30 bg-white shadow-sm">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -234,33 +313,59 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       </div>
       <button onClick={() => setDrawer(false)} className="ml-auto text-white/80 lg:hidden"><FiX /></button>
     </div>
-    <nav className="flex-1 space-y-1 p-3">
-      {menu.map(({ view: itemView, label, icon: Icon }) => {
-        const active = view === itemView;
-        const badge = itemView === "messages" ? unread : itemView === "feedbacks" ? pendingFeedbacks : 0;
-        return (
-          <button
-            key={itemView}
-            onClick={() => { setView(itemView); setDrawer(false); }}
-            className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
-              active
-                ? "bg-gradient-to-r from-[#e0eefb] to-[#f3f8fe] text-[#0f4c81] shadow-[inset_3px_0_0_0_#0f4c81]"
-                : "text-[#475569] hover:bg-[#f4f7fb] hover:text-[#0f172a]"
-            }`}
-          >
-            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition ${active ? "bg-[#0f4c81] text-white" : "bg-[#f1f5fb] text-[#64748b] group-hover:text-[#0f4c81]"}`}>
-              <Icon className="text-sm" />
-            </span>
-            <span className="truncate">{label}</span>
-            {badge > 0 && (
-              <span className={`ml-auto rounded-full px-2 py-0.5 text-[9px] font-black text-white ${itemView === "feedbacks" ? "bg-[#f59e0b]" : "bg-[#0f4c81]"}`}>{badge}</span>
-            )}
-          </button>
-        );
-      })}
+
+    <nav className="flex-1 space-y-5 overflow-y-auto p-3">
+      {visibleMenu.map((section) => (
+        <div key={section.name}>
+          <p className="px-3 pb-2 text-[9px] font-black tracking-[.22em] text-[#94a3b8]">{section.name.toUpperCase()}</p>
+          <div className="space-y-1">
+            {section.items.map(({ view: itemView, label, icon: Icon }) => {
+              const active = view === itemView;
+              const badge = badgeFor(itemView);
+              return (
+                <button
+                  key={itemView}
+                  onClick={() => { setView(itemView); setDrawer(false); }}
+                  className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
+                    active
+                      ? "bg-gradient-to-r from-[#e0eefb] to-[#f3f8fe] text-[#0f4c81] shadow-[inset_3px_0_0_0_#0f4c81]"
+                      : "text-[#475569] hover:bg-[#f4f7fb] hover:text-[#0f172a]"
+                  }`}
+                >
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition ${active ? "bg-[#0f4c81] text-white" : "bg-[#f1f5fb] text-[#64748b] group-hover:text-[#0f4c81]"}`}>
+                    <Icon className="text-sm" />
+                  </span>
+                  <span className="truncate">{label}</span>
+                  {badge > 0 && (
+                    <span className={`ml-auto rounded-full px-2 py-0.5 text-[9px] font-black text-white ${itemView === "feedbacks" ? "bg-[#f59e0b]" : itemView === "orders" ? "bg-[#0e9f6e]" : "bg-[#0f4c81]"}`}>{badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
-    <div className="border-t border-[#e5e8ef] p-3">
-      <button onClick={signout} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-bold text-red-600/80 hover:bg-red-50">
+
+    {/* Signed-in identity + sign out */}
+    <div className="shrink-0 border-t border-[#e5e8ef] p-3">
+      <div className="mb-2 flex items-center gap-3 rounded-xl border border-[#eef1f6] bg-[#f8fafc] p-3">
+        {session?.picture ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={session.picture} alt="" referrerPolicy="no-referrer" className="h-9 w-9 shrink-0 rounded-full border border-white" />
+        ) : (
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0f4c81] text-xs font-black text-white">
+            {(session?.name ?? "U")[0]}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-xs font-black text-[#0f172a]">{session?.name ?? "User"}</p>
+          <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[8px] font-black tracking-[.1em] ${roleMeta.badge}`}>
+            {roleLabel(role).toUpperCase()}
+          </span>
+        </div>
+      </div>
+      <button onClick={signout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600/80 transition hover:bg-red-50">
         <FiLogOut /> Sign out
       </button>
     </div>
@@ -274,32 +379,33 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       <header className="sticky top-0 z-30 flex h-[86px] items-center justify-between border-b border-[#e5e8ef] bg-white/85 px-5 backdrop-blur-xl lg:px-8">
         <div className="flex items-center gap-3">
           <button onClick={() => setDrawer(true)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#e5e8ef] text-[#0f172a] lg:hidden"><FiMenu /></button>
-          {/* Website logo at the top of the dashboard (mobile + desktop) */}
+          {/* Website logo at the top of the dashboard (mobile) */}
           <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e3e9f2] bg-white shadow-sm lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoSrc} alt="Store logo" className="h-full w-full object-contain p-1" />
           </span>
           <div>
-            <p className="text-[10px] font-black tracking-[.16em] text-[#0f4c81]">ADMIN WORKSPACE</p>
-            <h1 className="text-lg font-black">{menu.find((x) => x.view === view)?.label}</h1>
+            {/* Breadcrumb: section / current workspace */}
+            <p className="flex items-center gap-1.5 text-[10px] font-black tracking-[.16em] text-[#94a3b8]">
+              {(activeSection?.name ?? "MAIN").toUpperCase()}
+              <FiChevronRight className="text-[9px]" />
+              <span className="text-[#0f4c81]">{(activeItem?.label ?? "Overview").toUpperCase()}</span>
+            </p>
+            <h1 className="mt-0.5 flex items-center gap-2 text-lg font-black">
+              {activeItem?.label ?? "Overview"}
+              <span className={`hidden rounded-md px-2 py-0.5 text-[9px] font-black tracking-[.08em] sm:inline-block ${roleMeta.badge}`}>
+                {roleLabel(role).toUpperCase()} ACCESS
+              </span>
+            </h1>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <a href="/" target="_blank" rel="noopener noreferrer" className="hidden items-center gap-2 rounded-lg border border-[#dbe2ec] px-3 py-2 text-[10px] font-black text-[#0f4c81] transition hover:bg-[#f1f5fb] md:inline-flex">
             <FiEye /> VIEW SITE
           </a>
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-black text-[#0f172a]">{session?.name ?? "Owner"}</p>
-            <p className="text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{(session?.role ?? "owner").toUpperCase()} · {session?.email}</p>
-          </div>
-          {session?.picture ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={session.picture} alt="" referrerPolicy="no-referrer" className="h-9 w-9 rounded-full border border-[#e0eefb]" />
-          ) : (
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e0eefb] font-black text-[#0f4c81]">
-              {(session?.name ?? "O")[0]}
-            </span>
-          )}
+          <button onClick={signout} title="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition hover:bg-red-50 hover:text-red-600">
+            <FiLogOut />
+          </button>
         </div>
       </header>
       <div className="p-5 lg:p-8">
@@ -309,7 +415,26 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
             {databaseError}
           </div>
         )}
-        {view === "overview" && <Overview accounts={products.filter(p => p.categorySlug === "accounts")} packs={packs} orders={orders} messages={messages} totalRevenue={totalRevenue} deliveredCount={deliveredOrders.length} charts={charts} />}
+        {role !== "owner" && (
+          <div className="mb-5 flex items-center gap-2 rounded-xl border border-[#cfe3f7] bg-[#f3f8fe] px-4 py-3 text-xs font-bold text-[#0f4c81]">
+            <FiShield className="shrink-0" /> You are signed in as {roleLabel(role)} — your workspace shows only the sections your role can manage.
+          </div>
+        )}
+        {view === "overview" && (
+          <Overview
+            role={role}
+            go={setView}
+            productsCount={products.length}
+            packsCount={packs.length}
+            orders={orders}
+            unreadMessages={unread}
+            pendingFeedbacks={pendingFeedbacks}
+            pendingOrders={pendingOrders}
+            totalRevenue={totalRevenue}
+            deliveredCount={deliveredOrders.length}
+            charts={charts}
+          />
+        )}
         {view === "accounts" && <ProductsManager heading="Accounts" fixedCategorySlug="accounts" products={products.filter(p => p.categorySlug === "accounts")} categories={categories} create={create} update={update} remove={remove} />}
         {view === "uc" && <UcManager packs={packs} create={create} update={update} remove={remove} />}
         {view === "super-cars" && <ProductsManager heading="Super Cars" fixedCategorySlug="super-cars" products={products.filter(p => p.categorySlug === "super-cars")} categories={categories} create={create} update={update} remove={remove} />}
@@ -321,29 +446,162 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
         {view === "visitors" && <VisitorLogsPanel />}
-        {view === "team" && <AdminUsersPanel ownerEmail={session?.email ?? ""} />}
+        {view === "users" && <AdminUsersPanel ownerEmail={session?.email ?? ""} />}
+        {view === "team" && <AdminTeamPanel ownerEmail={session?.email ?? ""} />}
       </div>
     </div>
   </main>;
 }
 
-function Overview({ accounts, packs, orders, messages, totalRevenue, deliveredCount, charts }: { accounts: Product[]; packs: UcPackageItem[]; orders: Order[]; messages: Message[]; totalRevenue: number; deliveredCount: number; charts: { day: string; requests: number }[] }) {
-  const stats: { label: string; value: string | number; icon: typeof FiBox; tint: string }[] = [
-    { label: "Catalog products", value: accounts.length + packs.length, icon: FiBox, tint: "from-[#0f4c81] to-[#1b6fb0]" },
-    { label: "Total orders", value: orders.length, icon: FiArchive, tint: "from-[#7c3aed] to-[#a855f7]" },
-    { label: "Delivered", value: deliveredCount, icon: FiMail, tint: "from-[#0e9f6e] to-[#34d399]" },
-    { label: "Delivered revenue", value: formatINR(totalRevenue), icon: FiBarChart2, tint: "from-[#f59e0b] to-[#fbbf24]" },
+/**
+ * Overview — the landing workspace. KPI cards first, then anything that
+ * needs action, then the weekly chart and the newest orders. Every shortcut
+ * is scope-checked so staff only jump to places they're allowed into.
+ */
+function Overview({ role, go, productsCount, packsCount, orders, unreadMessages, pendingFeedbacks, pendingOrders, totalRevenue, deliveredCount, charts }: {
+  role: string;
+  go: (view: View) => void;
+  productsCount: number;
+  packsCount: number;
+  orders: Order[];
+  unreadMessages: number;
+  pendingFeedbacks: number;
+  pendingOrders: number;
+  totalRevenue: number;
+  deliveredCount: number;
+  charts: { day: string; requests: number }[];
+}) {
+  const can = (scope: AdminScope) => roleHasScope(role, scope);
+  const todayCount = orders.filter((o) => new Date(o.createdAt).toDateString() === new Date().toDateString()).length;
+
+  const stats: { label: string; value: string | number; sub: string; icon: typeof FiBox; tint: string }[] = [
+    { label: "Delivered revenue", value: formatINR(totalRevenue), sub: `${deliveredCount} orders delivered`, icon: FiBarChart2, tint: "from-[#0e9f6e] to-[#34d399]" },
+    { label: "Total orders", value: orders.length, sub: `${todayCount} today`, icon: FiArchive, tint: "from-[#0f4c81] to-[#1b6fb0]" },
+    { label: "Live products", value: productsCount + packsCount, sub: `${productsCount} products · ${packsCount} UC packs`, icon: FiBox, tint: "from-[#7c3aed] to-[#a855f7]" },
+    { label: "Needs attention", value: pendingOrders + unreadMessages + pendingFeedbacks, sub: "orders · messages · reviews", icon: FiAlertCircle, tint: "from-[#f59e0b] to-[#fbbf24]" },
   ];
-  return <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(({ label, value, icon: IconComp, tint }) => (
-    <article className="group relative overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(15,76,129,.7)]" key={label}>
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-bold text-[#64748b]">{label}</p>
-        <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${tint} text-white shadow-sm`}><IconComp /></span>
+
+  const attention: { label: string; count: number; copy: string; view: View; scope: AdminScope; tint: string }[] = [
+    { label: "Pending orders", count: pendingOrders, copy: "Awaiting contact / payment review", view: "orders", scope: "orders", tint: "border-[#0e9f6e]/30 text-[#0e9f6e]" },
+    { label: "Unread messages", count: unreadMessages, copy: "Customer inbox replies", view: "messages", scope: "messages", tint: "border-[#0f4c81]/30 text-[#0f4c81]" },
+    { label: "Reviews to approve", count: pendingFeedbacks, copy: "Player feedbacks waiting", view: "feedbacks", scope: "feedbacks", tint: "border-[#f59e0b]/30 text-[#f59e0b]" },
+  ];
+  const visibleAttention = attention.filter((item) => can(item.scope) && item.count > 0);
+
+  const quickActions: { label: string; copy: string; view: View; scope: AdminScope; icon: typeof FiPlus }[] = [
+    { label: "Add account", copy: "List a new BGMI account deal", view: "accounts", scope: "catalog", icon: FiBox },
+    { label: "Add UC package", copy: "New UC top-up pack", view: "uc", scope: "catalog", icon: FiPackage },
+    { label: "Create coupon", copy: "Discount code for checkout", view: "coupons", scope: "catalog", icon: FiGift },
+    { label: "Site controls", copy: "UPI, logo, headline & more", view: "site", scope: "site", icon: FiSliders },
+    { label: "Team & roles", copy: "Add admins & moderators", view: "team", scope: "team", icon: FiUserPlus },
+  ];
+  const visibleQuickActions = quickActions.filter((item) => can(item.scope));
+
+  const recent = useMemo(() => orders.slice(0, 6), [orders]);
+
+  return (
+    <div className="space-y-5">
+      {/* KPI row */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map(({ label, value, sub, icon: IconComp, tint }) => (
+          <article className="group relative overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(15,76,129,.7)]" key={label}>
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-bold text-[#64748b]">{label}</p>
+              <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${tint} text-white shadow-sm`}><IconComp /></span>
+            </div>
+            <p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-[9px] font-black tracking-[.11em] text-[#0f4c81]"><span className="h-1.5 w-1.5 rounded-full bg-[#0e9f6e]" /> {sub.toUpperCase()}</p>
+          </article>
+        ))}
       </div>
-      <p className="mt-5 text-3xl font-black tracking-[-.05em] text-[#0f172a]">{value}</p>
-      <p className="mt-1 flex items-center gap-1.5 text-[9px] font-black tracking-[.11em] text-[#0f4c81]"><span className="h-1.5 w-1.5 rounded-full bg-[#0e9f6e]" /> LIVE DATABASE</p>
-    </article>
-  ))}</div><div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><div className="flex items-center justify-between"><div><h2 className="font-black">Checkout requests</h2><p className="mt-1 text-xs text-[#64748b]">Last seven days</p></div><FiBarChart2 className="text-[#0f4c81]" /></div><div className="mt-6 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={charts}><XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #dbe2ec", borderRadius: 10 }} cursor={{ fill: "#0f4c8114" }} /><Bar dataKey="requests" fill="#0f4c81" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></section><section className="rounded-xl border border-[#e5e8ef] bg-white p-5"><p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p><h2 className="mt-3 text-xl font-black">Storefront status</h2><div className="mt-6 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Payment gateway", "Maintenance"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div></section></div></div>;
+
+      {/* Action queue */}
+      {visibleAttention.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {visibleAttention.map(({ label, count, copy, view, tint }) => (
+            <button key={label} onClick={() => go(view)} className={`flex items-center gap-3 rounded-xl border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${tint}`}>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#f8fafc] text-lg font-black">{count}</span>
+              <span className="min-w-0">
+                <span className="block text-xs font-black text-[#0f172a]">{label}</span>
+                <span className="mt-0.5 block truncate text-[10px] font-bold text-[#64748b]">{copy}</span>
+              </span>
+              <FiChevronRight className="ml-auto shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
+        <section className="rounded-xl border border-[#e5e8ef] bg-white p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-black">Checkout requests</h2>
+              <p className="mt-1 text-xs text-[#64748b]">Last seven days</p>
+            </div>
+            <FiBarChart2 className="text-[#0f4c81]" />
+          </div>
+          <div className="mt-6 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts}><XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><YAxis allowDecimals={false} stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #dbe2ec", borderRadius: 10 }} cursor={{ fill: "#0f4c8114" }} /><Bar dataKey="requests" fill="#0f4c81" radius={[5, 5, 0, 0]} /></BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
+          <div className="flex items-center justify-between border-b border-[#e5e8ef] p-5">
+            <div>
+              <h2 className="font-black">Latest orders</h2>
+              <p className="mt-1 text-xs text-[#64748b]">Newest checkout requests</p>
+            </div>
+            {can("orders") && (
+              <button onClick={() => go("orders")} className="inline-flex items-center gap-1 text-[10px] font-black tracking-[.1em] text-[#0f4c81] hover:text-[#1b6fb0]">
+                VIEW ALL <FiChevronRight />
+              </button>
+            )}
+          </div>
+          {can("orders") ? (
+            <div className="divide-y divide-[#eef1f6]">
+              {recent.length ? recent.map((o) => (
+                <div key={o.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f1f5fb] text-[#0f4c81]"><FiClock className="text-sm" /></span>
+                  <div className="min-w-0 grow">
+                    <p className="truncate text-xs font-black text-[#0f172a]">{o.customerName} <span className="font-mono font-bold text-[#0f4c81]">· {o.orderCode}</span></p>
+                    <p className="mt-0.5 truncate text-[10px] text-[#64748b]">{o.productName}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-black text-[#0f172a]">{formatINR(o.amount)}</p>
+                    <span className={`mt-0.5 inline-block rounded-full border px-1.5 py-px text-[8px] font-black ${ORDER_STATUS_STYLE[o.status] ?? "bg-[#f1f5fb] text-[#64748b] border-[#dbe2ec]"}`}>{o.status.replaceAll("_", " ").toUpperCase()}</span>
+                  </div>
+                </div>
+              )) : <p className="p-9 text-center text-sm text-[#64748b]">No orders yet.</p>}
+            </div>
+          ) : (
+            <div className="p-6">
+              <p className="text-[10px] font-black tracking-[.15em] text-[#0f4c81]">OPERATIONS</p>
+              <h3 className="mt-3 text-lg font-black">Storefront status</h3>
+              <div className="mt-5 space-y-4">{[["Catalog API", "Operational"], ["Admin session", "Protected"], ["Support channel", "Online"]].map(([a, b]) => <div className="flex items-center justify-between border-b border-[#e5e8ef] pb-3 text-xs" key={a}><span className="text-[#64748b]">{a}</span><span className="font-bold text-[#0f4c81]">{b}</span></div>)}</div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Quick actions */}
+      {visibleQuickActions.length > 0 && (
+        <section>
+          <p className="mb-3 text-[10px] font-black tracking-[.18em] text-[#94a3b8]">QUICK ACTIONS</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {visibleQuickActions.map(({ label, copy, view, icon: Icon }) => (
+              <button key={label} onClick={() => go(view)} className="group rounded-xl border border-[#e5e8ef] bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-[#0f4c81]/40 hover:shadow-md">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#e0eefb] text-[#0f4c81] transition group-hover:bg-[#0f4c81] group-hover:text-white"><Icon /></span>
+                <span className="mt-3 block text-xs font-black text-[#0f172a]">{label}</span>
+                <span className="mt-0.5 block text-[10px] leading-4 text-[#64748b]">{copy}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
 
 function CategoryWorkspace({ categories, products, create, update, remove }: { categories: Category[]; products: Product[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {

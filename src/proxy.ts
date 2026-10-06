@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, isPublicPath } from "@/lib/auth-config";
+import { SESSION_COOKIE, isAdminAreaRole, isPublicPath } from "@/lib/auth-config";
 import { verifySession } from "@/lib/auth-session";
 
 /**
@@ -41,9 +41,11 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Owner-only area.
+  // Staff-only area (owner / admin / manager / moderator). The page guard
+  // and API routes re-verify the role against the database — this edge check
+  // is just the fast first gate on the signed cookie.
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (session.role !== "owner") {
+    if (!isAdminAreaRole(session.role)) {
       return NextResponse.redirect(new URL("/dashboard?error=forbidden", request.url));
     }
   }

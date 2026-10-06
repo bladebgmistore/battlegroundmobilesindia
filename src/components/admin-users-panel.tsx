@@ -23,9 +23,12 @@ const when = (value: string | null) => {
   }
 };
 
+import { ROLE_META } from "@/lib/rbac";
+
 /**
- * Access control panel: every Google account that has signed in, and which
- * one holds the owner role (configured via the OWNER_EMAIL env var).
+ * Users panel: every Google account that has signed in, with its current
+ * role (customer / moderator / manager / admin / owner).
+ * Staff roles are granted from the owner-only "Team & Roles" section.
  */
 export default function AdminUsersPanel({ ownerEmail }: { ownerEmail: string }) {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -57,9 +60,10 @@ export default function AdminUsersPanel({ ownerEmail }: { ownerEmail: string }) 
         </div>
         <h2 className="mt-3 text-xl font-black text-[#0f172a]">Google Sign-In only</h2>
         <p className="mt-2 max-w-2xl text-xs leading-5 text-[#64748b]">
-          Password logins have been removed. Every visitor must authenticate with Google, and the admin area is
-          restricted to the owner email below. To change the owner, update the <code className="rounded bg-[#f1f5fb] px-1">OWNER_EMAIL</code>{" "}
-          environment variable and redeploy — no database edit needed.
+          Password logins have been removed — every visitor signs in with Google. The owner below can add{" "}
+          <b>admins, managers and moderators</b> anytime from the <b>Team &amp; Roles</b> section (no redeploy needed).
+          The owner role itself comes from the <code className="rounded bg-[#f1f5fb] px-1">OWNER_EMAIL</code>{" "}
+          environment variable and can never be edited from the UI.
         </p>
         <p className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#e0eefb] px-3 py-2 text-xs font-black text-[#0f4c81]">
           OWNER: {ownerEmail}
@@ -108,10 +112,10 @@ export default function AdminUsersPanel({ ownerEmail }: { ownerEmail: string }) 
                     <td className="px-4 py-3">
                       <span
                         className={`rounded px-2 py-1 text-[10px] font-black ${
-                          user.role === "owner" ? "bg-[#0f4c81] text-white" : "bg-[#f1f5fb] text-[#64748b]"
+                          ROLE_META[user.role]?.badge ?? "bg-[#f1f5fb] text-[#64748b]"
                         }`}
                       >
-                        {user.role.toUpperCase()}
+                        {(ROLE_META[user.role]?.label ?? user.role).toUpperCase()}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#64748b]">{when(user.createdAt)}</td>

@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
+import { ROLE_OWNER, isAdminAreaRole, roleHasScope, type AdminScope } from "@/lib/rbac";
 import { verifySession, type SessionUser } from "@/lib/auth-session";
+import { effectiveRoleForEmail } from "@/lib/staff";
 
 export type { SessionUser };
 
@@ -25,10 +27,24 @@ export async function requireSession(nextPath = "/dashboard"): Promise<SessionUs
   return session;
 }
 
-/** Server Component guard for the owner-only admin area. */
-export async function requireOwner(nextPath = "/admin"): Promise<SessionUser> {
+/**
+ * Server Component guard for the staff admin area (/admin).
+ * Any admin-area role (owner / admin / manager / moderator) may pass, and the
+ * role is re-resolved from OWNER_EMAIL + staff_members so a suspended team
+ * member is bounced immediately.
+ */
+export async function requireAdminArea(nextPath = "/admin"): Promise<SessionUser> {
   const session = await requireSession(nextPath);
-  if (session.role !== "owner") redirect("/dashboard?error=forbidden");
+  if (!isAdminAreaRole(session.role)) redirect("/dashboard?error=forbidden");
+  const role = await effectiveRoleForEmail(session.email, session.role);
+  if (!isAdminAreaRole(role)) redirect("/dashboard?error=forbidden");
+  return { ...session, role };
+}
+
+/** Server Component guard for owner-only pages. */
+export async function requireOwner(nextPath = "/admin"): Promise<SessionUser> {
+  const session = await requireAdminArea(nextPath);
+  if (session.role !== ROLE_OWNER) redirect("/dashboard?error=forbidden");
   return session;
 }
 
@@ -40,10 +56,39 @@ export async function requireOwnerApi(
   if (!session) {
     return { session: null, error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
   }
-  if (session.role !== "owner") {
+  if (session.role !== ROLE_OWNER) {
     return { session: null, error: NextResponse.json({ error: "Owner access only." }, { status: 403 }) };
   }
-  return { session, error: null };
+  const role = await effectiveRoleForEmail(session.email, session.role);
+  if (role !== ROLE_OWNER) {
+    return { session: null, error: NextResponse.json({ error: "Owner access only." }, { status: 403 }) };
+  }
+  return { session: { ...session, role }, error: null };
+}
+
+/**
+ * Scope-based Route Handler guard for the staff endpoints.
+ * Re-resolves the role per request (instant revoke on suspension/removal).
+ */
+export async function requireScopeApi(
+  request: NextRequest,
+  scope: AdminScope,
+): Promise<{ session: SessionUser; error: null } | { session: null; error: NextResponse }> {
+  const session = await getSessionFromRequest(request);
+  if (!session) {
+    return { session: null, error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
+  }
+  if (!isAdminAreaRole(session.role)) {
+    return { session: null, error: NextResponse.json({ error: "Staff access only." }, { status: 403 }) };
+  }
+  const role = await effectiveRoleForEmail(session.email, session.role);
+  if (!roleHasScope(role, scope)) {
+    return {
+      session: null,
+      error: NextResponse.json({ error: `Your role does not allow the "${scope}" area.` }, { status: 403 }),
+    };
+  }
+  return { session: { ...session, role }, error: null };
 }
 
 export function isSecureRequest(request: NextRequest): boolean {

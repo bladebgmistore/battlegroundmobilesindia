@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
-import { roleForEmail } from "@/lib/auth-config";
+import { resolveLoginRole } from "@/lib/staff";
 import type { GoogleProfile } from "@/lib/google-oauth";
 
 export type AppUser = {
@@ -22,11 +22,12 @@ export type AppUser = {
  *
  * Matching order: google_id → email (so accounts created by the old
  * password login are adopted instead of duplicated).
- * The owner role is always recomputed from the email allow-list, so
- * promoting/demoting an owner is a pure env-var change.
+ * The role is recomputed on every sign-in: OWNER_EMAIL env → owner, an
+ * active staff_members row → admin/manager/moderator, otherwise customer.
+ * Promoting or removing staff therefore never needs a redeploy.
  */
 export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser> {
-  const role = roleForEmail(profile.email);
+  const role = await resolveLoginRole(profile.email);
   const fallback: AppUser = {
     id: profile.sub,
     googleId: profile.sub,

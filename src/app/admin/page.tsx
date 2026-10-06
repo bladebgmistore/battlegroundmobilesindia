@@ -1,5 +1,5 @@
 import AdminDashboard from "@/components/admin-dashboard";
-import { requireOwner } from "@/lib/auth";
+import { requireAdminArea } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +9,13 @@ export const metadata = {
 };
 
 /**
- * Owner-only admin area.
- * Access is granted purely by Google identity: `requireOwner()` redirects
- * anyone whose email is not in the OWNER_EMAIL allow-list.
+ * Staff admin area.
+ * Access is granted by Google identity: OWNER_EMAIL → owner, plus any active
+ * member of the staff_members table (admin / manager / moderator). Everyone
+ * else is redirected to their dashboard by `requireAdminArea()`.
  */
 export default async function Page() {
-  const session = await requireOwner("/admin");
+  const session = await requireAdminArea("/admin");
 
   return (
     <AdminDashboard

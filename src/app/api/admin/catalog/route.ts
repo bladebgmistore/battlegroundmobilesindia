@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { categories, coupons, products, ucPackages } from "@/db/schema";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requireAdminScope } from "@/lib/admin-auth";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
@@ -11,7 +11,8 @@ const jsonError = (message: string, status = 400) =>
   Response.json({ error: message }, { status });
 
 async function requireAdmin(request: NextRequest) {
-  return await getAdminSession(request);
+  // Catalog management: owner / admin / manager.
+  return await requireAdminScope(request, "catalog");
 }
 
 const normalizeSlug = (value: unknown) =>

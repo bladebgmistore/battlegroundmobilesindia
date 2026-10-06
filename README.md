@@ -31,12 +31,26 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Recent orders + quick links to the store
 - **Open Admin Panel** button for the owner account
 
-### Admin panel (`/admin`) — owner only
-- Access is granted by **email allow-list** (`OWNER_EMAIL`, default
-  `manavjeph800@gmail.com`); everyone else is bounced to `/dashboard`
+### Admin panel (`/admin`) — staff roles (owner / admin / manager / moderator)
+- The **owner** comes from the `OWNER_EMAIL` env allow-list (default
+  `manavjeph800@gmail.com`) and can never be edited from the UI
+- **Team & Roles** (owner only): add **admins, managers and moderators** by
+  their Google email — no redeploy, no password. They just sign in with
+  Google and the admin panel opens with their role's permissions. Suspend /
+  re-role / remove takes effect instantly
+- Role permissions (enforced in the UI *and* every admin API):
+  | Role | Can manage |
+  |---|---|
+  | `owner` | Everything, including Team & Roles |
+  | `admin` | Everything except Team & Roles |
+  | `manager` | Catalog, UC, coupons, orders, messages, feedbacks, users |
+  | `moderator` | Messages, feedback moderation, users |
+- The workspace is organised into sections: **Main** (Overview), **Catalog**,
+  **Operations**, **Insights** and **Settings** — staff only see what their
+  role unlocks
 - **Visitor Logs**: every page view with user email, IP address, page URL and
   timestamp, with search, pagination, CSV export, auto-refresh and purge
-- **Users & Access**: every Google account that has signed in
+- **Users**: every Google account that has signed in, with its current role
 - Manage Accounts (add / edit / delete / enable)
 - Manage UC packages
 - Manage Coupons (percent / flat, expiry, usage limit)
@@ -45,7 +59,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
 
 > Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
-> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**
+> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**
 
 ---
 
@@ -99,6 +113,7 @@ against the production database once.
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
 | `users` | Google accounts (name, email, `google_id`, avatar, role) |
+| `staff_members` | Team roles — email → admin / manager / moderator (managed from Admin → Team & Roles) |
 | `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
 | `user_sessions` / `admins` / `admin_sessions` / `password_resets` | Legacy, unused since Google Sign-In (kept so `drizzle-kit push` never drops them) |
 

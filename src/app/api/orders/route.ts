@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { coupons, orders } from "@/db/schema";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requireAdminScope } from "@/lib/admin-auth";
 import { getCurrentUser } from "@/lib/user-store";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     await ensureOrderColumns();
     const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
     const { id, status } = body;
@@ -182,7 +182,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id, ids } = await request.json();
     const selectedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : id ? [String(id)] : [];

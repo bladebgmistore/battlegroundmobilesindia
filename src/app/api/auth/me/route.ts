@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/user-store";
+import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export async function GET(request: NextRequest) {
       whatsapp: user.whatsapp,
       picture: user.avatarUrl,
       role: user.role,
-      isOwner: user.role === "owner",
+      isOwner: user.role === ROLE_OWNER,
+      adminAccess: isAdminAreaRole(user.role),
     },
   });
 }

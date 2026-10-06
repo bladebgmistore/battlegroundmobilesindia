@@ -1,5 +1,6 @@
 import UserDashboard from "@/components/user-dashboard";
 import { requireSession } from "@/lib/auth";
+import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
         email: session.email,
         picture: session.picture,
         role: session.role,
-        isOwner: session.role === "owner",
+        isOwner: session.role === ROLE_OWNER,
+        adminAccess: isAdminAreaRole(session.role),
       }}
       forbidden={error === "forbidden"}
     />

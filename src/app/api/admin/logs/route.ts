@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireOwnerApi } from "@/lib/auth";
+import { requireScopeApi } from "@/lib/auth";
 import { getLogStats, listSiteLogs, purgeLogsOlderThan } from "@/lib/site-logs";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Owner-only: paginated visitor logs + headline stats. */
+/** Owner/admin only: paginated visitor logs + headline stats. */
 export async function GET(request: NextRequest) {
-  const guard = await requireOwnerApi(request);
+  const guard = await requireScopeApi(request, "logs");
   if (guard.error) return guard.error;
 
   const params = request.nextUrl.searchParams;
@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ ok: true, logs, total, stats }, { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Owner-only housekeeping: `?days=30` keeps the last 30 days, `?days=0` wipes all. */
+/** Owner/admin housekeeping: `?days=30` keeps the last 30 days, `?days=0` wipes all. */
 export async function DELETE(request: NextRequest) {
-  const guard = await requireOwnerApi(request);
+  const guard = await requireScopeApi(request, "logs");
   if (guard.error) return guard.error;
 
   const days = Number(request.nextUrl.searchParams.get("days") ?? 30);

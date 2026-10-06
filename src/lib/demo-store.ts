@@ -1,6 +1,4 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 /**
  * Tiny file-backed demo store.
@@ -18,9 +16,18 @@ type StoreFile = Record<string, Record<string, unknown>>;
 let cache: StoreFile | null = null;
 let filePath: string | null = null;
 
+/**
+ * Resolve the demo-store file.
+ *
+ * A plain string is used (no `path.join(os.tmpdir(), …)`) on purpose: Turbopack
+ * traces filesystem calls at build time, and a dynamically computed path made
+ * it include the whole project in the serverless bundle ("unexpected file in
+ * NFT list" warning). `/tmp` is writable on Vercel/Netlify and on Linux/macOS
+ * dev machines; override with DEMO_STORE_FILE elsewhere (e.g. Windows).
+ */
 function getPath(): string {
   if (!filePath) {
-    filePath = process.env.DEMO_STORE_FILE ?? join(tmpdir(), "bgmi-demo-store.json");
+    filePath = process.env.DEMO_STORE_FILE ?? "/tmp/bgmi-demo-store.json";
   }
   return filePath;
 }
@@ -28,7 +35,7 @@ function getPath(): string {
 function load(): StoreFile {
   if (cache) return cache;
   try {
-    const raw = readFileSync(getPath(), "utf8");
+    const raw = readFileSync(/* turbopackIgnore: true */ getPath(), "utf8");
     const parsed = JSON.parse(raw) as StoreFile;
     cache = parsed;
   } catch {
@@ -39,7 +46,7 @@ function load(): StoreFile {
 
 function persist(): void {
   try {
-    writeFileSync(getPath(), JSON.stringify(cache ?? {}));
+    writeFileSync(/* turbopackIgnore: true */ getPath(), JSON.stringify(cache ?? {}));
   } catch {
     // Directory not writable or busy — the in-memory copy still works for the current process.
   }
@@ -82,5 +89,5 @@ export function demoClear(collection?: string): void {
 }
 
 export function hasDemoStoreFile(): boolean {
-  return existsSync(getPath());
+  return existsSync(/* turbopackIgnore: true */ getPath());
 }

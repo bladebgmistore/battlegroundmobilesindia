@@ -4,6 +4,18 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
+import { Suspense } from "react";
+import VisitTracker from "@/components/visit-tracker";
+
+/**
+ * Every route is request-scoped: the root layout reads live site settings from
+ * Neon (`cache: "no-store"`) and `src/proxy.ts` resolves the session per
+ * request. Forcing dynamic rendering here stops Next.js from trying to
+ * prerender pages at build time — which is what produced the noisy
+ * "DYNAMIC_SERVER_USAGE / Error connecting to database" logs during deploys.
+ * It cascades to every nested route, so individual pages don't need it.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://battlegroundmobileindiastore.netlify.app"),
@@ -34,8 +46,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
+          }}
+        />
+      </head>
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
+        <Suspense fallback={null}>
+          <VisitTracker />
+        </Suspense>
         <Analytics />
       </body>
     </html>

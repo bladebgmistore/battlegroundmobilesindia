@@ -138,6 +138,11 @@ export const siteSettings = pgTable("site_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * @deprecated Password-based admin logins were replaced by Google Sign-In
+ * (see src/lib/auth-config.ts → OWNER_EMAIL). The table is kept so existing
+ * databases are not dropped by `drizzle-kit push`; nothing reads it.
+ */
 export const admins = pgTable("admins", {
   id: uuid("id").defaultRandom().primaryKey(),
   username: varchar("username", { length: 80 }).notNull().unique(),
@@ -154,13 +159,20 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 180 }).unique(),
   whatsapp: varchar("whatsapp", { length: 24 }).unique(),
   name: varchar("name", { length: 120 }).notNull(),
-  passwordHash: text("password_hash").notNull(),
+  /** Google `sub` claim — the stable unique id of the Google account. */
+  googleId: varchar("google_id", { length: 64 }).unique(),
+  /** Google profile photo URL. */
+  avatarUrl: text("avatar_url"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  /** Legacy column: nullable now that Google is the only login method. */
+  passwordHash: text("password_hash"),
   role: varchar("role", { length: 20 }).notNull().default("customer"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** @deprecated Stateful customer sessions — replaced by the signed session cookie. */
 export const userSessions = pgTable("user_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   sessionToken: varchar("session_token", { length: 140 }).notNull().unique(),
@@ -169,6 +181,7 @@ export const userSessions = pgTable("user_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** @deprecated Password reset OTPs — unused since Google Sign-In. */
 export const passwordResets = pgTable("password_resets", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 180 }).notNull(),
@@ -179,6 +192,7 @@ export const passwordResets = pgTable("password_resets", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** @deprecated Legacy stateful admin sessions — unused since Google Sign-In. */
 export const adminSessions = pgTable("admin_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   sessionToken: varchar("session_token", { length: 100 }).notNull().unique(),
@@ -195,6 +209,34 @@ export const feedbacks = pgTable("feedbacks", {
   rating: integer("rating").notNull().default(5),
   avatar: text("avatar"),
   isActive: boolean("is_active").notNull().default(true),
+  /**
+   * Moderation state for player-submitted reviews:
+   * `pending` (awaiting admin review) | `approved` (live on the site) | `rejected`.
+   * Only `approved` + `is_active` rows are returned by the public API.
+   */
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  submittedByEmail: varchar("submitted_by_email", { length: 180 }),
+  moderatedAt: timestamp("moderated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type FeedbackStatus = "pending" | "approved" | "rejected";
+
+/**
+ * Visitor / page-view tracking log.
+ * One row per page view by a signed-in user (see /api/track).
+ */
+export const siteLogs = pgTable("site_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id"),
+  userEmail: varchar("user_email", { length: 180 }),
+  userName: varchar("user_name", { length: 120 }),
+  ipAddress: varchar("ip_address", { length: 64 }),
+  pageUrl: text("page_url").notNull(),
+  referrer: text("referrer"),
+  userAgent: text("user_agent"),
+  country: varchar("country", { length: 120 }),
+  city: varchar("city", { length: 120 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

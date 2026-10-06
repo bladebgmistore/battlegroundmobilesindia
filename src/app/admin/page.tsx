@@ -1,18 +1,24 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import AdminLogin from "@/components/admin-login";
-import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session";
+import AdminDashboard from "@/components/admin-dashboard";
+import { requireOwner } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Admin Login | Battleground Mobile India Store",
+  title: "Admin Panel | Battleground Mobile India Store",
   robots: { index: false, follow: false },
 };
 
+/**
+ * Owner-only admin area.
+ * Access is granted purely by Google identity: `requireOwner()` redirects
+ * anyone whose email is not in the OWNER_EMAIL allow-list.
+ */
 export default async function Page() {
-  const cookieStore = await cookies();
-  const session = verifySessionToken(cookieStore.get(ADMIN_COOKIE)?.value);
-  if (session) redirect("/admin/dashboard");
-  return <AdminLogin />;
+  const session = await requireOwner("/admin");
+
+  return (
+    <AdminDashboard
+      owner={{ name: session.name, email: session.email, role: session.role, picture: session.picture }}
+    />
+  );
 }

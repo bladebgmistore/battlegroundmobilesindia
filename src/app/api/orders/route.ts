@@ -32,6 +32,21 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid order details" }, { status: 400 });
     }
 
+    // Link the order to a logged-in customer so they can see it in their account.
+    // Login is REQUIRED — guests cannot place orders, and every order is tied
+    // to the signed-in buyer's account. Checked before coupons so unauthenticated
+    // requests can't burn coupon usage either.
+    let userId: string;
+    try {
+      const current = await getCurrentUser(request);
+      if (!current) {
+        return Response.json({ error: "Please sign in with your account to place an order." }, { status: 401 });
+      }
+      userId = current.id;
+    } catch {
+      return Response.json({ error: "Please sign in with your account to place an order." }, { status: 401 });
+    }
+
     let discountAmount = 0;
     let finalAmount = originalAmount;
 
@@ -58,15 +73,6 @@ export async function POST(request: NextRequest) {
 
     // Automatic buyer IP + location trace — fully server-side, never blocks.
     const geo = await resolveBuyerLocation(request);
-
-    // Link the order to a logged-in customer so they can see it in their account.
-    let userId: string | null = null;
-    try {
-      const current = await getCurrentUser(request);
-      userId = current?.id ?? null;
-    } catch {
-      userId = null;
-    }
 
     const orderCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
     try {

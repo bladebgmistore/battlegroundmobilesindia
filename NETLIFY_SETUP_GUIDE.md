@@ -56,21 +56,25 @@ Drizzle will automatically connect to your database, create the following tables
 - `site_settings` (Dynamic WhatsApp number, Logo override, and Maintenance toggle)
 - `admins` (Database-backed administrators)
 - `admin_sessions` (Active login sessions)
-- `users` (Customer accounts — email/WhatsApp + password)
-- `user_sessions` (Customer login sessions)
+- `users` (Google accounts — name, email, google_id, avatar, role)
+- `site_logs` (Visitor tracking — user email, IP address, page URL, timestamp)
 
 ---
 
 ### Step 4: Login & Enjoy!
 
-Now open your deployed website, append `/admin` to the URL, and log in:
+Add these environment variables in **Site configuration → Environment variables**:
 
-- **Username:** `MANAV`
-- **Password:** `MANAV7412`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- `AUTH_SECRET` (run `openssl rand -base64 32`)
+- `OWNER_EMAIL` = `manavjeph800@gmail.com`
+
+Now open your deployed website — you will be redirected to `/login`.
+Click **Continue with Google** and sign in with the owner account, then open `/admin`.
 
 #### You can now:
 - ✅ **Add / Edit / Delete Accounts & UC Packages** instantly from the panel.
 - ✅ **Toggle Maintenance Mode** to show a global payment maintenance banner to all storefront visitors instantly.
 - ✅ **Change your WhatsApp Support Number** in real-time under **Site controls** to instantly update every checkout page and chat link on the public site!
-- ✅ **Add new admin team members** and assign them Roles (Owner / Admin / Moderator).
-- ✅ **Change Passwords** directly under the **Team & Security** tab.
+- ✅ **Monitor live visitor logs** under the **Visitor Logs** tab — user email, IP address, page URL and timestamp for every page view.
+- ✅ **Review every signed-in Google account** under the **Users & Access** tab.

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
-import { FaBolt, FaStar, FaWhatsapp } from "react-icons/fa";
+import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowRight, FiCheck, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
-import { defaultCategories, defaultProducts, defaultUcPackages, faqs, formatINR, images, Product, Category, reviews, UcPackageItem } from "@/lib/store-data";
+import { defaultCategories, defaultProducts, defaultUcPackages, faqs, formatINR, images, Product, Category, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { PriceTag } from "@/components/price-tag";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { FeedbackSection } from "@/components/feedback-section";
 
 const fadeUp = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
 
@@ -17,7 +19,7 @@ export function BuyButton({ item, requiresUid = false, category }: { item: { tit
   const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
   return (
     <button onClick={buy} className="btn-primary group w-full">
-      BUY NOW <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
+      CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
     </button>
   );
 }
@@ -27,7 +29,7 @@ export function UcBuyButton({ item }: { item: { title: string; price: number } }
   const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
   return (
     <button onClick={buy} className="btn-primary group !py-2 !px-3.5 !text-[10px] uppercase font-bold tracking-wide">
-      BUY NOW <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
+      CHECKOUT <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
     </button>
   );
 }
@@ -65,7 +67,7 @@ function CategoryShelf({ category, products }: { category: Category; products: P
                 <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                 {item.badge && <span className="absolute left-4 top-4 rounded-md bg-[#0f4c81] px-2.5 py-1 text-[9px] font-bold tracking-[.14em] text-white">{item.badge}</span>}
-                <span className="absolute bottom-4 right-4 rounded-lg bg-white px-3 py-1.5 text-base font-black text-[#0f172a] shadow">{formatINR(item.price)}</span>
+                <span className="absolute bottom-4 right-4 rounded-lg bg-white px-3 py-1.5 shadow"><PriceTag price={item.price} priceClass="text-base font-black text-[#0f172a]" /></span>
               </div>
               <div className="p-5">
                 <h3 className="min-h-[40px] text-[15px] font-black leading-5 tracking-[.02em] text-[#0f172a]">{item.title}</h3>
@@ -95,7 +97,6 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>(defaultCategories);
   const [productList, setProductList] = useState<Product[]>(defaultProducts);
   const [ucList, setUcList] = useState<UcPackageItem[]>(defaultUcPackages);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const { whatsapp: whatsappUrl, settings } = useStoreSettings();
 
@@ -108,16 +109,27 @@ export default function HomePage() {
         if (data?.ucPackages) setUcList(data.ucPackages);
       })
       .catch(() => undefined);
-
-    fetch(`/api/feedbacks?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.feedbacks) setFeedbacks(d.feedbacks); })
-      .catch(() => undefined);
   }, []);
 
   const accountCategory = categories.find((category) => category.slug === "accounts");
   const ucCategory = categories.find((category) => category.slug === "uc");
   const otherCategories = categories.filter((category) => category.slug !== "accounts" && category.slug !== "uc");
+
+  /**
+   * Hero call-to-action buttons.
+   * Built from the ACTIVE categories returned by /api/store, so when the admin
+   * disables a category every button/section for it disappears from the
+   * homepage (hero buttons, shelf, UC block) as well as the header/footer.
+   */
+  const heroLinks = useMemo(() => {
+    const links: { slug: string; label: string; href: string }[] = [];
+    if (accountCategory) links.push({ slug: "accounts", label: "EXPLORE ACCOUNTS", href: "/accounts" });
+    if (ucCategory) links.push({ slug: "uc", label: "EXPLORE UC", href: "/uc-purchase" });
+    for (const category of otherCategories) {
+      links.push({ slug: category.slug, label: (category.name || category.slug).toUpperCase(), href: `#${category.slug}` });
+    }
+    return links.slice(0, 4);
+  }, [accountCategory, ucCategory, otherCategories]);
 
   return (
     <>
@@ -138,18 +150,16 @@ export default function HomePage() {
                 Discover premium BGMI accounts and UC packages with clear details, secure-guidance handovers and fast support from our verified team.
               </motion.p>
               <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/accounts" className="btn-primary group">
-                  EXPLORE ACCOUNTS <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
-                </Link>
-                <Link href="/uc-purchase" className="btn-outline">
-                  BUY UC <FaBolt className="text-[#f4b400]" />
-                </Link>
-                <Link href="#super-cars" className="btn-outline">
-                  SUPER-CAR <FiArrowRight className="text-base" />
-                </Link>
-                <Link href="#x-suits" className="btn-outline">
-                  X-SUIT <FiArrowRight className="text-base" />
-                </Link>
+                {/* Buttons are generated from the ACTIVE categories only — disabling a
+                    category in the admin panel removes its button from the homepage. */}
+                {heroLinks.map((link, index) => (
+                  <Link key={link.href} href={link.href} className={index === 0 ? "btn-primary group" : "btn-outline"}>
+                    {link.label}{" "}
+                    {link.slug === "uc"
+                      ? <FaBolt className="text-[#f4b400]" />
+                      : <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />}
+                  </Link>
+                ))}
               </motion.div>
               <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-bold text-gray-500">
                 <span className="flex items-center gap-2"><FiShield className="text-blue-500" /> GUIDED HANDOVERS</span>
@@ -224,7 +234,7 @@ export default function HomePage() {
                     </div>
                     <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
                     <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
-                      <span className="text-base font-extrabold text-[#0f4c81]">{formatINR(pack.price)}</span>
+                      <PriceTag price={pack.price} align="start" priceClass="text-base font-extrabold text-[#0f4c81]" />
                       <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
                     </div>
                   </motion.div>
@@ -243,33 +253,9 @@ export default function HomePage() {
           />
         ))}
 
-        {/* Customer Reviews - Dynamic from database */}
-        <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
-            <div>
-              <p className="text-[11px] font-bold tracking-[.22em] text-[#0f4c81]">PLAYER FEEDBACK</p>
-              <h2 className="mt-3 text-4xl font-black tracking-[-.05em] text-[#0f172a]">Earned in the<br />community.</h2>
-              <p className="mt-5 max-w-sm text-sm leading-7 text-[#64748b]">Trusted by thousands of community members for a straightforward buying journey and responsive communication.</p>
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]">
-                <FaWhatsapp className="text-base" /> SPEAK WITH SUPPORT
-              </a>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {(feedbacks.length ? feedbacks : reviews).map((review: any, idx: number) => (
-                <article key={review.id || review.name || idx} className="premium-card p-5">
-                  <div className="flex gap-1 text-[#f4b400]">
-                    {Array.from({ length: review.rating || 5 }).map((_, i) => <FaStar key={i} className="text-xs" />)}
-                  </div>
-                  <p className="mt-4 text-sm leading-6 text-[#334155]">“{review.review || review.body}”</p>
-                  <div className="mt-6 border-t border-[#e5e8ef] pt-4">
-                    <p className="text-xs font-bold text-[#0f172a]">{review.name}</p>
-                    <p className="mt-1 text-[9px] font-bold tracking-[.12em] text-[#0e9f6e]">VERIFIED BUYER</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Customer Reviews — animated, player-submitted + admin moderated */}
+        <FeedbackSection whatsappUrl={whatsappUrl} />
+
         {/* FAQ Section */}
         <section className="mx-auto max-w-4xl px-5 pb-8 pt-4">
           <div className="text-center">

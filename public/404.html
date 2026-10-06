@@ -6,9 +6,9 @@
   <title>404: Page Not Found | Battleground India Store</title>
   <style>
     body {
-      background-color: #070908;
-      color: #f5f8f1;
-      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #f6f8fc 0%, #eef1f6 100%);
+      color: #0f172a;
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
       margin: 0;
       padding: 0;
       display: flex;
@@ -20,29 +20,35 @@
     .container {
       max-width: 500px;
       padding: 2rem;
+      background: #ffffff;
+      border: 1px solid #dbe2ec;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(15, 40, 70, 0.06);
+      margin: 1rem;
     }
     .icon {
-      font-size: 4rem;
-      color: #d8f454;
+      font-size: 3.5rem;
+      color: #0f4c81;
       margin-bottom: 1rem;
+      line-height: 1;
     }
     .title {
       font-size: 3rem;
       font-weight: 900;
       margin: 1rem 0;
-      color: white;
+      color: #0f172a;
       letter-spacing: -0.08em;
     }
     .subtitle {
       font-size: 0.7rem;
       font-weight: 900;
       letter-spacing: 0.2em;
-      color: #d8f454;
+      color: #0f4c81;
       text-transform: uppercase;
       margin-bottom: 1rem;
     }
     .message {
-      color: rgba(255, 255, 255, 0.55);
+      color: #64748b;
       line-height: 1.6;
       margin-bottom: 2rem;
     }
@@ -50,18 +56,21 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background-color: #cbed3e;
-      color: #101408;
-      padding: 0.75rem 1.25rem;
+      background-color: #0f4c81;
+      color: #ffffff;
+      padding: 0.85rem 1.4rem;
       border-radius: 0.75rem;
       text-decoration: none;
       font-size: 0.75rem;
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      box-shadow: 0 6px 16px rgba(15, 76, 129, 0.2);
+      transition: background-color 0.18s ease, transform 0.18s ease;
     }
     .home-link:hover {
-      background-color: #d4ff4d;
+      background-color: #0a3557;
+      transform: translateY(-1px);
     }
   </style>
 </head>
@@ -70,7 +79,7 @@
     <div class="icon">⊗</div>
     <div class="subtitle">OUT OF BOUNDS</div>
     <h1 class="title">404</h1>
-    <p class="message">This drop zone does not exist. Return to the store and find your next upgrade.</p>
+    <p class="message">This page does not exist. Return to the store and find your next upgrade.</p>
     <a href="/" class="home-link">
       ← RETURN HOME
     </a>

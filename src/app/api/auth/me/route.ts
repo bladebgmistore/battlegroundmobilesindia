@@ -1,24 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { USER_COOKIE, verifyUserToken } from "@/lib/user-session";
-import { findUserById, toUserRecord } from "@/lib/user-store";
+import { getCurrentUser } from "@/lib/user-store";
 
 export const dynamic = "force-dynamic";
 
+/** Current Google-authenticated customer (used by the header and checkout). */
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(USER_COOKIE)?.value;
-  const identity = token ? verifyUserToken(token) : null;
-  if (!identity) {
-    return NextResponse.json({ authenticated: false });
-  }
+  const user = await getCurrentUser(request);
+  if (!user) return NextResponse.json({ authenticated: false, user: null });
 
-  // Load fresh data so profile edits are reflected immediately.
-  const user = await findUserById(identity.id);
-  if (!user || !user.isActive) {
-    // Token stale or account disabled — treat as logged out.
-    const response = NextResponse.json({ authenticated: false });
-    response.cookies.set({ name: USER_COOKIE, value: "", httpOnly: true, path: "/", maxAge: 0 });
-    return response;
-  }
-
-  return NextResponse.json({ authenticated: true, user: toUserRecord(user) });
+  return NextResponse.json({
+    authenticated: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      whatsapp: user.whatsapp,
+      picture: user.avatarUrl,
+      role: user.role,
+      isOwner: user.role === "owner",
+    },
+  });
 }

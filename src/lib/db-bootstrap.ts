@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { db } from "@/db";
-import { accounts, admins, categories, products, siteSettings, ucPackages } from "@/db/schema";
+import { accounts, categories, products, siteSettings, ucPackages } from "@/db/schema";
 import { defaultAccounts, defaultCategories, defaultProducts, defaultUcPackages, DEFAULT_CHECKOUT_MODE, DEFAULT_UPI_ID, DEFAULT_WHATSAPP_NUMBER } from "@/lib/store-data";
-import { hashPassword } from "@/lib/password";
 import { count } from "drizzle-orm";
+import { ensureAuthTables } from "@/lib/auth-tables";
 
 /**
  * Safe bootstrap for Neon/PostgreSQL.
@@ -12,7 +12,7 @@ import { count } from "drizzle-orm";
  * - Never deletes data.
  * - Never overwrites existing rows.
  * - Seeds default records only when the related table is empty.
- * - Creates the MANAV owner only when the admins table is empty.
+ * - Provisions the Google-auth + site_logs tables (see ensureAuthTables).
  *
  * Run with:
  *   npx tsx src/lib/db-bootstrap.ts
@@ -112,19 +112,8 @@ export async function bootstrapDatabase() {
     }
   }
 
-  const [{ value: adminCount }] = await db.select({ value: count() }).from(admins);
-  if (adminCount === 0) {
-    await db.insert(admins).values({
-      username: "manav",
-      email: "manav@local.admin",
-      passwordHash: hashPassword("MANAV7412"),
-      role: "owner",
-      isActive: true,
-    });
-    summary.admins = 1;
-  } else {
-    summary.admins = `preserved ${adminCount}`;
-  }
+  // Google Sign-In + visitor tracking tables (idempotent).
+  summary.authTables = (await ensureAuthTables()) ? "ready" : "skipped (database offline)";
 
   return summary;
 }

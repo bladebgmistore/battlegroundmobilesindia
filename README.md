@@ -17,25 +17,35 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Dynamic WhatsApp number, social links, maintenance banner
 - Mobile responsive + SEO metadata + branded 404
 
-### Customer accounts (`/login`, `/signup`, `/account`)
-- Register / sign in with **email OR WhatsApp number** + password
-- Signed-in session cookie (30 days, HTTP-only, server-side protected)
-- **My Orders** — see order history and status
-- **Profile** — edit name, email, WhatsApp
-- **Change password** and **forgot password** (6-digit email OTP)
-- Checkout **autofills** name/WhatsApp for signed-in users and links the order to their account
-- "Sign in" / "My Account" menu in the header (desktop and mobile)
+### Authentication — Google Sign-In only
+- **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — no passwords anywhere
+- **Homepage is public** with a *Login* button in the header; `src/proxy.ts`
+  gates every other page and API route and redirects guests to `/login?next=…`
+  (allow-list: `PUBLIC_PAGES` in `src/lib/auth-config.ts`)
+- Signed (HMAC-SHA256), `httpOnly`, 30-day session cookie
+- Old email/WhatsApp + password login, signup, OTP reset and admin password
+  login have been removed
 
-### Admin panel (`/admin`)
-- Login: **MANAV / MANAV7412**
-- Secure cookie session (12 hours, server-side protected)
-- Logout
+### User dashboard (`/dashboard`)
+- Google profile name, email and picture
+- Recent orders + quick links to the store
+- **Open Admin Panel** button for the owner account
+
+### Admin panel (`/admin`) — owner only
+- Access is granted by **email allow-list** (`OWNER_EMAIL`, default
+  `manavjeph800@gmail.com`); everyone else is bounced to `/dashboard`
+- **Visitor Logs**: every page view with user email, IP address, page URL and
+  timestamp, with search, pagination, CSV export, auto-refresh and purge
+- **Users & Access**: every Google account that has signed in
 - Manage Accounts (add / edit / delete / enable)
 - Manage UC packages
 - Manage Coupons (percent / flat, expiry, usage limit)
 - Orders list + status updates
 - Customer messages inbox
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
+
+> Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
+> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**
 
 ---
 
@@ -51,23 +61,21 @@ Open `http://localhost:3000`
 
 ### Admin
 - URL: `/admin`
-- Username: `MANAV`
-- Password: `MANAV7412`
+- Sign in with the owner Google account (`OWNER_EMAIL`, default `manavjeph800@gmail.com`)
 
 ---
 
 ## Environment variables
 
-Create `.env`:
+Copy `.env.example` → `.env.local` and fill it in:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
-```
-
-Optional overrides (defaults already work without these):
-
-```bash
-# not required — owner is hardcoded as MANAV / MANAV7412
+GOOGLE_CLIENT_ID=822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
+AUTH_SECRET=$(openssl rand -base64 32)
+OWNER_EMAIL=manavjeph800@gmail.com
 ```
 
 For production on Netlify / Vercel, add `DATABASE_URL` in the host environment settings, then run:
@@ -90,8 +98,9 @@ against the production database once.
 | `orders` | Checkout requests |
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
-| `users` / `user_sessions` | Customer accounts + login sessions |
-| `admins` / `admin_sessions` | Optional (login is cookie-based without DB) |
+| `users` | Google accounts (name, email, `google_id`, avatar, role) |
+| `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
+| `user_sessions` / `admins` / `admin_sessions` / `password_resets` | Legacy, unused since Google Sign-In (kept so `drizzle-kit push` never drops them) |
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
 
@@ -107,7 +116,8 @@ If the database is offline, the storefront still shows default catalog data and 
    ```bash
    npx drizzle-kit push
    ```
-6. Login at `/admin` with `MANAV` / `MANAV7412`
+6. Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `AUTH_SECRET`, `OWNER_EMAIL`
+7. Sign in at `/login` with the owner Google account, then open `/admin`
 
 ---
 
@@ -119,11 +129,14 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
 | `/checkout` | Buy flow + coupon |
-| `/login` / `/signup` | Customer sign in / create account |
+| `/login` | Continue with Google (only public page) |
+| `/auth/google` → `/auth/google/callback` | OAuth 2.0 flow |
+| `/auth/logout` | Sign out |
+| `/dashboard` | User dashboard (profile, orders, admin link) |
 | `/account` | Customer orders + profile |
-| `/forgot-password` | Password reset |
-| `/admin` | Admin login |
-| `/admin/dashboard` | Control centre |
+| `/admin` | Owner-only admin panel (incl. Visitor Logs) |
+| `/api/track` | Page-view beacon |
+| `/api/admin/logs` | Visitor logs feed (owner only) |
 | `/api/health` | Health check |
 
 ---

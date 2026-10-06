@@ -21,6 +21,7 @@ const PUBLIC_SETTING_KEYS = [
   "maintenance_mode",
   "homepage_headline",
   "logo_url",
+  "favicon_url",
   "upi_id",
   "checkout_mode",
   "featured_drop_label",
@@ -57,7 +58,7 @@ export async function GET() {
     ]);
 
     // Only surface products that belong to an active category, so a disabled
-    // category's BUY buttons disappear from every page (home, category pages).
+    // category's Checkout buttons disappear from every page (home, category pages).
     const activeCategorySlugs = new Set(categoryRows.map((c) => c.slug));
     const visibleProductRows = productRows.filter((p) => activeCategorySlugs.has(p.categorySlug));
 

@@ -46,6 +46,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
+          }}
+        />
+      </head>
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
         {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}

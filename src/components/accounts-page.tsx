@@ -131,11 +131,8 @@ export default function AccountsPage() {
           ) : shown.length ? (
             <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((item, index) => (
-                <motion.article
+                <article
                   key={item.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.06 }}
                   data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
                   data-aos-delay={Math.min(index * 70, 350)}
                   className="group premium-card gaming-card overflow-hidden rounded-2xl"
@@ -187,7 +184,7 @@ export default function AccountsPage() {
                       PROCEED TO CHECKOUT
                     </button>
                   </div>
-                </motion.article>
+                </article>
               ))}
             </div>
           ) : (

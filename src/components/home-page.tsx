@@ -54,13 +54,8 @@ function CategoryShelf({ category, products }: { category: Category; products: P
 
         <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {products.length ? products.map((item, index) => (
-            <motion.article
+            <article
               key={item.id}
-              variants={fadeUp}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, amount: 0.15 }}
-              transition={{ duration: 0.5, delay: index * 0.08 }}
               data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
               data-aos-delay={Math.min(index * 80, 320)}
               className="premium-card gaming-card group overflow-hidden rounded-2xl"
@@ -82,7 +77,7 @@ function CategoryShelf({ category, products }: { category: Category; products: P
                 </div>
                 <div className="mt-5"><BuyButton item={item} requiresUid={category.slug === "super-cars" || category.slug === "x-suits"} category={category.slug} /></div>
               </div>
-            </motion.article>
+            </article>
           )) : (
             <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-12 text-center">
               <p className="text-sm font-bold text-[#0f172a]">Deals coming soon.</p>
@@ -222,11 +217,7 @@ export default function HomePage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {ucList.slice(0, 6).map((pack, i) => (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.05 }}
+                  <div
                     key={pack.id}
                     data-aos={i % 2 === 0 ? "fade-up" : "zoom-in"}
                     data-aos-delay={Math.min(i * 70, 280)}
@@ -241,7 +232,7 @@ export default function HomePage() {
                       <PriceTag price={pack.price} align="start" priceClass="text-base font-extrabold text-[#0f4c81]" />
                       <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
@@ -68,11 +67,8 @@ export default function UcPage() {
           ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {packs.map((pack, index) => (
-              <motion.article
+              <article
                 key={pack.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
                 data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
                 data-aos-delay={Math.min(index * 70, 350)}
                 className="premium-card gaming-card group p-6"
@@ -94,7 +90,7 @@ export default function UcPage() {
                     CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </div>
-              </motion.article>
+              </article>
             ))}
           </div>
           )}

@@ -85,7 +85,7 @@ button { cursor: pointer; }
   position: relative;
   z-index: 1;
 }
-.gaming-card:hover {
+.premium-card.gaming-card.gaming-card:hover {
   transform: translateY(-8px) scale(1.025);
   border-color: #b4ff3a;
   box-shadow:
@@ -94,11 +94,11 @@ button { cursor: pointer; }
     0 22px 48px rgba(14, 159, 110, .18),
     0 18px 45px rgba(15, 40, 70, .12);
 }
-.gaming-card:hover::before,
-.gaming-card:hover::after {
+.premium-card.gaming-card:hover::before,
+.premium-card.gaming-card:hover::after {
   opacity: 1;
 }
-.gaming-card:hover::after {
+.premium-card.gaming-card:hover::after {
   transform: translateX(45%) rotate(8deg);
 }
 
@@ -286,6 +286,6 @@ img { transition: opacity .3s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-  .gaming-card:hover { transform: none; }
+  .premium-card.gaming-card.gaming-card:hover { transform: none !important; }
   .live-sales-popup { transform: none; }
 }

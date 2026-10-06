@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
 import { defaultProducts, Product } from "@/lib/store-data";
@@ -72,11 +71,8 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
           ) : items.length ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
               {items.map((item, index) => (
-                <motion.article
+                <article
                   key={item.id}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.45, delay: index * 0.08 }}
                   data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
                   data-aos-delay={Math.min(index * 80, 360)}
                   className="premium-card gaming-card group overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white"
@@ -117,7 +113,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                       CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
                     </button>
                   </div>
-                </motion.article>
+                </article>
               ))}
             </div>
           ) : (

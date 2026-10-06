@@ -42,21 +42,23 @@ export function GridBackdrop() {
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#eef1f6]">
+      <div className="animated-bg-mesh absolute inset-[-22%]" />
+      <div className="animated-bg-scan absolute inset-[-35%] opacity-70" />
       <div
-        className="absolute inset-[-18%] bg-[linear-gradient(rgba(15,76,129,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,76,129,.04)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:linear-gradient(to_bottom,black,transparent_90%)]"
-        style={{ transform: `translate3d(0, ${scrollY * -0.08}px, 0)` }}
+        className="absolute inset-[-22%] bg-[linear-gradient(rgba(15,76,129,.052)_1px,transparent_1px),linear-gradient(90deg,rgba(15,76,129,.052)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:linear-gradient(to_bottom,black,transparent_90%)]"
+        style={{ transform: `translate3d(${scrollY * -0.025}px, ${scrollY * -0.14}px, 0)` }}
       />
       <div
-        className="hero-glow absolute -left-32 top-10 h-[30rem] w-[30rem] rounded-full bg-[#38bdf8]/[.09] blur-[120px]"
-        style={{ transform: `translate3d(${scrollY * 0.025}px, ${scrollY * 0.055}px, 0)` }}
+        className="hero-glow absolute -left-32 top-10 h-[30rem] w-[30rem] rounded-full bg-[#0f4c81]/[.105] blur-[115px]"
+        style={{ transform: `translate3d(${scrollY * 0.045}px, ${scrollY * 0.075}px, 0)` }}
       />
       <div
-        className="absolute right-[-12rem] top-[28rem] h-[38rem] w-[38rem] rounded-full bg-[#0f4c81]/[.07] blur-[130px]"
-        style={{ transform: `translate3d(${scrollY * -0.035}px, ${scrollY * -0.045}px, 0)` }}
+        className="absolute right-[-12rem] top-[28rem] h-[38rem] w-[38rem] rounded-full bg-[#0a3557]/[.085] blur-[125px]"
+        style={{ transform: `translate3d(${scrollY * -0.055}px, ${scrollY * -0.065}px, 0)` }}
       />
       <div
-        className="absolute left-1/2 top-[48rem] h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-[#bae6fd]/[.18] blur-[110px]"
-        style={{ transform: `translate3d(-50%, ${scrollY * -0.06}px, 0)` }}
+        className="absolute left-1/2 top-[48rem] h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-[#38bdf8]/[.16] blur-[105px]"
+        style={{ transform: `translate3d(-50%, ${scrollY * -0.095}px, 0)` }}
       />
     </div>
   );

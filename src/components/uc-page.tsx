@@ -111,8 +111,8 @@ export default function UcPage() {
           </div>
           )}
 
-          <div className="mt-14 grid gap-4 rounded-2xl border border-[#dbe2ec] bg-white p-6 md:grid-cols-4 shadow-sm">
-            {[["01", "SELECT PACKAGE"], ["02", "TAP CHECKOUT"], ["03", "CONTACT WHATSAPP"], ["04", "COMPLETE PAYMENT"]].map(([no, text]) => (
+          <div className="mt-14 grid gap-4 rounded-2xl border border-[#dbe2ec] bg-white p-6 md:grid-cols-3 shadow-sm">
+            {[["01", "SELECT PACKAGE"], ["02", "TAP CHECKOUT"], ["03", "COMPLETE PAYMENT"]].map(([no, text]) => (
               <div className="flex items-center gap-3" key={no}>
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e0eefb] text-xs font-bold text-[#0f4c81]">{no}</span>
                 <span className="text-[10px] font-bold tracking-[.12em] text-[#64748b]">{text}</span>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
@@ -442,7 +442,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "categories" && <CategoryWorkspace categories={categories} products={products} create={create} update={update} remove={remove} />}
         {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} onCountsChange={setPendingFeedbacks} />}
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
-        {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} />}
+        {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} canDelete={role === "owner"} />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
         {view === "visitors" && <VisitorLogsPanel />}
@@ -840,11 +840,13 @@ function CouponManager({ coupons, create, update, remove }: { coupons: Coupon[];
 }
 
 const ORDER_STATUSES = ["awaiting_contact", "payment_review", "payment_confirmed", "delivered", "cancelled"];
-function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
+function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
   orders: Order[];
   setStatus: (id: string, status: string) => void;
   deliver: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }, status?: string) => void;
   updateCreds: (id: string, creds: { accountLoginType?: string; accountEmail?: string; accountPassword?: string; otpCode?: string }) => void;
+  /** Owner only — order history can only be erased by the owner. */
+  canDelete: boolean;
 }) {
   const { upiId, whatsappNumber } = useStoreSettings();
   const [selected, setSelected] = useState<string[]>([]);
@@ -883,7 +885,13 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded bg-[#f1f5fb] px-2 py-1 text-[10px] font-bold text-[#64748b]">{orders.length} ITEMS</span>
-            <button disabled={!selected.length} onClick={deleteSelected} className="rounded border border-red-200 px-3 py-2 text-[10px] font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40">DELETE SELECTED ({selected.length})</button>
+            {canDelete ? (
+              <button disabled={!selected.length} onClick={deleteSelected} className="rounded border border-red-200 px-3 py-2 text-[10px] font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40">DELETE SELECTED ({selected.length})</button>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded border border-[#dbe2ec] px-3 py-2 text-[9px] font-black text-[#94a3b8]" title="Only the owner can delete orders">
+                <FiLock /> DELETE: OWNER ONLY
+              </span>
+            )}
           </div>
         </div>
         {orders.length ? (
@@ -891,7 +899,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
             <table className="w-full min-w-[1360px] text-left">
               <thead className="bg-[#f8fafc] text-[9px] font-black tracking-[.13em] text-[#64748b]">
                 <tr>
-                  <th className="p-4"><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
+                  {canDelete && <th className="p-4"><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>}
                   <th className="p-4">REFERENCE</th>
                   <th className="p-4">DATE / TIME</th>
                   <th className="p-4">CUSTOMER</th>
@@ -906,7 +914,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
               <tbody className="divide-y divide-[#e5e8ef]">
                 {orders.map((o) => (
                   <tr key={o.id} className={`text-xs transition-colors ${selected.includes(o.id) ? 'bg-[#e0eefb]' : 'hover:bg-[#f8fafc]'}`}>
-                    <td className="p-4"><input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} /></td>
+                    {canDelete && <td className="p-4"><input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} /></td>}
                     <td className="p-4 font-mono font-bold text-[#0f4c81]">{o.orderCode}</td>
                     <td className="p-4 text-[#64748b]">
                       <p className="font-bold text-[#0f172a]">{dateTime(o.createdAt)}</p>
@@ -956,7 +964,9 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds }: {
                         {o.categorySlug !== "accounts" && (
                           <button onClick={() => setStatus(o.id, "payment_confirmed")} className="rounded border border-[#0e9f6e]/30 px-2 py-1 text-[9px] font-black text-[#0e9f6e] transition-colors hover:bg-[#0e9f6e] hover:text-white">MARK CONFIRMED</button>
                         )}
-                        <button onClick={async () => { if (!confirm('Delete this order permanently?')) return; const r = await fetch('/api/orders', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id }) }); if (r.ok) window.location.reload(); }} className="rounded border border-red-200 px-2 py-1 text-[9px] font-black text-red-600 transition-colors hover:bg-red-50">DELETE ORDER</button>
+                        {canDelete && (
+                          <button onClick={async () => { if (!confirm('Delete this order permanently?')) return; const r = await fetch('/api/orders', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id }) }); if (r.ok) window.location.reload(); }} className="rounded border border-red-200 px-2 py-1 text-[9px] font-black text-red-600 transition-colors hover:bg-red-50">DELETE ORDER</button>
+                        )}
                       </div>
                     </td>
                   </tr>

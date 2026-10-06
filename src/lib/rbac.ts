@@ -79,7 +79,7 @@ export const ROLE_META: Record<string, { label: string; tagline: string; badge: 
   },
   admin: {
     label: "Admin",
-    tagline: "Everything except adding/removing team members.",
+    tagline: "Everything except team management & order deletion.",
     badge: "bg-[#7c3aed] text-white",
   },
   manager: {

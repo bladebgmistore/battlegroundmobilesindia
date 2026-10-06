@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { coupons, orders } from "@/db/schema";
-import { requireAdminScope } from "@/lib/admin-auth";
+import { isOwner, requireAdminScope } from "@/lib/admin-auth";
 import { getCurrentUser } from "@/lib/user-store";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
@@ -181,8 +181,16 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+/**
+ * Order deletion is OWNER-only — admins and managers can view orders and
+ * update statuses / credentials, but they cannot erase order history.
+ */
 export async function DELETE(request: NextRequest) {
-  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const identity = await requireAdminScope(request, "orders");
+  if (!identity) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isOwner(request))) {
+    return Response.json({ error: "Only the owner can delete orders." }, { status: 403 });
+  }
   try {
     const { id, ids } = await request.json();
     const selectedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : id ? [String(id)] : [];

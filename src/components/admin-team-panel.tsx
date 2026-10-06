@@ -252,8 +252,9 @@ export default function AdminTeamPanel({ ownerEmail }: { ownerEmail: string }) {
             ))}
           </div>
           <p className="mt-4 rounded-lg border border-[#e5e8ef] bg-[#f8fafc] px-3 py-2 text-[11px] leading-4 text-[#64748b]">
-            <b className="text-[#0f172a]">Owner</b> sab kuch kar sakta hai — Team & Roles manager bhi. Role badalte ya
-            suspend karte hi change <b>turant</b> lagoo hota hai; member ko dobara login karne ki zaroorat nahi.
+            <b className="text-[#0f172a]">Owner</b> sab kuch kar sakta hai — Team & Roles manager aur <b>order delete</b>{" "}
+            bhi sirf owner ke paas hai. Role badalte ya suspend karte hi change <b>turant</b> lagoo hota hai; member ko
+            dobara login karne ki zaroorat nahi.
           </p>
         </section>
       </div>

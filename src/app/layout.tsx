@@ -6,6 +6,7 @@ import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
 import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
+import { GamingEnhancements } from "@/components/gaming-enhancements";
 
 /**
  * Every route is request-scoped: the root layout reads live site settings from
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
         <script
           dangerouslySetInnerHTML={{
             __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
@@ -55,6 +57,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        <GamingEnhancements />
         {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
         <Suspense fallback={null}>
           <VisitTracker />

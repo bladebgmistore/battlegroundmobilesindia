@@ -52,6 +52,55 @@ button { cursor: pointer; }
   border-color: var(--border-strong);
   box-shadow: 0 16px 40px rgba(15,40,70,.10);
 }
+.gaming-card {
+  position: relative;
+  isolation: isolate;
+  will-change: transform;
+}
+.gaming-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(180, 255, 58, .95),
+    inset 0 0 18px rgba(14, 159, 110, .26);
+  transition: opacity .28s ease;
+}
+.gaming-card::after {
+  content: "";
+  position: absolute;
+  inset: -45% -65%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(115deg, transparent 34%, rgba(244, 180, 0, .15) 45%, rgba(180, 255, 58, .18) 52%, transparent 64%);
+  transform: translateX(-45%) rotate(8deg);
+  transition: transform .65s ease, opacity .28s ease;
+}
+.gaming-card > * {
+  position: relative;
+  z-index: 1;
+}
+.gaming-card:hover {
+  transform: translateY(-8px) scale(1.025);
+  border-color: #b4ff3a;
+  box-shadow:
+    0 0 0 1px rgba(244, 180, 0, .34),
+    0 0 24px rgba(180, 255, 58, .36),
+    0 22px 48px rgba(14, 159, 110, .18),
+    0 18px 45px rgba(15, 40, 70, .12);
+}
+.gaming-card:hover::before,
+.gaming-card:hover::after {
+  opacity: 1;
+}
+.gaming-card:hover::after {
+  transform: translateX(45%) rotate(8deg);
+}
 
 /* ── Buttons ─────────────────────────────────────────── */
 .btn-primary {
@@ -139,10 +188,104 @@ textarea.form-input { height: auto; padding-top: 12px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Live sales proof popup ───────────────────────────── */
+.live-sales-popup {
+  position: fixed;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  width: min(388px, calc(100vw - 32px));
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(180, 255, 58, .42);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, .96), rgba(6, 41, 31, .94));
+  color: #fff;
+  padding: 14px 16px;
+  box-shadow: 0 0 28px rgba(180, 255, 58, .28), 0 18px 48px rgba(2, 8, 23, .24);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-18px, 18px, 0) scale(.96);
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.live-sales-popup.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+.live-sales-popup::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 12% 0%, rgba(244, 180, 0, .24), transparent 34%), linear-gradient(90deg, rgba(180, 255, 58, .12), transparent);
+}
+.live-sales-pulse {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  background: #b4ff3a;
+  box-shadow: 0 0 0 0 rgba(180, 255, 58, .72);
+  animation: salesPulse 1.7s ease-out infinite;
+}
+.live-sales-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  height: 42px;
+  width: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f4b400, #b4ff3a);
+  box-shadow: 0 0 18px rgba(244, 180, 0, .38);
+  font-size: 20px;
+}
+.live-sales-label,
+.live-sales-text {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+.live-sales-label {
+  color: #b4ff3a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.live-sales-text {
+  margin-top: 3px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+@keyframes salesPulse {
+  0% { box-shadow: 0 0 0 0 rgba(180, 255, 58, .72); }
+  70% { box-shadow: 0 0 0 12px rgba(180, 255, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(180, 255, 58, 0); }
+}
+
 /* Smooth global interactions */
 a, button { transition: color .18s ease, background-color .18s ease, border-color .18s ease, opacity .18s ease; }
 img { transition: opacity .3s ease; }
 
+@media (max-width: 640px) {
+  .live-sales-popup {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    border-radius: 16px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .gaming-card:hover { transform: none; }
+  .live-sales-popup { transform: none; }
 }

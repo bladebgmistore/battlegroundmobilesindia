@@ -77,7 +77,9 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, delay: index * 0.08 }}
-                  className="premium-card group overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white"
+                  data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                  data-aos-delay={Math.min(index * 80, 360)}
+                  className="premium-card gaming-card group overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white"
                 >
                   <div className="relative aspect-[1.25] overflow-hidden bg-[#eef1f6]">
                     <img

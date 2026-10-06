@@ -61,7 +61,9 @@ function CategoryShelf({ category, products }: { category: Category; products: P
               whileInView="show"
               viewport={{ once: true, amount: 0.15 }}
               transition={{ duration: 0.5, delay: index * 0.08 }}
-              className="premium-card group overflow-hidden rounded-2xl"
+              data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+              data-aos-delay={Math.min(index * 80, 320)}
+              className="premium-card gaming-card group overflow-hidden rounded-2xl"
             >
               <div className="relative aspect-[1.22] overflow-hidden bg-[#eef1f6]">
                 <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
@@ -226,7 +228,9 @@ export default function HomePage() {
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.05 }}
                     key={pack.id}
-                    className="premium-card group p-5"
+                    data-aos={i % 2 === 0 ? "fade-up" : "zoom-in"}
+                    data-aos-delay={Math.min(i * 70, 280)}
+                    className="premium-card gaming-card group p-5"
                   >
                     <div className="flex items-start justify-between">
                       <span className="rounded bg-[#e0eefb] px-2 py-1 text-[8px] font-bold tracking-[.12em] text-[#0f4c81]">{pack.bonusLabel ?? "UC BUNDLE"}</span>

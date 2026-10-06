@@ -73,7 +73,9 @@ export default function UcPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="premium-card group p-6"
+                data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                data-aos-delay={Math.min(index * 70, 350)}
+                className="premium-card gaming-card group p-6"
               >
                 <div className="flex items-start justify-between">
                   <span className="rounded bg-[#e0eefb] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{pack.bonusLabel ?? "UC BUNDLE"}</span>

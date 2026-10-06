@@ -136,7 +136,9 @@ export default function AccountsPage() {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.06 }}
-                  className="group premium-card overflow-hidden rounded-2xl"
+                  data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                  data-aos-delay={Math.min(index * 70, 350)}
+                  className="group premium-card gaming-card overflow-hidden rounded-2xl"
                 >
                   <div className="relative aspect-[1.22] overflow-hidden">
                     <img

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
-import { defaultProducts, Product } from "@/lib/store-data";
+import { Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -21,25 +21,29 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   const router = useRouter();
   const { whatsapp } = useStoreSettings();
   const [items, setItems] = useState<Product[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    fetch("/api/store")
-      .then((r) => r.json())
-      .then((data: { products?: Product[]; categories?: { slug: string }[] }) => {
-        const activeSlugs = new Set((data?.categories ?? []).map((c) => c.slug));
+    setCatalogLoaded(false);
+    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((data: { products?: Product[]; categories?: { slug: string }[] } | null) => {
+        const categories = Array.isArray(data?.categories) ? data.categories : [];
+        const activeSlugs = new Set(categories.map((c) => c.slug));
         // If the category was disabled in admin, don't surface any Checkout buttons.
-        if (data?.categories && !activeSlugs.has(category)) {
+        if (categories.length && !activeSlugs.has(category)) {
           setItems([]);
           setUnavailable(true);
           return;
         }
-        const filtered = (data?.products ?? []).filter((p) => p.categorySlug === category);
-        setItems(filtered.length ? filtered : defaultProducts.filter((p) => p.categorySlug === category));
+        setUnavailable(false);
+        setItems(Array.isArray(data?.products) ? data.products.filter((p) => p.categorySlug === category) : []);
       })
       .catch(() => {
-        setItems(defaultProducts.filter((p) => p.categorySlug === category));
-      });
+        setItems([]);
+      })
+      .finally(() => setCatalogLoaded(true));
   }, [category]);
 
   const requiresUid = category === "super-cars" || category === "x-suits";
@@ -62,7 +66,12 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
         <PageTitle eyebrow={eyebrow} title={title} copy={copy} />
 
         <section className="mx-auto max-w-7xl px-5 pb-20 lg:px-8">
-          {unavailable ? (
+          {!catalogLoaded ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
+              <p className="text-lg font-black text-[#0f172a]">Loading live products…</p>
+              <p className="mt-2 text-sm text-[#64748b]">Only database products are shown here.</p>
+            </div>
+          ) : unavailable ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
               <p className="text-lg font-black text-[#0f172a]">This category is temporarily unavailable.</p>
               <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>

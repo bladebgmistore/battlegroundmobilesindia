@@ -4,9 +4,6 @@ import {
   DEFAULT_CHECKOUT_MODE,
   DEFAULT_UPI_ID,
   DEFAULT_WHATSAPP_NUMBER,
-  defaultCategories,
-  defaultProducts,
-  defaultUcPackages,
 } from "@/lib/store-data";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -81,16 +78,16 @@ export async function GET() {
       { headers: noStoreHeaders },
     );
   } catch (error) {
-    console.error("Store database read failed, using bundled fallback:", error);
+    console.error("Store database read failed:", error);
     return Response.json(
       {
-        categories: defaultCategories,
-        products: defaultProducts,
-        ucPackages: defaultUcPackages,
+        categories: [],
+        products: [],
+        ucPackages: [],
         settings: { whatsapp_number: DEFAULT_WHATSAPP_NUMBER, upi_id: DEFAULT_UPI_ID, checkout_mode: DEFAULT_CHECKOUT_MODE },
         databaseOnline: false,
       },
-      { headers: noStoreHeaders },
+      { headers: noStoreHeaders, status: 503 },
     );
   }
 }

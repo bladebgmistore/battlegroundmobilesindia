@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { FaStar, FaWhatsapp } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { FiCheckCircle, FiEdit3, FiLoader, FiX } from "react-icons/fi";
-import { reviews as fallbackReviews } from "@/lib/store-data";
 
 type Feedback = {
   id?: string;
@@ -91,7 +90,7 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
     };
   }, []);
 
-  const visible: Feedback[] = feedbacks.length ? feedbacks : (fallbackReviews as Feedback[]);
+  const visible: Feedback[] = feedbacks;
 
   useEffect(() => {
     if (visible.length <= 3) return undefined;
@@ -293,6 +292,12 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
           data-aos="fade-left"
           className="grid gap-4 md:grid-cols-3"
         >
+          {movingFeedbacks.length === 0 ? (
+            <div className="premium-card md:col-span-3 p-8 text-center" data-aos="fade-up">
+              <p className="text-sm font-black text-[#0f172a]">No approved feedback is live yet.</p>
+              <p className="mt-2 text-xs text-[#64748b]">Approved database reviews will move here automatically.</p>
+            </div>
+          ) : null}
           <AnimatePresence initial={false} mode="popLayout">
             {movingFeedbacks.map((item, index) => (
               <motion.article

@@ -49,6 +49,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <head>
         <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `html:not(.aos-ready) body [data-aos] { opacity: 1 !important; transform: none !important; transition: none !important; }`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,

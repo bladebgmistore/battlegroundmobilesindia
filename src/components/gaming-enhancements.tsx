@@ -26,6 +26,7 @@ function refreshAos() {
 function initialiseAos() {
   if (typeof window === "undefined" || !window.AOS) return;
 
+  document.documentElement.classList.add("aos-ready");
   window.AOS.init({
     duration: 850,
     easing: "ease-out-cubic",

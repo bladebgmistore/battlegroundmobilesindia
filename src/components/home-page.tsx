@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowRight, FiCheck, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
-import { defaultCategories, defaultProducts, defaultUcPackages, faqs, formatINR, images, Product, Category, UcPackageItem } from "@/lib/store-data";
+import { faqs, Product, Category, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { PriceTag } from "@/components/price-tag";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -91,21 +91,27 @@ function CategoryShelf({ category, products }: { category: Category; products: P
 }
 
 export default function HomePage() {
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
-  const [productList, setProductList] = useState<Product[]>(defaultProducts);
-  const [ucList, setUcList] = useState<UcPackageItem[]>(defaultUcPackages);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [productList, setProductList] = useState<Product[]>([]);
+  const [ucList, setUcList] = useState<UcPackageItem[]>([]);
+  const [storeLoaded, setStoreLoaded] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const { whatsapp: whatsappUrl, settings } = useStoreSettings();
 
   useEffect(() => {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => r.json().catch(() => null))
       .then((data: { categories?: Category[]; products?: Product[]; ucPackages?: UcPackageItem[] } | null) => {
-        if (data?.categories) setCategories(data.categories);
-        if (data?.products) setProductList(data.products);
-        if (data?.ucPackages) setUcList(data.ucPackages);
+        setCategories(Array.isArray(data?.categories) ? data.categories : []);
+        setProductList(Array.isArray(data?.products) ? data.products : []);
+        setUcList(Array.isArray(data?.ucPackages) ? data.ucPackages : []);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setCategories([]);
+        setProductList([]);
+        setUcList([]);
+      })
+      .finally(() => setStoreLoaded(true));
   }, []);
 
   const accountCategory = categories.find((category) => category.slug === "accounts");
@@ -127,6 +133,8 @@ export default function HomePage() {
     }
     return links.slice(0, 4);
   }, [accountCategory, ucCategory, otherCategories]);
+
+  const heroImage = settings.featured_drop_image || categories[0]?.image || "";
 
   return (
     <>
@@ -167,7 +175,13 @@ export default function HomePage() {
             <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ duration: 0.75, delay: 0.15 }} className="relative mx-auto w-full max-w-[520px]">
               <div className="relative overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-2 shadow-xl">
                 <div className="relative aspect-[.96] overflow-hidden rounded-[1.3rem]">
-                  <img src={settings.featured_drop_image || categories[0]?.image || images.uc} alt="Premium BGMI collection" className="h-full w-full object-cover" />
+                  {heroImage ? (
+                    <img src={heroImage} alt="Premium BGMI collection" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#e0f2fe] via-white to-[#eef1f6] text-center">
+                      <p className="px-8 text-xs font-black tracking-[.22em] text-[#0f4c81]">LIVE CATALOG LOADING</p>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
                   <div className="absolute left-5 top-5 rounded-lg border border-blue-200 bg-white/90 px-3 py-2 backdrop-blur">
                     <p className="text-[9px] font-black tracking-[.14em] text-blue-600">{settings.featured_drop_label || "FEATURED DROP"}</p>
@@ -191,6 +205,24 @@ export default function HomePage() {
           </div>
         </section>
 
+        {!storeLoaded && (
+          <section className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+            <div className="premium-card p-8 text-center" data-aos="fade-up">
+              <p className="text-sm font-black text-[#0f172a]">Loading live database catalog…</p>
+              <p className="mt-2 text-xs text-[#64748b]">Products are loaded only from your admin database.</p>
+            </div>
+          </section>
+        )}
+
+        {storeLoaded && categories.length === 0 && (
+          <section className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+            <div className="premium-card p-8 text-center" data-aos="fade-up">
+              <p className="text-sm font-black text-[#0f172a]">No live catalog data found.</p>
+              <p className="mt-2 text-xs text-[#64748b]">Add active categories and products in the admin panel to show them here.</p>
+            </div>
+          </section>
+        )}
+
         {/* Accounts first */}
         {accountCategory && (
           <CategoryShelf
@@ -204,7 +236,11 @@ export default function HomePage() {
           <section id="uc" className="relative border-y border-[#eef1f6] bg-white/70 py-20">
             <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
               <div data-aos="fade-right" className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] min-h-[340px]">
-                <img src={ucCategory.image || images.uc} alt={ucCategory.name || "BGMI UC packages"} className="absolute inset-0 h-full w-full object-cover" />
+                {ucCategory.image ? (
+                  <img src={ucCategory.image} alt={ucCategory.name || "BGMI UC packages"} className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#e0f2fe] via-white to-[#eef1f6]" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/30 to-transparent" />
                 <div className="relative flex h-full min-h-[340px] flex-col justify-end p-7">
                   <p className="text-[10px] font-bold tracking-[.18em] text-[#0f4c81]">{(ucCategory.name || "UC").toUpperCase()} STORE</p>

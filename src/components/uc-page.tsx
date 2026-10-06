@@ -1,38 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiShield } from "react-icons/fi";
-import { Category, defaultCategories, defaultUcPackages, images, UcPackageItem } from "@/lib/store-data";
+import { Category, UcPackageItem } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
 export default function UcPage() {
   const router = useRouter();
-  const [packs, setPacks] = useState<UcPackageItem[]>(defaultUcPackages);
-  const [category, setCategory] = useState<Category>(
-    defaultCategories.find((item) => item.slug === "uc") ?? defaultCategories[0],
-  );
+  const [packs, setPacks] = useState<UcPackageItem[]>([]);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const { whatsapp } = useStoreSettings();
 
   useEffect(() => {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data: { ucPackages?: UcPackageItem[]; categories?: Category[] }) => {
-        if (data.categories && !data.categories.some((item) => item.slug === "uc")) {
+      .then((response) => response.json().catch(() => null))
+      .then((data: { ucPackages?: UcPackageItem[]; categories?: Category[] } | null) => {
+        const categories = Array.isArray(data?.categories) ? data.categories : [];
+        if (categories.length && !categories.some((item) => item.slug === "uc")) {
           setUnavailable(true);
-          return;
         }
-        if (data.ucPackages) setPacks(data.ucPackages);
-        const ucCategory = data.categories?.find((item) => item.slug === "uc");
-        if (ucCategory) setCategory(ucCategory);
+        setPacks(Array.isArray(data?.ucPackages) ? data.ucPackages : []);
+        setCategory(categories.find((item) => item.slug === "uc") ?? null);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setPacks([]);
+        setCategory(null);
+      })
+      .finally(() => setCatalogLoaded(true));
   }, []);
 
   return (
@@ -42,38 +43,51 @@ export default function UcPage() {
       <main>
         <PageTitle
           eyebrow="BGMI UC PURCHASE"
-          title={category.name}
-          copy={category.description || "Select the UC volume you need and complete your request through official WhatsApp support."}
+          title={category?.name ?? "BGMI UC Purchase"}
+          copy={category?.description || "Live UC packages are loaded from your admin database."}
         />
         <section className="mx-auto max-w-7xl px-5 pb-20 lg:px-8">
           <div className="relative mb-8 overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white shadow-sm">
-            <img src={category.image || images.uc} alt={category.name} className="absolute inset-0 h-full w-full object-cover opacity-10" />
+            {category?.image ? (
+              <img src={category.image} alt={category.name} className="absolute inset-0 h-full w-full object-cover opacity-10" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#e0f2fe] via-white to-[#eef1f6]" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-[#eef4fb] via-white to-transparent" />
             <div className="relative flex flex-col justify-between gap-6 p-7 sm:flex-row sm:items-center">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#e0eefb] px-3 py-1.5 text-[9px] font-bold tracking-[.14em] text-[#0f4c81]"><FaBolt /> INSTANT SUPPORT ROUTE</div>
-                <h2 className="mt-4 text-2xl font-black tracking-[-.04em] text-[#0f172a]">{category.name} packages.</h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[#64748b]">{category.description}</p>
+                <h2 className="mt-4 text-2xl font-black tracking-[-.04em] text-[#0f172a]">{category?.name ?? "UC"} packages.</h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-[#64748b]">{category?.description ?? "Only live database packages are shown."}</p>
               </div>
               <div className="flex items-center gap-3 rounded-xl border border-[#dbe2ec] bg-white px-4 py-3 text-xs font-bold text-[#334155]"><FiShield className="text-lg text-[#0f4c81]" /> Verified support path</div>
             </div>
           </div>
 
-          {unavailable ? (
+          {!catalogLoaded ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
+              <p className="text-lg font-black text-[#0f172a]">Loading live UC packages…</p>
+              <p className="mt-2 text-sm text-[#64748b]">Only database packages are shown here.</p>
+            </div>
+          ) : unavailable ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
               <p className="text-lg font-black text-[#0f172a]">UC Purchase is temporarily unavailable.</p>
               <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
               <Link href="/" className="btn-primary mt-6 inline-flex items-center gap-2"><FiArrowLeft /> BACK TO STORE</Link>
             </div>
+          ) : packs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
+              <p className="text-lg font-black text-[#0f172a]">No UC packages are live right now.</p>
+              <p className="mt-2 text-sm text-[#64748b]">Add active UC packages in admin to show them here.</p>
+            </div>
           ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {packs.map((pack, index) => (
-              <motion.article
+              <article
                 key={pack.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="premium-card group p-6"
+                data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                data-aos-delay={Math.min(index * 70, 350)}
+                className="premium-card gaming-card group p-6"
               >
                 <div className="flex items-start justify-between">
                   <span className="rounded bg-[#e0eefb] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#0f4c81]">{pack.bonusLabel ?? "UC BUNDLE"}</span>
@@ -92,7 +106,7 @@ export default function UcPage() {
                     CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </div>
-              </motion.article>
+              </article>
             ))}
           </div>
           )}

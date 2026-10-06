@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
-import { defaultProducts, Product } from "@/lib/store-data";
+import { Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -22,25 +21,29 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   const router = useRouter();
   const { whatsapp } = useStoreSettings();
   const [items, setItems] = useState<Product[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    fetch("/api/store")
-      .then((r) => r.json())
-      .then((data: { products?: Product[]; categories?: { slug: string }[] }) => {
-        const activeSlugs = new Set((data?.categories ?? []).map((c) => c.slug));
+    setCatalogLoaded(false);
+    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((data: { products?: Product[]; categories?: { slug: string }[] } | null) => {
+        const categories = Array.isArray(data?.categories) ? data.categories : [];
+        const activeSlugs = new Set(categories.map((c) => c.slug));
         // If the category was disabled in admin, don't surface any Checkout buttons.
-        if (data?.categories && !activeSlugs.has(category)) {
+        if (categories.length && !activeSlugs.has(category)) {
           setItems([]);
           setUnavailable(true);
           return;
         }
-        const filtered = (data?.products ?? []).filter((p) => p.categorySlug === category);
-        setItems(filtered.length ? filtered : defaultProducts.filter((p) => p.categorySlug === category));
+        setUnavailable(false);
+        setItems(Array.isArray(data?.products) ? data.products.filter((p) => p.categorySlug === category) : []);
       })
       .catch(() => {
-        setItems(defaultProducts.filter((p) => p.categorySlug === category));
-      });
+        setItems([]);
+      })
+      .finally(() => setCatalogLoaded(true));
   }, [category]);
 
   const requiresUid = category === "super-cars" || category === "x-suits";
@@ -63,7 +66,12 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
         <PageTitle eyebrow={eyebrow} title={title} copy={copy} />
 
         <section className="mx-auto max-w-7xl px-5 pb-20 lg:px-8">
-          {unavailable ? (
+          {!catalogLoaded ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
+              <p className="text-lg font-black text-[#0f172a]">Loading live products…</p>
+              <p className="mt-2 text-sm text-[#64748b]">Only database products are shown here.</p>
+            </div>
+          ) : unavailable ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
               <p className="text-lg font-black text-[#0f172a]">This category is temporarily unavailable.</p>
               <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
@@ -72,12 +80,11 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
           ) : items.length ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
               {items.map((item, index) => (
-                <motion.article
+                <article
                   key={item.id}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.45, delay: index * 0.08 }}
-                  className="premium-card group overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white"
+                  data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                  data-aos-delay={Math.min(index * 80, 360)}
+                  className="premium-card gaming-card group overflow-hidden rounded-2xl border border-[#e5e8ef] bg-white"
                 >
                   <div className="relative aspect-[1.25] overflow-hidden bg-[#eef1f6]">
                     <img
@@ -115,7 +122,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                       CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
                     </button>
                   </div>
-                </motion.article>
+                </article>
               ))}
             </div>
           ) : (

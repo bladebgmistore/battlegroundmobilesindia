@@ -52,6 +52,48 @@ button { cursor: pointer; }
   border-color: var(--border-strong);
   box-shadow: 0 16px 40px rgba(15,40,70,.10);
 }
+.gaming-card {
+  position: relative;
+  isolation: isolate;
+  cursor: pointer;
+  will-change: transform;
+}
+.gaming-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(56, 189, 248, .95),
+    0 0 0 1px rgba(125, 211, 252, .45),
+    0 0 22px rgba(56, 189, 248, .36);
+  transition: opacity .24s ease;
+}
+.gaming-card > * {
+  position: relative;
+  z-index: 1;
+}
+.premium-card.gaming-card.gaming-card:hover,
+.premium-card.gaming-card.gaming-card:focus-within {
+  transform: translateY(-10px) scale(1.018);
+  border-color: #7dd3fc;
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, .30),
+    0 0 26px rgba(56, 189, 248, .28),
+    0 20px 46px rgba(15, 76, 129, .16);
+}
+.premium-card.gaming-card.gaming-card:active {
+  transform: translateY(-12px) scale(1.022);
+}
+.premium-card.gaming-card:hover::before,
+.premium-card.gaming-card:focus-within::before,
+.premium-card.gaming-card:active::before {
+  opacity: 1;
+}
+
 
 /* ── Buttons ─────────────────────────────────────────── */
 .btn-primary {
@@ -143,6 +185,8 @@ textarea.form-input { height: auto; padding-top: 12px; }
 a, button { transition: color .18s ease, background-color .18s ease, border-color .18s ease, opacity .18s ease; }
 img { transition: opacity .3s ease; }
 
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .premium-card.gaming-card.gaming-card:hover { transform: none !important; }
 }

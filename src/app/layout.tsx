@@ -6,6 +6,7 @@ import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
 import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
+import { GamingEnhancements } from "@/components/gaming-enhancements";
 
 /**
  * Every route is request-scoped: the root layout reads live site settings from
@@ -47,6 +48,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `html:not(.reveal-ready) body [data-aos]{opacity:1!important;transform:none!important;transition:none!important}html.reveal-ready body [data-aos]{opacity:0!important;transform:translate3d(0,24px,0) scale(.985)!important;transition:opacity .62s ease,transform .62s cubic-bezier(.2,.8,.2,1)!important}html.reveal-ready body [data-aos=zoom-in]{transform:scale(.955)!important}html.reveal-ready body [data-aos=fade-left]{transform:translate3d(34px,0,0)!important}html.reveal-ready body [data-aos=fade-right]{transform:translate3d(-34px,0,0)!important}html.reveal-ready body [data-aos].reveal-visible{opacity:1!important;transform:none!important}`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
@@ -55,6 +62,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        <GamingEnhancements />
         {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
         <Suspense fallback={null}>
           <VisitTracker />

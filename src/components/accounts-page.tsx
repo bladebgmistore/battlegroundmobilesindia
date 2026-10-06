@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
-import { defaultAccounts, formatINR, Product } from "@/lib/store-data";
+import { formatINR, Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 
 export default function AccountsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Product[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(100000);
   const [selected, setSelected] = useState<Product | null>(null);
@@ -22,35 +23,23 @@ export default function AccountsPage() {
 
   useEffect(() => {
     setWishlist(JSON.parse(localStorage.getItem("bgmi-wishlist") ?? "[]"));
-    fetch("/api/store")
-      .then((r) => r.json())
-      .then((d: { products?: Product[]; categories?: { slug: string }[] }) => {
-        const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
+    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((d: { products?: Product[]; categories?: { slug: string }[] } | null) => {
+        const categories = Array.isArray(d?.categories) ? d.categories : [];
+        const activeSlugs = new Set(categories.map((c) => c.slug));
         // Disabled in admin → no products, no Checkout buttons.
-        if (d?.categories && !activeSlugs.has("accounts")) {
+        if (categories.length && !activeSlugs.has("accounts")) {
           setItems([]);
           setUnavailable(true);
           return;
         }
-        if (d?.products) {
-          setItems(d.products.filter((p) => p.categorySlug === "accounts"));
-        }
+        setItems(Array.isArray(d?.products) ? d.products.filter((p) => p.categorySlug === "accounts") : []);
       })
       .catch(() => {
-        setItems(
-          defaultAccounts.map((a, i) => ({
-            id: a.id,
-            categorySlug: "accounts",
-            title: a.title,
-            price: a.price,
-            image: a.image,
-            features: a.features,
-            badge: a.badge ?? null,
-            sortOrder: i,
-            isActive: true,
-          }))
-        );
-      });
+        setItems([]);
+      })
+      .finally(() => setCatalogLoaded(true));
   }, []);
 
   const shown = useMemo(() => {
@@ -122,7 +111,12 @@ export default function AccountsPage() {
             </button>
           </div>
 
-          {unavailable ? (
+          {!catalogLoaded ? (
+            <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center" data-aos="fade-up">
+              <p className="text-lg font-black text-[#0f172a]">Loading live account listings…</p>
+              <p className="mt-2 text-sm text-[#64748b]">Only database products are shown here.</p>
+            </div>
+          ) : unavailable ? (
             <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center">
               <p className="text-lg font-black text-[#0f172a]">The account store is temporarily unavailable.</p>
               <p className="mt-2 text-sm text-[#64748b]">Please check back soon or contact the official support desk.</p>
@@ -131,12 +125,11 @@ export default function AccountsPage() {
           ) : shown.length ? (
             <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((item, index) => (
-                <motion.article
+                <article
                   key={item.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.06 }}
-                  className="group premium-card overflow-hidden rounded-2xl"
+                  data-aos={index % 2 === 0 ? "fade-up" : "zoom-in"}
+                  data-aos-delay={Math.min(index * 70, 350)}
+                  className="group premium-card gaming-card overflow-hidden rounded-2xl"
                 >
                   <div className="relative aspect-[1.22] overflow-hidden">
                     <img
@@ -185,7 +178,7 @@ export default function AccountsPage() {
                       PROCEED TO CHECKOUT
                     </button>
                   </div>
-                </motion.article>
+                </article>
               ))}
             </div>
           ) : (

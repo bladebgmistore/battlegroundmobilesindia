@@ -38,7 +38,7 @@ function CategoryShelf({ category, products }: { category: Category; products: P
   return (
     <section id={category.slug} className="border-b border-[#eef1f6] py-20 last:border-b-0">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white">
+        <div data-aos="fade-up" data-aos-delay="60" className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white">
           <div className="absolute inset-0 bg-gradient-to-r from-[#eef4fb] via-white to-transparent" />
           <div className="relative px-6 py-9 sm:px-9">
             <p className="text-[10px] font-bold tracking-[.2em] text-[#0f4c81]">{category.name.toUpperCase()} STORE</p>
@@ -182,8 +182,8 @@ export default function HomePage() {
         {/* Stats segment */}
         <section className="border-y border-[#eef1f6] bg-white">
           <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-[#eef1f6] px-5 sm:grid-cols-4 sm:divide-y-0 lg:px-8">
-            {[["12K+", "TRUSTED CUSTOMERS"], ["8.6K+", "SUCCESSFUL ORDERS"], ["4.9/5", "HAPPY PLAYERS"], ["24/7", "SECURE SUPPORT"]].map(([number, label]) => (
-              <div key={label} className="p-6 text-center sm:p-8">
+            {[["12K+", "TRUSTED CUSTOMERS"], ["8.6K+", "SUCCESSFUL ORDERS"], ["4.9/5", "HAPPY PLAYERS"], ["24/7", "SECURE SUPPORT"]].map(([number, label], index) => (
+              <div key={label} data-aos="zoom-in" data-aos-delay={index * 80} className="p-6 text-center sm:p-8">
                 <p className="text-2xl font-black tracking-[-.05em] text-[#0f4c81] sm:text-3xl">{number}</p>
                 <p className="mt-1 text-[9px] font-bold tracking-[.15em] text-[#64748b]">{label}</p>
               </div>
@@ -203,7 +203,7 @@ export default function HomePage() {
         {ucCategory && (
           <section id="uc" className="relative border-y border-[#eef1f6] bg-white/70 py-20">
             <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
-              <div className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] min-h-[340px]">
+              <div data-aos="fade-right" className="relative overflow-hidden rounded-2xl border border-[#dbe2ec] min-h-[340px]">
                 <img src={ucCategory.image || images.uc} alt={ucCategory.name || "BGMI UC packages"} className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/30 to-transparent" />
                 <div className="relative flex h-full min-h-[340px] flex-col justify-end p-7">
@@ -278,7 +278,7 @@ export default function HomePage() {
 
         {/* CTA */}
         <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
-          <div className="premium-card px-7 py-10 sm:px-12 sm:py-14">
+          <div data-aos="zoom-in" className="premium-card px-7 py-10 sm:px-12 sm:py-14">
             <div className="flex flex-col items-start justify-between gap-7 md:flex-row md:items-center">
               <div>
                 <p className="text-[10px] font-bold tracking-[.17em] text-[#0f4c81]">READY WHEN YOU ARE</p>

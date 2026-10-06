@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaStar, FaWhatsapp } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { FiCheckCircle, FiEdit3, FiLoader, FiX } from "react-icons/fi";
@@ -64,6 +64,7 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [review, setReview] = useState("");
+  const [reviewOffset, setReviewOffset] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -91,6 +92,19 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
   }, []);
 
   const visible: Feedback[] = feedbacks.length ? feedbacks : (fallbackReviews as Feedback[]);
+
+  useEffect(() => {
+    if (visible.length <= 3) return undefined;
+    const interval = window.setInterval(() => {
+      setReviewOffset((current) => (current + 1) % visible.length);
+    }, 3600);
+    return () => window.clearInterval(interval);
+  }, [visible.length]);
+
+  const movingFeedbacks = useMemo(() => {
+    const limit = Math.min(3, visible.length);
+    return Array.from({ length: limit }, (_, index) => visible[(reviewOffset + index) % visible.length]);
+  }, [reviewOffset, visible]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -129,7 +143,7 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
   return (
     <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
       <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
-        <div>
+        <div data-aos="fade-right" data-aos-delay="80">
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -270,22 +284,28 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
           </AnimatePresence>
         </div>
 
-        {/* Animated review grid */}
+        {/* Moving review carousel: 1-2-3, then 2-3-4, and so on. */}
         <motion.div
           variants={listVariants}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.15 }}
+          data-aos="fade-left"
           className="grid gap-4 md:grid-cols-3"
         >
-          <AnimatePresence initial={false}>
-            {visible.map((item, index) => (
+          <AnimatePresence initial={false} mode="popLayout">
+            {movingFeedbacks.map((item, index) => (
               <motion.article
                 key={item.id || item.name || index}
                 layout
                 variants={cardVariants}
-                whileHover={{ y: -6, boxShadow: "0 18px 40px -22px rgba(15,76,129,.45)" }}
-                className="premium-card p-5"
+                initial={{ opacity: 0, x: 46, y: 18, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -46, y: -8, scale: 0.94 }}
+                transition={{ type: "spring", stiffness: 230, damping: 26, delay: index * 0.04 }}
+                whileHover={{ y: -10, scale: 1.02, boxShadow: "0 20px 46px rgba(56,189,248,.22)" }}
+                whileTap={{ y: -12, scale: 1.025 }}
+                className="premium-card gaming-card p-5"
               >
                 <Stars rating={item.rating ?? 5} />
                 <p className="mt-4 text-sm leading-6 text-[#334155]">“{item.review || item.body}”</p>

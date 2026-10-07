@@ -13,9 +13,11 @@ import { ClerkProvider } from "@clerk/nextjs";
  * Root layout - now wrapped with ClerkProvider for compulsory authentication.
  * 
  * Every route is request-scoped: the root layout reads live site settings from
- * Neon (`cache: "no-store"`) and `middleware.ts` / `proxy.ts` resolves the
- * Clerk session per request. Forcing dynamic rendering here stops Next.js
- * from trying to prerender pages at build time.
+ * Neon (`cache: "no-store"`) and `proxy.ts` resolves the Clerk session per request.
+ * Forcing dynamic rendering stops Next.js from prerendering pages at build time.
+ * 
+ * If Clerk env vars are missing, we render without ClerkProvider and show
+ * a configuration error instead of crashing with 500.
  */
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,45 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+function MissingClerkConfig({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <main className="grid min-h-screen place-items-center bg-[#eef1f6] px-5 py-16">
+          <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-white p-8 shadow-xl">
+            <h1 className="text-2xl font-black text-red-600">Clerk Configuration Missing</h1>
+            <p className="mt-3 text-sm leading-6 text-[#64748b]">
+              <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> or <code>CLERK_SECRET_KEY</code> is missing.
+              This causes Internal Server Error.
+            </p>
+            <div className="mt-5 rounded-xl bg-[#f8fafc] p-4 text-xs font-mono">
+              <p>1. Add to Vercel → Settings → Environment Variables:</p>
+              <p className="mt-2">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...</p>
+              <p>CLERK_SECRET_KEY=sk_live_...</p>
+              <p>OWNER_EMAIL=manavjeph800@gmail.com</p>
+              <p className="mt-3">2. If using custom domain clerk.battlegroundmobilesindia.shop:</p>
+              <p>   Add DNS CNAME: clerk.battlegroundmobilesindia.shop → frontend-api.clerk.dev</p>
+              <p>   (Check Clerk Dashboard → Custom Domains)</p>
+              <p className="mt-3">3. Redeploy</p>
+            </div>
+            <p className="mt-5 text-[11px] text-[#94a3b8]">
+              Current env check: <a href="/api/auth/config-check" className="underline text-[#0f4c81]">/api/auth/config-check</a>
+            </p>
+          </div>
+        </main>
+      </body>
+    </html>
+  );
+}
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const { values } = await getPublicSettings();
+  const hasClerkKeys = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+
+  // If Clerk keys missing, show config error instead of crashing with 500
+  if (!hasClerkKeys) {
+    return <MissingClerkConfig>{children}</MissingClerkConfig>;
+  }
 
   return (
     <ClerkProvider
@@ -75,7 +114,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <body>
           <SettingsProvider value={values}>{children}</SettingsProvider>
           <GamingEnhancements />
-          {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
+          {/* Logs every page view (user email + IP + URL + timestamp) for admin panel */}
           <Suspense fallback={null}>
             <VisitTracker />
           </Suspense>

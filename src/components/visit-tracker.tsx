@@ -6,9 +6,9 @@ import { useEffect, useRef } from "react";
 /**
  * Fires a lightweight page-view beacon on every route change.
  *
- * The server (/api/track) attaches the authenticated email (or "Guest" for
- * signed-out homepage visitors), the real client IP and the timestamp — the
- * browser only supplies the path, so the log cannot be forged by a visitor.
+ * The server (/api/track) attaches the Clerk authenticated email, real client IP
+ * and timestamp — the browser only supplies the path, so the log cannot be forged.
+ * Logs to site_logs table: email, IP, URL, timestamp for admin panel.
  */
 function Beacon() {
   const pathname = usePathname();
@@ -17,8 +17,14 @@ function Beacon() {
 
   useEffect(() => {
     if (!pathname) return;
-    // Never log the login screen or the OAuth round-trip.
-    if (pathname.startsWith("/login") || pathname.startsWith("/auth/")) return;
+    // Never log the auth screens or OAuth round-trip.
+    if (
+      pathname.startsWith("/sign-in") ||
+      pathname.startsWith("/sign-up") ||
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/auth/")
+    )
+      return;
 
     const query = searchParams?.toString();
     const url = query ? `${pathname}?${query}` : pathname;

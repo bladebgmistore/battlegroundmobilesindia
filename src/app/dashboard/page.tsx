@@ -1,5 +1,5 @@
 import UserDashboard from "@/components/user-dashboard";
-import { requireSession } from "@/lib/auth";
+import { requireClerkSession } from "@/lib/clerk-auth";
 import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const metadata = {
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
-  const session = await requireSession("/dashboard");
+  const session = await requireClerkSession();
 
   return (
     <UserDashboard

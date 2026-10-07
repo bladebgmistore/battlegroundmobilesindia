@@ -1,25 +1,53 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
-import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
+import { NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { isAdminAreaRole, ROLE_OWNER } from "@/lib/rbac";
+import { effectiveRoleForEmail, resolveLoginRole } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
 
-/** Public endpoint: who am I? Used by the header and client components. */
-export async function GET(request: NextRequest) {
-  const session = await getSessionFromRequest(request);
-  if (!session) return NextResponse.json({ authenticated: false, user: null });
+/**
+ * Public endpoint: who am I? Used by header and client components.
+ * Now powered by Clerk — replaces old custom session cookie.
+ */
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ authenticated: false, user: null });
+  }
+
+  const user = await currentUser();
+  if (!user) {
+    return NextResponse.json({ authenticated: false, user: null });
+  }
+
+  const primaryEmail =
+    user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ||
+    user.emailAddresses[0]?.emailAddress ||
+    null;
+
+  if (!primaryEmail) {
+    return NextResponse.json({ authenticated: false, user: null });
+  }
+
+  const email = primaryEmail.toLowerCase();
+  const baseRole = await resolveLoginRole(email);
+  const role = await effectiveRoleForEmail(email, baseRole);
+
+  const name =
+    user.fullName ||
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+    email.split("@")[0];
 
   return NextResponse.json({
     authenticated: true,
     user: {
-      id: session.id,
-      name: session.name,
-      email: session.email,
-      picture: session.picture,
-      role: session.role,
-      isOwner: session.role === ROLE_OWNER,
-      /** Any staff role (owner/admin/manager/moderator) → show the Admin Panel link. */
-      adminAccess: isAdminAreaRole(session.role),
+      id: userId,
+      name,
+      email,
+      picture: user.imageUrl ?? null,
+      role,
+      isOwner: role === ROLE_OWNER,
+      adminAccess: isAdminAreaRole(role),
     },
   });
 }

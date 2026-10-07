@@ -2,16 +2,13 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
-import { SESSION_COOKIE } from "@/lib/auth-config";
-import { verifySession } from "@/lib/auth-session";
-import type { NextRequest } from "next/server";
+import { getClerkSession } from "@/lib/clerk-auth";
 
 /**
- * Customer account store — Google-only edition.
- *
- * The password login (register / login / reset) has been removed. Identity
- * always comes from the signed Google session cookie; this module just
- * resolves that session to the local `users` row used by orders.
+ * Customer account store — now powered by Clerk.
+ * 
+ * Previously used custom session cookie. Now uses Clerk's currentUser() / auth()
+ * to resolve identity, then maps to local users row for orders.
  */
 
 export type UserRecord = {
@@ -29,18 +26,18 @@ export function toUserRecord(user: UserRecord): UserRecord {
   return user;
 }
 
-/** Resolve the signed-in Google user (DB row when available). */
-export async function getCurrentUser(request: NextRequest): Promise<UserRecord | null> {
-  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return null;
+/** Resolve the signed-in Clerk user (DB row when available). */
+export async function getCurrentUser(_request?: any): Promise<UserRecord | null> {
+  const clerk = await getClerkSession();
+  if (!clerk) return null;
 
   const fallback: UserRecord = {
-    id: session.id,
-    email: session.email,
+    id: clerk.userId,
+    email: clerk.email,
     whatsapp: null,
-    name: session.name,
-    avatarUrl: session.picture,
-    role: session.role,
+    name: clerk.name,
+    avatarUrl: clerk.picture,
+    role: clerk.role,
     isActive: true,
     createdAt: null,
   };
@@ -49,7 +46,7 @@ export async function getCurrentUser(request: NextRequest): Promise<UserRecord |
   if (!ready) return fallback;
 
   try {
-    const [row] = await db.select().from(users).where(eq(users.email, session.email)).limit(1);
+    const [row] = await db.select().from(users).where(eq(users.email, clerk.email)).limit(1);
     if (!row) return fallback;
     if (!row.isActive) return null;
     return {
@@ -58,8 +55,8 @@ export async function getCurrentUser(request: NextRequest): Promise<UserRecord |
       whatsapp: row.whatsapp,
       name: row.name,
       avatarUrl: row.avatarUrl,
-      // The session role is authoritative (owner allow-list).
-      role: session.role,
+      // The session role is authoritative (owner allow-list + staff table)
+      role: clerk.role,
       isActive: row.isActive,
       createdAt: row.createdAt,
     };
@@ -76,8 +73,8 @@ function normalizePhone(value?: string | null): string | null {
 }
 
 /**
- * Users may edit their display name and WhatsApp number (used to contact them
- * about orders). The email is owned by Google and is therefore read-only.
+ * Users may edit their display name and WhatsApp number.
+ * Email is owned by Clerk and read-only.
  */
 export async function updateUserProfile(
   id: string,

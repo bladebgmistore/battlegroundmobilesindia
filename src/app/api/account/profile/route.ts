@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ ok: true, user });
 }
 
-/** Name + WhatsApp are editable; the email is owned by the Google account. */
+/** Name + WhatsApp are editable; the email is owned by Clerk account. */
 export async function PATCH(request: NextRequest) {
   const user = await getCurrentUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

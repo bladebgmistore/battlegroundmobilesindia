@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiGrid, FiLogOut, FiPackage, FiRefreshCw, FiShield } from "react-icons/fi";
-import { FcGoogle } from "react-icons/fc";
+import { useUser, UserButton, SignInButton, SignOutButton } from "@clerk/nextjs";
 
 type User = {
   id: string;
@@ -13,18 +13,19 @@ type User = {
   picture: string | null;
   isOwner: boolean;
   role?: string;
-  /** owner / admin / manager / moderator → can open /admin. */
   adminAccess?: boolean;
 };
 
 /**
- * Header account control.
- *
- * The homepage is public, so signed-out visitors see a "Login with Google"
- * button here; every other page redirects to /login first.
+ * Header account control — now powered by Clerk.
+ * 
+ * Uses Clerk's useUser() hook + our /api/auth/session for role info (owner/staff).
+ * Falls back to Clerk's UserButton for avatar + sign-out.
  */
+
 export function UserNav() {
   const pathname = usePathname();
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -36,8 +37,9 @@ export function UserNav() {
         const res = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
         const data = await res.json().catch(() => null);
         if (alive && data?.authenticated && data.user) setUser(data.user as User);
+        else if (alive) setUser(null);
       } catch {
-        // treat as logged out
+        if (alive) setUser(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -45,11 +47,11 @@ export function UserNav() {
     return () => {
       alive = false;
     };
-  }, [pathname]);
+  }, [pathname, isSignedIn]);
 
   const close = () => setOpen(false);
 
-  if (loading) {
+  if (!isLoaded || loading) {
     return (
       <span className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#94a3b8]">
         <FiRefreshCw className="animate-spin text-sm" />
@@ -57,16 +59,21 @@ export function UserNav() {
     );
   }
 
-  if (!user) {
-    // Signed-out visitor on the public homepage.
+  if (!isSignedIn || !user) {
+    // Clerk handles redirect to sign-in — show sign-in button
     return (
       <div className="hidden items-center gap-2 sm:flex">
-        <a
-          href="/auth/google?next=/dashboard"
-          className="flex items-center gap-2 rounded-xl border border-[#dbe2ec] bg-white px-4 py-2.5 text-xs font-black tracking-[.1em] text-[#0f172a] shadow-sm transition hover:border-[#0f4c81] hover:shadow-md"
+        <SignInButton mode="modal">
+          <button className="flex items-center gap-2 rounded-xl border border-[#dbe2ec] bg-white px-4 py-2.5 text-xs font-black tracking-[.1em] text-[#0f172a] shadow-sm transition hover:border-[#0f4c81] hover:shadow-md">
+            LOGIN
+          </button>
+        </SignInButton>
+        <Link
+          href="/sign-in"
+          className="flex items-center gap-2 rounded-xl bg-[#0f4c81] px-4 py-2.5 text-xs font-black tracking-[.1em] text-white shadow-sm transition hover:bg-[#0a3557]"
         >
-          <FcGoogle className="text-base" /> LOGIN
-        </a>
+          SIGN IN
+        </Link>
       </div>
     );
   }
@@ -97,6 +104,11 @@ export function UserNav() {
             <div className="border-b border-[#eef1f6] px-4 py-3">
               <p className="text-sm font-extrabold text-[#0f172a]">{user.name}</p>
               <p className="mt-0.5 truncate text-xs text-[#64748b]">{user.email}</p>
+              {user.role && (
+                <span className="mt-1 inline-block rounded bg-[#e0eefb] px-1.5 py-0.5 text-[9px] font-black tracking-[.1em] text-[#0f4c81]">
+                  {user.role.toUpperCase()}
+                </span>
+              )}
             </div>
             <Link href="/dashboard" onClick={close} className="flex items-center gap-3 px-4 py-3 text-sm text-[#334155] hover:bg-[#f1f5fb]">
               <FiGrid className="text-[#0f4c81]" /> My Dashboard
@@ -109,9 +121,13 @@ export function UserNav() {
                 <FiShield /> Admin Panel
               </Link>
             )}
-            <a href="/auth/logout" className="flex w-full items-center gap-3 border-t border-[#eef1f6] px-4 py-3 text-start text-sm text-[#c62828] hover:bg-red-50">
-              <FiLogOut /> Sign Out
-            </a>
+            <div className="border-t border-[#eef1f6]">
+              <SignOutButton>
+                <button className="flex w-full items-center gap-3 px-4 py-3 text-start text-sm text-[#c62828] hover:bg-red-50">
+                  <FiLogOut /> Sign Out
+                </button>
+              </SignOutButton>
+            </div>
           </div>
         </>
       )}
@@ -119,8 +135,9 @@ export function UserNav() {
   );
 }
 
-/** Compact account actions used inside the mobile menu. */
+/** Compact account actions used inside the mobile menu — Clerk powered. */
 export function UserMobileAuth() {
+  const { isLoaded, isSignedIn } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -138,16 +155,16 @@ export function UserMobileAuth() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isSignedIn]);
 
-  if (loading) return null;
+  if (!isLoaded || loading) return null;
 
-  if (!user) {
+  if (!isSignedIn || !user) {
     return (
       <div className="mt-3 grid gap-2 border-t border-[#dbe2ec] pt-4 lg:hidden">
-        <a href="/auth/google?next=/dashboard" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
-          <FcGoogle className="text-base" /> LOGIN WITH GOOGLE
-        </a>
+        <Link href="/sign-in" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
+          LOGIN / SIGN UP
+        </Link>
       </div>
     );
   }
@@ -159,7 +176,9 @@ export function UserMobileAuth() {
       {(user.adminAccess ?? user.isOwner) && (
         <Link href="/admin" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">ADMIN PANEL</Link>
       )}
-      <a href="/auth/logout" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em] !text-[#c62828]">SIGN OUT</a>
+      <SignOutButton>
+        <button className="btn-outline flex w-full items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em] !text-[#c62828]">SIGN OUT</button>
+      </SignOutButton>
     </div>
   );
 }

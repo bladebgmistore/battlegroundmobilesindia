@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import GoogleLogin from "@/components/google-login";
-import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,25 +7,17 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * Legacy /login route — now redirects to Clerk's /sign-in.
+ * Keeps old bookmarks and OAuth callbacks working.
+ */
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string; signedout?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; signedout?: string; redirect_url?: string }>;
 }) {
   const params = await searchParams;
-  const session = await getSession();
-
-  // Already signed in — go straight to the dashboard (or the requested page).
-  if (session) {
-    const target = params.next?.startsWith("/") && !params.next.startsWith("//") ? params.next : "/dashboard";
-    redirect(target);
-  }
-
-  return (
-    <GoogleLogin
-      next={params.next?.startsWith("/") ? params.next : "/dashboard"}
-      error={params.error}
-      signedOut={params.signedout === "1"}
-    />
-  );
+  const next = params.next || params.redirect_url || "/dashboard";
+  const target = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  redirect(`/sign-in?redirect_url=${encodeURIComponent(target)}`);
 }

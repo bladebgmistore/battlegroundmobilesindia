@@ -14,6 +14,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { GridBackdrop, SiteHeader } from "@/components/site-chrome";
+import { SignOutButton } from "@clerk/nextjs";
 
 export type DashboardUser = {
   name: string;
@@ -78,8 +79,13 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
               <FiMail className="text-[#0f4c81]" /> {user.email}
             </p>
             <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#ecfdf5] px-3 py-1.5 text-[11px] font-black text-emerald-700">
-              <FiCheckCircle /> SIGNED IN WITH GOOGLE · {user.role.toUpperCase()}
+              <FiCheckCircle /> SIGNED IN WITH CLERK · {user.role.toUpperCase()}
             </p>
+            {user.isOwner && (
+              <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#0f4c81] px-3 py-1.5 text-[10px] font-black tracking-[.1em] text-white">
+                <FiShield /> OWNER ACCESS · {user.email}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -91,12 +97,11 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
                 <FiShield /> OPEN ADMIN PANEL
               </Link>
             )}
-            <a
-              href="/auth/logout"
-              className="btn-outline flex items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-[.12em]"
-            >
-              <FiLogOut /> SIGN OUT
-            </a>
+            <SignOutButton>
+              <button className="btn-outline flex items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-[.12em]">
+                <FiLogOut /> SIGN OUT
+              </button>
+            </SignOutButton>
           </div>
         </section>
 
@@ -112,6 +117,7 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
             <p className="mt-2 max-w-2xl text-sm text-white/80">
               The admin panel gives you catalog management, order processing, site controls and the live visitor
               tracking log — every page view with user email, IP address and timestamp.
+              {user.email === "manavjeph800@gmail.com" && " You are the primary owner (manavjeph800@gmail.com)."}
             </p>
             <Link
               href="/admin"

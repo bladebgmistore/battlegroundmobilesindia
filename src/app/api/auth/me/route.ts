@@ -4,7 +4,7 @@ import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
-/** Current Google-authenticated customer (used by the header and checkout). */
+/** Current Clerk-authenticated customer (used by header and checkout). */
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser(request);
   if (!user) return NextResponse.json({ authenticated: false, user: null });

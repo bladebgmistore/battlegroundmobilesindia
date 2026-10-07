@@ -118,7 +118,7 @@ export default function AccountPage() {
         const res = await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
         const data = await res.json().catch(() => null);
         if (!data?.authenticated || !data.user) {
-          router.replace("/login");
+          router.replace("/sign-in");
           return;
         }
         const u = data.user as User;
@@ -132,7 +132,7 @@ export default function AccountPage() {
         if (orderData?.ok) setOrders(orderData.orders ?? []);
         setOrdersLoaded(true);
       } catch {
-        router.replace("/login");
+        router.replace("/sign-in");
       } finally {
         setLoading(false);
       }
@@ -170,8 +170,8 @@ export default function AccountPage() {
 
   const logout = () => {
     setLoggingOut(true);
-    // Clears the signed Google session cookie server-side, then back to login.
-    window.location.href = "/auth/logout";
+    // Clerk handles sign-out — redirect to sign-in page
+    window.location.href = "/sign-in";
   };
 
   if (loading) {

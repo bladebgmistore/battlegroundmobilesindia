@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { feedbacks } from "@/db/schema";
-import { getSessionFromRequest } from "@/lib/auth";
+import { getClerkSession } from "@/lib/clerk-auth";
 import { ensureFeedbackTables } from "@/lib/feedback-tables";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { and, desc, eq, gte } from "drizzle-orm";
@@ -38,15 +38,15 @@ export async function GET() {
 /**
  * Player review submission.
  *
- * Requires a Google session (so reviews are accountable) and ALWAYS stores the
+ * Requires Clerk authentication (so reviews are accountable) and ALWAYS stores the
  * row as `pending` — it stays invisible on the site until the owner accepts it
  * in Admin → Feedback.
  */
 export async function POST(request: NextRequest) {
-  const session = await getSessionFromRequest(request);
+  const session = await getClerkSession();
   if (!session) {
     return Response.json(
-      { error: "Please sign in with Google to post a review." },
+      { error: "Please sign in to post a review." },
       { status: 401 },
     );
   }

@@ -12,6 +12,7 @@ import VisitorLogsPanel from "@/components/admin-visitor-logs";
 import AdminUsersPanel from "@/components/admin-users-panel";
 import AdminTeamPanel from "@/components/admin-team-panel";
 import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
+import { SignOutButton } from "@clerk/nextjs";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
 type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
@@ -164,9 +165,10 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 
   const toast = (message: string) => { setNotice(message); setTimeout(() => setNotice(""), 2600); };
 
+  // Clerk sign-out is handled via <SignOutButton> in the UI below.
+  // Kept as fallback for programmatic usage.
   const signout = () => {
-    // Clears the Google session cookie and returns to the login page.
-    window.location.href = "/auth/logout";
+    window.location.href = "/sign-in";
   };
 
   const create: CatalogMutation = async (entity, data) => {
@@ -365,9 +367,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
           </span>
         </div>
       </div>
-      <button onClick={signout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600/80 transition hover:bg-red-50">
-        <FiLogOut /> Sign out
-      </button>
+      <SignOutButton>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600/80 transition hover:bg-red-50">
+          <FiLogOut /> Sign out
+        </button>
+      </SignOutButton>
     </div>
   </>;
 
@@ -403,9 +407,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
           <a href="/" target="_blank" rel="noopener noreferrer" className="hidden items-center gap-2 rounded-lg border border-[#dbe2ec] px-3 py-2 text-[10px] font-black text-[#0f4c81] transition hover:bg-[#f1f5fb] md:inline-flex">
             <FiEye /> VIEW SITE
           </a>
-          <button onClick={signout} title="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition hover:bg-red-50 hover:text-red-600">
-            <FiLogOut />
-          </button>
+          <SignOutButton>
+            <button title="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition hover:bg-red-50 hover:text-red-600">
+              <FiLogOut />
+            </button>
+          </SignOutButton>
         </div>
       </header>
       <div className="p-5 lg:p-8">

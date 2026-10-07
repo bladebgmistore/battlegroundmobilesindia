@@ -1,65 +1,32 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, isAdminAreaRole, isPublicPath } from "@/lib/auth-config";
-import { verifySession } from "@/lib/auth-session";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 /**
- * Compulsory Google authentication (Next.js 16 `proxy` file convention —
- * the former `middleware.ts`, renamed per
- * https://nextjs.org/docs/messages/middleware-to-proxy).
+ * Next.js 16 proxy file — replaces the old middleware.ts convention.
+ * This file now uses Clerk for compulsory authentication.
  *
- * Runs on the Edge runtime for every request that isn't a static asset.
- * - No session  →  /login?next=<original path>   (JSON 401 for /api/*)
- * - Session     →  request continues, with the resolved identity forwarded
- *                  to server components via `x-pathname` / `x-user-email`.
+ * Old logic: checked custom bgmi_session cookie + OWNER_EMAIL allow-list.
+ * New logic: Clerk session — auth.protect() redirects unauthenticated users
+ * to /sign-in automatically.
+ *
+ * Admin area role checks are now done in Server Components / API routes
+ * via @/lib/clerk-auth.ts (which checks manavjeph800@gmail.com + staff_members table).
  */
-export async function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
 
-  const forwardHeaders = () => {
-    const headers = new Headers(request.headers);
-    headers.set("x-pathname", pathname);
-    return headers;
-  };
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks(.*)",
+]);
 
-  if (isPublicPath(pathname)) {
-    return NextResponse.next({ request: { headers: forwardHeaders() } });
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
   }
-
-  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
-
-  if (!session) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Authentication required.", login: "/login" }, { status: 401 });
-    }
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", `${pathname}${search}`);
-    const response = NextResponse.redirect(loginUrl);
-    // Drop an expired/tampered cookie so the login page starts clean.
-    if (request.cookies.has(SESSION_COOKIE)) {
-      response.cookies.set({ name: SESSION_COOKIE, value: "", path: "/", maxAge: 0 });
-    }
-    return response;
-  }
-
-  // Staff-only area (owner / admin / manager / moderator). The page guard
-  // and API routes re-verify the role against the database — this edge check
-  // is just the fast first gate on the signed cookie.
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (!isAdminAreaRole(session.role)) {
-      return NextResponse.redirect(new URL("/dashboard?error=forbidden", request.url));
-    }
-  }
-
-  const headers = forwardHeaders();
-  headers.set("x-user-email", session.email);
-  headers.set("x-user-role", session.role);
-  return NextResponse.next({ request: { headers } });
-}
+});
 
 export const config = {
-  /**
-   * Everything except Next internals and public files.
-   * (`isPublicPath` does the fine-grained allow-listing.)
-   */
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt|xml|css|js|woff2?|ttf)$).*)"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };

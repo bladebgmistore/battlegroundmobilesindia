@@ -256,10 +256,11 @@ export default function CheckoutPage() {
               <p className="mt-6 text-[10px] font-black tracking-[.18em] text-[#0f4c81]">ACCOUNT REQUIRED</p>
               <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Sign in to continue checkout</h1>
               <p className="mt-3 text-sm leading-6 text-[#64748b]">
-                A Google account is required to place an order — your order, payment screenshot and delivery details stay saved in your account.
+                Sign in is required to place an order — supports Google, Email OTP / Magic Link, Phone OTP via Clerk. Your order and delivery details stay saved in your account.
               </p>
               <div className="mt-7 grid gap-3">
-                <a href={`/auth/google?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> CONTINUE WITH GOOGLE</a>
+                <Link href={`/sign-in?redirect_url=${checkoutNext}`} className="btn-primary w-full flex items-center justify-center gap-2"><FiLock /> CONTINUE WITH CLERK — GOOGLE / EMAIL OTP / PHONE OTP</Link>
+                <Link href={`/sign-up?redirect_url=${checkoutNext}`} className="btn-outline w-full flex items-center justify-center gap-2">CREATE ACCOUNT</Link>
               </div>
               {authRequired && authedUser && (
                 <p className="mt-5 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] px-3.5 py-2.5 text-[11px] font-semibold text-[#8a6d1a]">

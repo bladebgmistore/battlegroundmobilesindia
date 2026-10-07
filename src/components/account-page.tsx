@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh, FiZap } from "react-icons/fi";
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { formatINR } from "@/lib/store-data";
@@ -49,28 +49,22 @@ export function statusInfo(status: string) {
   return STATUS_LABEL[status] ?? { label: status.replace(/_/g, " "), className: "bg-[#eef1f6] text-[#64748b]" };
 }
 
-/** GET OTP / WEBSITE CHARGE / GENERATE AGAIN — sends the buyer to the refundable
- *  verification-payment page for a delivered order. No hardcoded amount is shown
- *  on the card; the amount lives only on the payment page. */
-function ChargeAction({ order, label, isAccount, verificationPaid }: {
+/** GET OTP / GENERATE AGAIN — sends an account buyer to the refundable
+ * verification-payment page. The amount is shown only on the payment page. */
+function OtpAction({ order, verificationPaid }: {
   order: Order;
-  label: string;
-  isAccount: boolean;
   verificationPaid: boolean;
 }) {
   const router = useRouter();
-  const amount = isAccount ? 1499 : 499;
-  const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=${isAccount ? "otp" : "charge"}&amount=${amount}&product=${encodeURIComponent(order.productName)}`);
-  const note = isAccount
-    ? "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours."
-    : "Complete the website charge to finish your order. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours.";
+  const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=otp&amount=1499&product=${encodeURIComponent(order.productName)}`);
+  const note = "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours.";
 
   // The admin sets the OTP on the order; show it here once available.
-  const otpReady = isAccount && Boolean(order.otpCode);
+  const otpReady = Boolean(order.otpCode);
 
   return (
     <div className="mt-4 rounded-xl border border-[#cfe3f7] bg-white p-4">
-      <p className="text-xs font-bold text-[#0f4c81]">{label}</p>
+      <p className="text-xs font-bold text-[#0f4c81]">GET OTP</p>
       <p className="mt-1.5 text-[11px] leading-5 text-[#64748b]">{note}</p>
 
       {otpReady ? (
@@ -82,7 +76,7 @@ function ChargeAction({ order, label, isAccount, verificationPaid }: {
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={go} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
-            <FiEye /> {label}
+            <FiEye /> GET OTP
           </button>
           {verificationPaid && (
             <button onClick={go} className="btn-outline inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
@@ -253,11 +247,11 @@ export default function AccountPage() {
                     {orders.map((order) => {
                       const st = statusInfo(order.status);
                       const isAccount = order.categorySlug === "accounts";
-                      // The next step (reveal credentials / GET OTP / GET UC) is
+                      // The next step (reveal credentials / GET OTP / confirm order) is
                       // triggered once the order is payment-confirmed or delivered.
                       const delivered = order.status === "payment_confirmed" || order.status === "delivered";
                       const hasCreds = isAccount && delivered && Boolean(order.accountLoginType && order.accountEmail && order.accountPassword);
-                      const chargeLabel = isAccount ? "GET OTP" : "GET UC";
+                      const websiteChargeUrl = `/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=charge&amount=499&product=${encodeURIComponent(order.productName)}`;
                       return (
                         <div key={order.id} className="rounded-xl border border-[#e5e8ef] p-4 sm:p-5">
                           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -310,26 +304,22 @@ export default function AccountPage() {
                               )}
 
                               {/* GET OTP / GENERATE AGAIN */}
-                              <ChargeAction
+                              <OtpAction
                                 order={order}
-                                label={chargeLabel}
-                                isAccount={isAccount}
                                 verificationPaid={order.verificationPaid === true}
                               />
                             </div>
                           )}
 
-                          {/* Confirmed/delivered → GET UC for UC / X-Suit / Super-Car (no credentials) */}
+                          {/* Confirmed/delivered non-account order → one website-charge action */}
                           {delivered && !isAccount && (
-                            <div className="mt-4 rounded-xl border border-[#f2e2b3] bg-[#fdf9ec] p-4">
-                              <p className="flex items-center gap-2 text-[10px] font-black tracking-[.13em] text-[#8a6d00]"><FiZap /> DELIVERY CHARGE</p>
-                              <ChargeAction
-                                order={order}
-                                label={chargeLabel}
-                                isAccount={isAccount}
-                                verificationPaid={order.verificationPaid === true}
-                              />
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => router.push(websiteChargeUrl)}
+                              className="btn-primary mt-4 inline-flex items-center gap-2 px-5 py-3 text-[10px] font-black tracking-[.1em]"
+                            >
+                              <FiCheckCircle /> CONFERM ORDER
+                            </button>
                           )}
                         </div>
                       );

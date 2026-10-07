@@ -97,26 +97,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, saved: true });
     } catch {
       // Database offline — record on the demo order so the preview still works.
-      demoUpdateOrder(orderCode, {
+      const existing = demoUpdateOrder(orderCode, {
         verificationScreenshot: screenshot ?? undefined,
         ...(markPaid ? { verificationPaid: true, verificationPaidAt: new Date() } : {}),
       });
 
-      if (createdOtpOrder) {
-        const existing = demoUpdateOrder(orderCode, {});
-        if (existing) {
-          const replica = demoReplicateOrder(orderCode, {
-            productName: `${existing.productName} — OTP`,
-            status: "payment_confirmed",
-            verificationPaid: true,
-            verificationPaidAt: new Date(),
-            otpCode: null,
-          });
-          if (replica) {
-            // Make sure the replica is persisted (replicate already saved it);
-            // the buyer sees the new OTP order in their account.
-            demoSaveOrder(replica);
-          }
+      // Just like the database path above, only account orders create a fresh
+      // OTP row. Website-charge payments for UC and other items never do.
+      if (createdOtpOrder && existing?.categorySlug === "accounts") {
+        const replica = demoReplicateOrder(orderCode, {
+          productName: `${existing.productName} — OTP`,
+          status: "payment_confirmed",
+          verificationPaid: true,
+          verificationPaidAt: new Date(),
+          otpCode: null,
+        });
+        if (replica) {
+          // Make sure the replica is persisted (replicate already saved it);
+          // the buyer sees the new OTP order in their account.
+          demoSaveOrder(replica);
         }
       }
       return NextResponse.json({ ok: true, saved: true, demo: true });

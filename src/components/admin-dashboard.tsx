@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
@@ -11,6 +11,7 @@ import { useStoreSettings } from "@/lib/use-store-settings";
 import VisitorLogsPanel from "@/components/admin-visitor-logs";
 import AdminUsersPanel from "@/components/admin-users-panel";
 import AdminTeamPanel from "@/components/admin-team-panel";
+import AdminReferralsPanel from "@/components/admin-referrals-panel";
 import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
@@ -18,7 +19,7 @@ type Order = { id: string; orderCode: string; customerName: string; customerWhat
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
@@ -52,6 +53,7 @@ const MENU: MenuSection[] = [
     name: "Operations",
     items: [
       { view: "orders", label: "Orders", icon: FiArchive, scope: "orders" },
+      { view: "referrals", label: "Referrals & Points", icon: FiAward, scope: "referrals" },
       { view: "messages", label: "Messages", icon: FiMail, scope: "messages" },
       { view: "feedbacks", label: "Feedbacks", icon: FiStar, scope: "feedbacks" },
     ],
@@ -95,6 +97,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const [notice, setNotice] = useState("");
   const [databaseError, setDatabaseError] = useState("");
   const [pendingFeedbacks, setPendingFeedbacks] = useState(0);
+  const [pendingRedemptions, setPendingRedemptions] = useState(0);
   // Admin-configured logo, shown at the top of the dashboard.
   const { settings: publicSettings } = useStoreSettings();
   const logoSrc = publicSettings.logo_url || images.logo;
@@ -135,11 +138,12 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       // Only boot-load the datasets this role can use — moderators, for
       // example, never hit the catalog or orders endpoints.
       const can = (scope: AdminScope) => roleHasScope(role, scope);
-      const [cat, ord, mgmt, fb] = await Promise.all([
+      const [cat, ord, mgmt, fb, red] = await Promise.all([
         can("catalog") ? safeJson("/api/admin/catalog") : Promise.resolve("skip"),
         can("orders") ? safeJson("/api/orders") : Promise.resolve("skip"),
         can("messages") ? safeJson("/api/admin/management") : Promise.resolve("skip"),
         can("feedbacks") ? safeJson("/api/admin/feedbacks") : Promise.resolve("skip"),
+        can("referrals") ? safeJson("/api/admin/redemptions?status=pending") : Promise.resolve("skip"),
       ]);
 
       setDatabaseError(cat === null ? "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables." : "");
@@ -152,6 +156,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       setSettings(mgmt && mgmt !== "skip" ? mgmt.settings ?? [] : []);
       // Pending review badge in the sidebar.
       setPendingFeedbacks(Number(fb && fb !== "skip" ? fb?.counts?.pending ?? 0 : 0));
+      // Points → UC requests waiting to be fulfilled.
+      setPendingRedemptions(Number(red && red !== "skip" ? red?.counts?.pending?.count ?? 0 : 0));
     } finally {
       setLoading(false);
     }
@@ -280,6 +286,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     if (itemView === "messages") return unread;
     if (itemView === "feedbacks") return pendingFeedbacks;
     if (itemView === "orders") return pendingOrders;
+    if (itemView === "referrals") return pendingRedemptions;
     return 0;
   };
 
@@ -430,6 +437,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
             unreadMessages={unread}
             pendingFeedbacks={pendingFeedbacks}
             pendingOrders={pendingOrders}
+            pendingRedemptions={pendingRedemptions}
             totalRevenue={totalRevenue}
             deliveredCount={deliveredOrders.length}
             charts={charts}
@@ -443,6 +451,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} onCountsChange={setPendingFeedbacks} />}
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} canDelete={role === "owner"} />}
+        {view === "referrals" && <AdminReferralsPanel />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
         {view === "visitors" && <VisitorLogsPanel />}
@@ -458,7 +467,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
  * needs action, then the weekly chart and the newest orders. Every shortcut
  * is scope-checked so staff only jump to places they're allowed into.
  */
-function Overview({ role, go, productsCount, packsCount, orders, unreadMessages, pendingFeedbacks, pendingOrders, totalRevenue, deliveredCount, charts }: {
+function Overview({ role, go, productsCount, packsCount, orders, unreadMessages, pendingFeedbacks, pendingOrders, pendingRedemptions, totalRevenue, deliveredCount, charts }: {
   role: string;
   go: (view: View) => void;
   productsCount: number;
@@ -467,6 +476,7 @@ function Overview({ role, go, productsCount, packsCount, orders, unreadMessages,
   unreadMessages: number;
   pendingFeedbacks: number;
   pendingOrders: number;
+  pendingRedemptions: number;
   totalRevenue: number;
   deliveredCount: number;
   charts: { day: string; requests: number }[];
@@ -485,6 +495,7 @@ function Overview({ role, go, productsCount, packsCount, orders, unreadMessages,
     { label: "Pending orders", count: pendingOrders, copy: "Awaiting contact / payment review", view: "orders", scope: "orders", tint: "border-[#0e9f6e]/30 text-[#0e9f6e]" },
     { label: "Unread messages", count: unreadMessages, copy: "Customer inbox replies", view: "messages", scope: "messages", tint: "border-[#0f4c81]/30 text-[#0f4c81]" },
     { label: "Reviews to approve", count: pendingFeedbacks, copy: "Player feedbacks waiting", view: "feedbacks", scope: "feedbacks", tint: "border-[#f59e0b]/30 text-[#f59e0b]" },
+    { label: "UC redemptions", count: pendingRedemptions, copy: "Points → UC requests to deliver", view: "referrals", scope: "referrals", tint: "border-[#7c3aed]/30 text-[#7c3aed]" },
   ];
   const visibleAttention = attention.filter((item) => can(item.scope) && item.count > 0);
 

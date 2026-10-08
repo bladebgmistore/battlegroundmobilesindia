@@ -4,6 +4,7 @@ import { eq, or, sql } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
 import { resolveLoginRole } from "@/lib/staff";
 import type { GoogleProfile } from "@/lib/google-oauth";
+import { ensureReferralCode, findReferrerIdByCode, generateUniqueReferralCode } from "@/lib/referrals";
 
 export type AppUser = {
   id: string;
@@ -25,8 +26,15 @@ export type AppUser = {
  * The role is recomputed on every sign-in: OWNER_EMAIL env → owner, an
  * active staff_members row → admin/manager/moderator, otherwise customer.
  * Promoting or removing staff therefore never needs a redeploy.
+ *
+ * Refer & Earn: a NEW account gets its own referral code, and — when it signs
+ * up through a referral link — `referred_by` points at the referrer.
+ * Existing accounts are never re-attributed.
  */
-export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser> {
+export async function upsertGoogleUser(
+  profile: GoogleProfile,
+  options: { referralCode?: string | null } = {},
+): Promise<AppUser> {
   const role = await resolveLoginRole(profile.email);
   const fallback: AppUser = {
     id: profile.sub,
@@ -64,6 +72,9 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
         })
         .where(eq(users.id, existing.id));
 
+      // Accounts created before Refer & Earn get their code on their next sign-in.
+      if (!existing.referralCode) await ensureReferralCode(existing.id).catch(() => null);
+
       return {
         id: existing.id,
         googleId: profile.sub,
@@ -77,6 +88,9 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
       };
     }
 
+    const referredBy = await findReferrerIdByCode(options.referralCode);
+    const referralCode = await generateUniqueReferralCode().catch(() => null);
+
     const [created] = await db
       .insert(users)
       .values({
@@ -87,6 +101,8 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
         role,
         isActive: true,
         lastLoginAt: new Date(),
+        referralCode,
+        referredBy,
       })
       .returning();
 

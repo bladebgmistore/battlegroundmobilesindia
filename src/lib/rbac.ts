@@ -8,8 +8,8 @@
  *   owner     — from the OWNER_EMAIL env allow-list only. Full access,
  *               including the "Team & Roles" manager (add/remove staff).
  *   admin     — full access EXCEPT team management.
- *   manager   — day-to-day store ops: catalog, orders, coupons, messages,
- *               feedbacks, users list.
+ *   manager   — day-to-day store ops: catalog, orders, referrals & points,
+ *               coupons, messages, feedbacks, users list.
  *   moderator — support role: messages + feedback moderation (+ overview).
  *   customer  — regular signed-in buyer, no admin area.
  *
@@ -47,6 +47,7 @@ export type AdminScope =
   | "overview"
   | "catalog" // accounts / UC / super cars / x-suits / categories / coupons
   | "orders"
+  | "referrals" // Refer & Earn: referral tree, commission logs, redemptions, points store items
   | "messages"
   | "feedbacks"
   | "logs" // visitor logs (IP + location data)
@@ -58,6 +59,7 @@ export const SCOPE_ROLES: Record<AdminScope, string[]> = {
   overview: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   catalog: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   orders: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
+  referrals: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   messages: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   feedbacks: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   logs: [ROLE_OWNER, ROLE_ADMIN],
@@ -105,7 +107,7 @@ export function roleLabel(role: string | null | undefined): string {
 
 /** Scopes each staff role unlocks — used for the "what this role can do" chips. */
 export const ROLE_SCOPES: Record<StaffRole, AdminScope[]> = {
-  admin: ["overview", "catalog", "orders", "messages", "feedbacks", "logs", "users", "site"],
-  manager: ["overview", "catalog", "orders", "messages", "feedbacks", "users"],
+  admin: ["overview", "catalog", "orders", "referrals", "messages", "feedbacks", "logs", "users", "site"],
+  manager: ["overview", "catalog", "orders", "referrals", "messages", "feedbacks", "users"],
   moderator: ["overview", "messages", "feedbacks", "users"],
 };

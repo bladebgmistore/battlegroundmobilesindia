@@ -31,6 +31,8 @@ const STATEMENTS = [
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_region varchar(120)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_country varchar(120)`,
   `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`,
+  // Refer & Earn: false on bookkeeping copies (OTP rows) so a purchase earns commission once.
+  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS commissionable boolean NOT NULL DEFAULT true`,
 ];
 
 export function ensureOrderColumns(): Promise<boolean> {

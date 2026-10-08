@@ -37,6 +37,7 @@ const SCOPE_LABEL: Record<AdminScope, string> = {
   overview: "Overview",
   catalog: "Catalog & Coupons",
   orders: "Orders",
+  referrals: "Referrals & Points",
   messages: "Messages",
   feedbacks: "Feedbacks",
   logs: "Visitor Logs",

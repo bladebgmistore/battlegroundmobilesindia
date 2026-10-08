@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/user-store";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
+import { syncReferralCommissions } from "@/lib/referrals";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -164,6 +165,12 @@ export async function PATCH(request: NextRequest) {
     try {
       await ensureOrderColumns();
       await db.update(orders).set(patch).where(eq(orders.id, String(id)));
+      // Refer & Earn: confirming a purchase credits the referrer's points; cancelling reverses them.
+      if (status) {
+        await syncReferralCommissions({ orderId: String(id) }).catch((error) =>
+          console.error("Referral commission sync failed:", error),
+        );
+      }
       return Response.json({ ok: true });
     } catch {
       // DB offline — update the demo order by orderCode/id if it exists.
@@ -198,6 +205,8 @@ export async function DELETE(request: NextRequest) {
     try {
       if (selectedIds.length === 1) await db.delete(orders).where(eq(orders.id, selectedIds[0]));
       else await db.delete(orders).where(inArray(orders.id, selectedIds));
+      // Deleted orders no longer count, so their referral commission is reversed.
+      await syncReferralCommissions().catch((error) => console.error("Referral commission sync failed:", error));
     } catch {
       // DB offline — delete matching demo orders (keyed by orderCode or id).
       demoListAllOrders()

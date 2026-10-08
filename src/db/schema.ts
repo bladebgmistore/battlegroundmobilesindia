@@ -110,6 +110,11 @@ export const orders = pgTable("orders", {
   buyerRegion: varchar("buyer_region", { length: 120 }),
   buyerCountry: varchar("buyer_country", { length: 120 }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  /**
+   * false for bookkeeping copies (e.g. the OTP row created by verify-payment)
+   * so one real purchase can never earn referral commission twice.
+   */
+  commissionable: boolean("commissionable").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -166,6 +171,12 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   /** Legacy column: nullable now that Google is the only login method. */
   passwordHash: text("password_hash"),
+  /** Unique, shareable Refer & Earn code (see src/lib/referrals.ts). */
+  referralCode: varchar("referral_code", { length: 16 }).unique(),
+  /** users.id of the user who referred this account (the parent). */
+  referredBy: uuid("referred_by"),
+  /** Spendable points: commissions credited minus redemptions (see src/lib/rewards.ts). */
+  pointsBalance: integer("points_balance").notNull().default(0),
   role: varchar("role", { length: 20 }).notNull().default("customer"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -259,5 +270,66 @@ export const siteLogs = pgTable("site_logs", {
   userAgent: text("user_agent"),
   country: varchar("country", { length: 120 }),
   city: varchar("city", { length: 120 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type CommissionStatus = "credited" | "reversed";
+
+/**
+ * Referral commission ledger — one row per confirmed purchase by a referred
+ * user. `order_id` is unique, so a purchase can only ever be credited once.
+ */
+export const referralCommissions = pgTable("referral_commissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** users.id of the referrer who receives the points. */
+  referrerId: uuid("referrer_id").notNull(),
+  /** users.id of the referred buyer. */
+  referredUserId: uuid("referred_user_id").notNull(),
+  orderId: uuid("order_id").notNull().unique(),
+  orderCode: varchar("order_code", { length: 24 }).notNull(),
+  /** Amount the buyer actually paid for the order (after coupons). */
+  purchaseAmount: integer("purchase_amount").notNull(),
+  commissionPercent: integer("commission_percent").notNull(),
+  points: integer("points").notNull(),
+  /** `credited` while the order stays confirmed, `reversed` if it is cancelled / deleted. */
+  status: varchar("status", { length: 16 }).notNull().default("credited"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  reversedAt: timestamp("reversed_at", { withTimezone: true }),
+});
+
+/** Points store catalogue — UC packages that can be bought with points. */
+export const rewardItems = pgTable("reward_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 180 }).notNull(),
+  ucAmount: integer("uc_amount").notNull(),
+  pointsCost: integer("points_cost").notNull(),
+  badge: varchar("badge", { length: 48 }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RedemptionStatus = "pending" | "completed" | "rejected";
+
+/**
+ * A points → UC redemption request. Points are debited when the request is
+ * created; `rejected` requests are refunded, `completed` ones are final.
+ */
+export const pointRedemptions = pgTable("point_redemptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull(),
+  /** Reference only — the snapshot columns below keep history if the item is removed. */
+  rewardId: uuid("reward_id"),
+  rewardTitle: varchar("reward_title", { length: 180 }).notNull(),
+  ucAmount: integer("uc_amount").notNull(),
+  pointsCost: integer("points_cost").notNull(),
+  /** BGMI character ID the UC must be delivered to. */
+  playerUid: varchar("player_uid", { length: 64 }).notNull(),
+  playerName: varchar("player_name", { length: 120 }),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  adminNote: varchar("admin_note", { length: 255 }),
+  processedBy: varchar("processed_by", { length: 180 }),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

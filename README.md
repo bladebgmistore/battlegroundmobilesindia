@@ -26,6 +26,14 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Old email/WhatsApp + password login, signup, OTP reset and admin password
   login have been removed
 
+### Refer & Earn + Points Store
+- **Unique referral code** for every account. Signing up through a `?ref=CODE` link (any page of the store) links the new account to its referrer (`users.referred_by`). Accounts created before this feature get a code on their next sign-in.
+- **Refer & Win pop-up**: right after a Google sign-in the user sees their referral link with a **Copy** button (and a WhatsApp share).
+- **Refer & Earn** (`/refer-earn`, header menu): total referrals, friends who bought, points earned, available points, referred friends (masked emails) and a full points history.
+- **20% commission**: when a referred friend's order reaches `payment_confirmed` or `delivered`, the referrer is credited 20% of the amount the friend paid, as points (1 point = ₹1, rounded down). Cancelling, moving back or deleting that order reverses it.
+- **Points Store** (`/rewards`): spend points on UC packages. The seeded example is **3800 UC for 2000 points**. Points are deducted immediately and a *pending* request is created with the buyer's BGMI character ID.
+- **Admin → Referrals & Points** (owner / admin / manager): referral tree, commission logs, the redemption queue (**Pending / Completed / Refunded**: complete after delivering the UC, or reject to refund the points) and points-store item management.
+
 ### User dashboard (`/dashboard`)
 - Google profile name, email and picture
 - Recent orders + quick links to the store
@@ -43,7 +51,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
   |---|---|
   | `owner` | Everything, including Team & Roles |
   | `admin` | Everything except Team & Roles |
-  | `manager` | Catalog, UC, coupons, orders, messages, feedbacks, users |
+  | `manager` | Catalog, UC, coupons, orders, referrals & points, messages, feedbacks, users |
   | `moderator` | Messages, feedback moderation, users |
 - The workspace is organised into sections: **Main** (Overview), **Catalog**,
   **Operations**, **Insights** and **Settings** — staff only see what their
@@ -59,7 +67,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
 
 > Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
-> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**
+> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**, **[sql/004_referral_and_points.sql](./sql/004_referral_and_points.sql)**
 
 ---
 
@@ -112,9 +120,12 @@ against the production database once.
 | `orders` | Checkout requests |
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
-| `users` | Google accounts (name, email, `google_id`, avatar, role) |
+| `users` | Google accounts (name, email, `google_id`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
 | `staff_members` | Team roles — email → admin / manager / moderator (managed from Admin → Team & Roles) |
 | `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
+| `referral_commissions` | Commission ledger — one row per confirmed purchase of a referred user (unique per order; `credited` / `reversed`) |
+| `point_redemptions` | Points → UC requests (`pending` / `completed` / `rejected`, rejected = refunded) |
+| `reward_items` | Points store catalogue (UC amount, points cost, visibility) |
 | `user_sessions` / `admins` / `admin_sessions` / `password_resets` | Legacy, unused since Google Sign-In (kept so `drizzle-kit push` never drops them) |
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
@@ -148,13 +159,29 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/auth/google` → `/auth/google/callback` | OAuth 2.0 flow |
 | `/auth/logout` | Sign out |
 | `/dashboard` | User dashboard (profile, orders, admin link) |
+| `/refer-earn` | Refer & Earn dashboard (link, totals, referred friends, points history) |
+| `/rewards` | Points Store — redeem points for UC |
 | `/account` | Customer orders + profile |
 | `/admin` | Owner-only admin panel (incl. Visitor Logs) |
 | `/api/track` | Page-view beacon |
 | `/api/admin/logs` | Visitor logs feed (owner only) |
 | `/api/health` | Health check |
+| `/api/referrals` | Signed-in referral dashboard data |
+| `/api/rewards` | Store items, points balance and own redemptions |
+| `/api/rewards/redeem` (POST) | Spend points on a reward |
+| `/api/admin/referrals` | Staff: referral tree + commission logs |
+| `/api/admin/redemptions` | Staff: redemption queue; PATCH to complete or reject & refund |
+| `/api/admin/rewards` | Staff: points store items (create / edit / delete) |
 
 ---
+
+## Refer & Earn rules
+
+- **Attribution** happens only for brand-new accounts that sign up through a referral link. Existing accounts are never re-attributed. The latest referral link opened before signing up is the one credited.
+- **Commission** = `floor(amount paid × 20%)` points, where *amount paid* is the order total after coupons. It is credited once per order (`referral_commissions.order_id` is unique) when the order is `payment_confirmed` or `delivered`, and reversed when it is cancelled, moved back to an unconfirmed status or deleted.
+- **OTP copies** created by the account verification flow are stored with `orders.commissionable = false`, so one purchase never earns commission twice.
+- **Redemptions** debit the balance and create the request in a single SQL statement, so no partial state is possible. Rejecting a pending request refunds the points exactly once. If a commission is reversed after its points were spent, the balance can go negative and new redemptions are blocked until it is positive again.
+- The commission sync is idempotent. It runs on every order status change and whenever the admin Referrals view loads, so a missed update heals itself.
 
 ## Notes
 

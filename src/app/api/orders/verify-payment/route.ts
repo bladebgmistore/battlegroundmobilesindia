@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
           buyerCountry: existing.buyerCountry,
           verificationPaid: true,
           verificationPaidAt: new Date(),
+          // Same purchase as the original order — it must not earn referral commission twice.
+          commissionable: false,
         });
       }
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, isAdminAreaRole, isPublicPath } from "@/lib/auth-config";
 import { verifySession } from "@/lib/auth-session";
+import { REFERRAL_COOKIE, REFERRAL_COOKIE_MAX_AGE_SECONDS, normalizeReferralCode } from "@/lib/referral-config";
 
 /**
  * Compulsory Google authentication (Next.js 16 `proxy` file convention —
@@ -13,6 +14,36 @@ import { verifySession } from "@/lib/auth-session";
  *                  to server components via `x-pathname` / `x-user-email`.
  */
 export async function proxy(request: NextRequest) {
+  const response = await gate(request);
+  captureReferralLink(request, response);
+  return response;
+}
+
+/**
+ * Refer & Earn: remember the referrer from a `?ref=CODE` link so the Google
+ * sign-up that follows can be attributed to them (read by the OAuth callback).
+ * The latest link opened before signing up wins.
+ */
+function captureReferralLink(request: NextRequest, response: NextResponse) {
+  if (request.method !== "GET") return;
+  const { pathname, searchParams, protocol } = request.nextUrl;
+  if (pathname.startsWith("/api/")) return;
+
+  const code = normalizeReferralCode(searchParams.get("ref"));
+  if (!code || request.cookies.get(REFERRAL_COOKIE)?.value === code) return;
+
+  response.cookies.set({
+    name: REFERRAL_COOKIE,
+    value: code,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
+    path: "/",
+    maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
+  });
+}
+
+async function gate(request: NextRequest): Promise<NextResponse> {
   const { pathname, search } = request.nextUrl;
 
   const forwardHeaders = () => {

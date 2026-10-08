@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth-config";
+import {
+  REFERRAL_COOKIE,
+  WELCOME_COOKIE,
+  WELCOME_COOKIE_MAX_AGE_SECONDS,
+  normalizeReferralCode,
+} from "@/lib/referral-config";
 import { exchangeCodeForTokens, fetchGoogleProfile, getRedirectUri } from "@/lib/google-oauth";
 import { createSession } from "@/lib/auth-session";
 import { applySessionCookie, isSecureRequest } from "@/lib/auth";
@@ -10,10 +16,19 @@ import { getClientIp } from "@/lib/geo";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function failure(request: NextRequest, reason: string) {
-  const url = new URL("/login", request.url);
-  url.searchParams.set("error", reason);
-  const response = NextResponse.redirect(url);
+/**
+ * Redirects use a RELATIVE Location: the browser resolves it against the host it
+ * actually used. An absolute URL built from `request.url` would point at the
+ * server's bind address (e.g. 0.0.0.0) when Next runs behind a proxy or on a
+ * non-public interface, and the session cookie would never be sent there.
+ * (`NextResponse.redirect()` only accepts absolute URLs, hence the explicit header.)
+ */
+function redirectTo(path: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
+}
+
+function failure(reason: string) {
+  const response = redirectTo(`/login?error=${encodeURIComponent(reason)}`);
   response.cookies.set({ name: OAUTH_STATE_COOKIE, value: "", path: "/", maxAge: 0 });
   return response;
 }
@@ -26,21 +41,21 @@ function failure(request: NextRequest, reason: string) {
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
 
-  if (params.get("error")) return failure(request, "denied");
+  if (params.get("error")) return failure("denied");
 
   const code = params.get("code");
   const state = params.get("state");
-  if (!code || !state) return failure(request, "invalid_request");
+  if (!code || !state) return failure("invalid_request");
 
   // ── CSRF: the state must match the one we issued ──────────────────
   let stored: { state?: string; codeVerifier?: string; next?: string } = {};
   try {
     stored = JSON.parse(request.cookies.get(OAUTH_STATE_COOKIE)?.value ?? "{}");
   } catch {
-    return failure(request, "state");
+    return failure("state");
   }
   if (!stored.state || !stored.codeVerifier || stored.state !== state) {
-    return failure(request, "state");
+    return failure("state");
   }
 
   // ── Exchange the authorization code for tokens ────────────────────
@@ -51,16 +66,19 @@ export async function GET(request: NextRequest) {
   });
   if (tokens.error) {
     console.error("Google token exchange failed:", tokens.error, tokens.error_description);
-    return failure(request, "token");
+    return failure("token");
   }
 
   const profile = await fetchGoogleProfile(tokens);
-  if (!profile?.email) return failure(request, "profile");
-  if (!profile.emailVerified) return failure(request, "unverified");
+  if (!profile?.email) return failure("profile");
+  if (!profile.emailVerified) return failure("unverified");
 
   // ── Persist / refresh the local user row ──────────────────────────
-  const user = await upsertGoogleUser(profile);
-  if (!user.isActive) return failure(request, "disabled");
+  // A brand-new account signing up through a referral link is attributed to
+  // the referrer (see upsertGoogleUser). Existing accounts are not re-attributed.
+  const referralCode = normalizeReferralCode(request.cookies.get(REFERRAL_COOKIE)?.value);
+  const user = await upsertGoogleUser(profile, { referralCode });
+  if (!user.isActive) return failure("disabled");
 
   const token = await createSession({
     id: user.id,
@@ -73,10 +91,22 @@ export async function GET(request: NextRequest) {
 
   const target = stored.next && stored.next.startsWith("/") && !stored.next.startsWith("//") ? stored.next : "/dashboard";
   const secure = isSecureRequest(request);
-  const response = NextResponse.redirect(new URL(target, request.url));
+  const response = redirectTo(target);
 
   applySessionCookie(response, token, secure);
   response.cookies.set({ name: OAUTH_STATE_COOKIE, value: "", path: "/", maxAge: 0 });
+  // The referral link has been consumed by this sign-in.
+  response.cookies.set({ name: REFERRAL_COOKIE, value: "", path: "/", maxAge: 0 });
+  // One-shot flag so the first page after login can show the "Refer & Win" pop-up.
+  response.cookies.set({
+    name: WELCOME_COOKIE,
+    value: "1",
+    httpOnly: false,
+    sameSite: "lax",
+    secure,
+    path: "/",
+    maxAge: WELCOME_COOKIE_MAX_AGE_SECONDS,
+  });
 
   // Log the login event itself (non-blocking telemetry).
   await recordVisit({

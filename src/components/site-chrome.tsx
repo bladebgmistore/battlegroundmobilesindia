@@ -19,6 +19,7 @@ const CATEGORY_NAV: { slug: string; label: string; href: string }[] = [
 const STATIC_NAV: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "How To Buy", href: "/how-to-buy" },
+  { label: "Refer & Earn", href: "/refer-earn" },
 ];
 
 /* Soft, light premium backdrop */

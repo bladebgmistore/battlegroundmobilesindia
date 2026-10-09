@@ -20,6 +20,7 @@ const STATIC_NAV: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "How To Buy", href: "/how-to-buy" },
   { label: "Refer & Earn", href: "/refer-earn" },
+  { label: "Verified Proofs", href: "/proofs" },
 ];
 
 /* Soft, light premium backdrop */
@@ -210,6 +211,7 @@ export function SiteFooter() {
               <Link key={item.slug} href={item.href} className="hover:text-[#0f172a]">{item.label}</Link>
             ))}
             <Link href="/how-to-buy" className="hover:text-[#0f172a]">How to Buy</Link>
+            <Link href="/proofs" className="hover:text-[#0f172a]">Verified Proofs</Link>
           </div>
         </div>
         <div>

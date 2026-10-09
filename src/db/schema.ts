@@ -333,3 +333,35 @@ export const pointRedemptions = pgTable("point_redemptions", {
   processedAt: timestamp("processed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Customer Proofs — verified order deliveries shown on the public /proofs page.
+ *
+ * Each row is one delivered order: the buyer's name, a random-looking order id
+ * (#ORD-xxxx), the exact product title, the amount paid (₹) and the proof
+ * image / invoice (a stored image or an uploaded Base64 screenshot).
+ * `is_active = false` hides a proof from the public page without deleting it.
+ */
+export const customerProofs = pgTable("customer_proofs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Indian customer name shown on the public card. */
+  customerName: varchar("customer_name", { length: 120 }).notNull(),
+  /** Random public order id, e.g. #ORD-4127 — unique across all proofs. */
+  orderCode: varchar("order_code", { length: 24 }).notNull().unique(),
+  /** Exact product title the customer bought. */
+  productTitle: varchar("product_title", { length: 300 }).notNull(),
+  /** Amount paid, in whole rupees. */
+  amount: integer("amount").notNull(),
+  /**
+   * Proof image / invoice — a /public path or an uploaded Base64 data URL
+   * (client-side compressed, so it stays small). Nullable: the public page
+   * falls back to the shared placeholder receipt.
+   */
+  proofImage: text("proof_image"),
+  isActive: boolean("is_active").notNull().default(true),
+  /** When the order was delivered — shown on the card and used for ordering. */
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

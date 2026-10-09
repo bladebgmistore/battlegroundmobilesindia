@@ -38,6 +38,7 @@ const SCOPE_LABEL: Record<AdminScope, string> = {
   catalog: "Catalog & Coupons",
   orders: "Orders",
   referrals: "Referrals & Points",
+  proofs: "Customer Proofs",
   messages: "Messages",
   feedbacks: "Feedbacks",
   logs: "Visitor Logs",

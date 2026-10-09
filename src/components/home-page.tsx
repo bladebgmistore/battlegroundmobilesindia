@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
-import { FiArrowRight, FiCheck, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
+import { FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
 import { faqs, Product, Category, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { PriceTag } from "@/components/price-tag";
@@ -165,6 +165,10 @@ export default function HomePage() {
                       : <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />}
                   </Link>
                 ))}
+                {/* Customer Proofs — verified deliveries, straight from the /proofs page */}
+                <Link href="/proofs" className="btn-proof">
+                  VERIFIED PROOFS <FiCheckCircle className="text-base" />
+                </Link>
               </motion.div>
               <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-bold text-gray-500">
                 <span className="flex items-center gap-2"><FiShield className="text-blue-500" /> GUIDED HANDOVERS</span>

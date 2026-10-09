@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBox, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
@@ -12,6 +12,7 @@ import VisitorLogsPanel from "@/components/admin-visitor-logs";
 import AdminUsersPanel from "@/components/admin-users-panel";
 import AdminTeamPanel from "@/components/admin-team-panel";
 import AdminReferralsPanel from "@/components/admin-referrals-panel";
+import AdminProofsPanel from "@/components/admin-proofs-panel";
 import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
@@ -19,7 +20,7 @@ type Order = { id: string; orderCode: string; customerName: string; customerWhat
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
@@ -54,6 +55,7 @@ const MENU: MenuSection[] = [
     items: [
       { view: "orders", label: "Orders", icon: FiArchive, scope: "orders" },
       { view: "referrals", label: "Referrals & Points", icon: FiAward, scope: "referrals" },
+      { view: "proofs", label: "Customer Proofs", icon: FiCheckCircle, scope: "proofs" },
       { view: "messages", label: "Messages", icon: FiMail, scope: "messages" },
       { view: "feedbacks", label: "Feedbacks", icon: FiStar, scope: "feedbacks" },
     ],
@@ -452,6 +454,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} canDelete={role === "owner"} />}
         {view === "referrals" && <AdminReferralsPanel />}
+        {view === "proofs" && <AdminProofsPanel />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
         {view === "visitors" && <VisitorLogsPanel />}

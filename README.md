@@ -34,6 +34,13 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - **Points Store** (`/rewards`): spend points on UC packages. The seeded example is **3800 UC for 2000 points**. Points are deducted immediately and a *pending* request is created with the buyer's BGMI character ID.
 - **Admin → Referrals & Points** (owner / admin / manager): referral tree, commission logs, the redemption queue (**Pending / Completed / Refunded**: complete after delivering the UC, or reject to refund the points) and points-store item management.
 
+### Customer Proofs / Order Deliveries (`/proofs`)
+- **Public proofs page** (no sign-in needed): a responsive grid of verified deliveries. Every card shows the proof image/invoice, the **customer name**, the **order id** (`#ORD-xxxx`), the **exact product title**, the **amount paid (₹)** and the delivery date. Clicking an image opens it in a lightbox.
+- **26 pre-loaded proofs** with the exact titles and prices from the product brief — 6 UC packs (₹500 → ₹5,000) and 20 BGMI accounts (₹999 → ₹12,999). They are seeded automatically the first time the app runs (`src/lib/proof-seed.ts` is the single source of truth).
+- **Homepage CTA**: a green **VERIFIED PROOFS** button in the hero (next to *How to Buy* / category buttons) plus **Verified Proofs** links in the header menu and the footer.
+- **Admin → Customer Proofs** (owner / admin / manager): publish a proof by entering the customer name, product title, amount (₹), delivery date and the proof image (upload — auto-compressed in the browser — or paste a URL). The **Order ID is generated for you** (`#ORD-xxxx`) when you leave it blank. Proofs can be hidden (`is_active`) or deleted, and every change is live on `/proofs` instantly.
+- Receipt artwork for the seeded rows lives in `public/proofs/`; replace any of them with a real invoice/screenshot from the admin panel whenever you like.
+
 ### User dashboard (`/dashboard`)
 - Google profile name, email and picture
 - Recent orders + quick links to the store
@@ -51,7 +58,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
   |---|---|
   | `owner` | Everything, including Team & Roles |
   | `admin` | Everything except Team & Roles |
-  | `manager` | Catalog, UC, coupons, orders, referrals & points, messages, feedbacks, users |
+  | `manager` | Catalog, UC, coupons, orders, referrals & points, customer proofs, messages, feedbacks, users |
   | `moderator` | Messages, feedback moderation, users |
 - The workspace is organised into sections: **Main** (Overview), **Catalog**,
   **Operations**, **Insights** and **Settings** — staff only see what their
@@ -63,11 +70,12 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Manage UC packages
 - Manage Coupons (percent / flat, expiry, usage limit)
 - Orders list + status updates
+- Customer Proofs (publish / edit / hide / delete verified deliveries)
 - Customer messages inbox
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
 
 > Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
-> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**, **[sql/004_referral_and_points.sql](./sql/004_referral_and_points.sql)**
+> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**, **[sql/004_referral_and_points.sql](./sql/004_referral_and_points.sql)**, **[sql/005_customer_proofs.sql](./sql/005_customer_proofs.sql)**
 
 ---
 
@@ -126,6 +134,7 @@ against the production database once.
 | `referral_commissions` | Commission ledger — one row per confirmed purchase of a referred user (unique per order; `credited` / `reversed`) |
 | `point_redemptions` | Points → UC requests (`pending` / `completed` / `rejected`, rejected = refunded) |
 | `reward_items` | Points store catalogue (UC amount, points cost, visibility) |
+| `customer_proofs` | Verified deliveries on `/proofs` — customer name, unique `order_code` (`#ORD-xxxx`), product title, amount, proof image, visibility |
 | `user_sessions` / `admins` / `admin_sessions` / `password_resets` | Legacy, unused since Google Sign-In (kept so `drizzle-kit push` never drops them) |
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
@@ -161,6 +170,9 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/dashboard` | User dashboard (profile, orders, admin link) |
 | `/refer-earn` | Refer & Earn dashboard (link, totals, referred friends, points history) |
 | `/rewards` | Points Store — redeem points for UC |
+| `/proofs` | Customer Proofs — public grid of verified order deliveries |
+| `/api/proofs` | Public feed of active proofs |
+| `/api/admin/proofs` | Staff: create / edit / hide / delete proofs |
 | `/account` | Customer orders + profile |
 | `/admin` | Owner-only admin panel (incl. Visitor Logs) |
 | `/api/track` | Page-view beacon |

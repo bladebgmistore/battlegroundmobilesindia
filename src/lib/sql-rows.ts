@@ -9,7 +9,17 @@ export function rowsOf<T>(result: unknown): T[] {
   return Array.isArray(rows) ? (rows as T[]) : [];
 }
 
-/** Postgres error 23505 — unique_violation. */
+/**
+ * Postgres error 23505 — unique_violation.
+ *
+ * Drizzle wraps driver errors, so the `code` often sits on `error.cause`
+ * instead of the top-level object. Walk a short cause chain to catch both.
+ */
 export function isUniqueViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && typeof current === "object" && current !== null; depth += 1) {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }

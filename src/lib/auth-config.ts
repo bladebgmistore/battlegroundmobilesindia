@@ -87,12 +87,14 @@ export function getAuthSecret(): string {
 export const PUBLIC_PAGES: string[] = [
   "/", // homepage
   "/login",
+  "/proofs", // Customer Proofs — public social proof, no sign-in needed
 ];
 
 /** API routes the public homepage + login screen need in order to render. */
 export const PUBLIC_API: string[] = [
   "/api/store", // catalog shown on the homepage
   "/api/feedbacks", // customer reviews carousel
+  "/api/proofs", // verified customer proofs shown on /proofs
   "/api/auth/session", // header: logged in or not?
   "/api/auth/config-check", // deployment diagnostics
   "/api/track", // page-view beacon (also logs guest visits to the homepage)

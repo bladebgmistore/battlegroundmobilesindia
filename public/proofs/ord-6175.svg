@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="Delivery receipt #ORD-6175">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1f33"/>
+      <stop offset="0.55" stop-color="#0f4c81"/>
+      <stop offset="1" stop-color="#0b1f33"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0e9f6e"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <g opacity="0.08" stroke="#ffffff" stroke-width="1">
+    <path d="M0 120H800M0 240H800M0 360H800M0 480H800"/>
+    <path d="M160 0V600M320 0V600M480 0V600M640 0V600"/>
+  </g>
+  <rect x="36" y="36" width="728" height="528" rx="22" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.5"/>
+  <text x="64" y="82" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#7dd3fc">BATTLEGROUNDS MOBILE INDIA STORE</text>
+  <text x="736" y="82" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="2" fill="#94a3b8">DELIVERY RECEIPT</text>
+  <line x1="64" y1="104" x2="736" y2="104" stroke="#ffffff" stroke-opacity="0.16"/>
+
+  <circle cx="400" cy="168" r="34" fill="url(#chip)"/>
+  <path d="M384 168l11 11 21-22" fill="none" stroke="#06281e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="400" y="238" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" letter-spacing="4" fill="#34d399">DELIVERY CONFIRMED</text>
+
+  <text x="400" y="286" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2" fill="#94a3b8">ORDER ID</text>
+  <text x="400" y="330" text-anchor="middle" font-family="Courier New, monospace" font-size="40" font-weight="700" fill="#ffffff">#ORD-6175</text>
+
+  <text x="400" y="362" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" letter-spacing="2" fill="#94a3b8">PRODUCT DELIVERED</text>
+      <text x="400" y="384" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#e2e8f0">COLLECTION LEVEL 80 (HIGH) SILVANUS XSUIT</text>
+      <text x="400" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#e2e8f0">LVL 6 MAX RAVAN XSUIT LEVEL 5</text>
+
+  <text x="400" y="478" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="#fbbf24">₹8,299</text>
+  <text x="400" y="516" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#cbd5e1">Delivered on 30 Dec 2025 · 100% verified handover</text>
+
+  <text x="400" y="556" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" letter-spacing="1.5" fill="#64748b">CUSTOMER: SIMRAN KAUR · VERIFIED BY THE STORE TEAM</text>
+</svg>

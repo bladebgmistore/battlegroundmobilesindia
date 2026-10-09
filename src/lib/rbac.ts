@@ -48,6 +48,7 @@ export type AdminScope =
   | "catalog" // accounts / UC / super cars / x-suits / categories / coupons
   | "orders"
   | "referrals" // Refer & Earn: referral tree, commission logs, redemptions, points store items
+  | "proofs" // Customer Proofs: verified order deliveries published on /proofs
   | "messages"
   | "feedbacks"
   | "logs" // visitor logs (IP + location data)
@@ -60,6 +61,7 @@ export const SCOPE_ROLES: Record<AdminScope, string[]> = {
   catalog: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   orders: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   referrals: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
+  proofs: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   messages: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   feedbacks: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   logs: [ROLE_OWNER, ROLE_ADMIN],
@@ -107,7 +109,7 @@ export function roleLabel(role: string | null | undefined): string {
 
 /** Scopes each staff role unlocks — used for the "what this role can do" chips. */
 export const ROLE_SCOPES: Record<StaffRole, AdminScope[]> = {
-  admin: ["overview", "catalog", "orders", "referrals", "messages", "feedbacks", "logs", "users", "site"],
-  manager: ["overview", "catalog", "orders", "referrals", "messages", "feedbacks", "users"],
+  admin: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "feedbacks", "logs", "users", "site"],
+  manager: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "feedbacks", "users"],
   moderator: ["overview", "messages", "feedbacks", "users"],
 };

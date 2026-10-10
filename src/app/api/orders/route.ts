@@ -7,6 +7,7 @@ import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
 import { syncReferralCommissions } from "@/lib/referrals";
 import { getOrderForNotification, notifyOrderStatusChange } from "@/lib/notifications";
+import { notifyAdminNewOrder } from "@/lib/telegram";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -97,6 +98,9 @@ export async function POST(request: NextRequest) {
         buyerRegion: geo.region,
         buyerCountry: geo.country,
       });
+      // Instant Telegram alert to the admin's phone — fire-and-forget, sent
+      // after this response so checkout is never blocked or slowed down.
+      notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: true }, { status: 201 });
     } catch {
       // DB offline — persist to the demo store so the order is still visible
@@ -122,6 +126,8 @@ export async function POST(request: NextRequest) {
         buyerCountry: geo.country,
         createdAt: new Date(),
       });
+      // Same admin alert for the demo fallback so the order still pings Telegram.
+      notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: false, demo: true }, { status: 201 });
     }
   } catch {

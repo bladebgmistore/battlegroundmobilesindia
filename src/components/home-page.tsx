@@ -96,7 +96,7 @@ export default function HomePage() {
   const [ucList, setUcList] = useState<UcPackageItem[]>([]);
   const [storeLoaded, setStoreLoaded] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
-  const { whatsapp: whatsappUrl, settings } = useStoreSettings();
+  const { whatsapp: whatsappUrl, whatsappEnabled, settings } = useStoreSettings();
 
   useEffect(() => {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
@@ -325,7 +325,11 @@ export default function HomePage() {
                 <h2 className="mt-3 text-3xl font-black tracking-[-.045em] text-[#0f172a]">Have a product in mind?</h2>
                 <p className="mt-2 text-sm text-[#64748b]">Select it now and we will route you to our official support channel.</p>
               </div>
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-whatsapp shrink-0"><FaWhatsapp className="text-base" /> CHAT WITH ADMIN</a>
+              {whatsappEnabled ? (
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-whatsapp shrink-0"><FaWhatsapp className="text-base" /> CHAT WITH ADMIN</a>
+              ) : (
+                <Link href="/contact" className="btn-primary shrink-0">CONTACT SUPPORT</Link>
+              )}
             </div>
           </div>
         </section>

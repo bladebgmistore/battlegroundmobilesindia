@@ -108,7 +108,7 @@ function RefundContent() {
 }
 
 function Rules() {
-  const { whatsapp } = useStoreSettings();
+  const { whatsapp, whatsappEnabled } = useStoreSettings();
 
   return (
     <div className="mt-10 premium-card p-6">
@@ -121,9 +121,11 @@ function Rules() {
           </p>
         ))}
       </div>
-      <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-[10px] font-black tracking-[.12em] text-[#0f4c81]">
-        <FaWhatsapp className="text-base" /> ASK SUPPORT A QUESTION
-      </a>
+      {whatsappEnabled && whatsapp && (
+        <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-[10px] font-black tracking-[.12em] text-[#0f4c81]">
+          <FaWhatsapp className="text-base" /> ASK SUPPORT A QUESTION
+        </a>
+      )}
     </div>
   );
 }

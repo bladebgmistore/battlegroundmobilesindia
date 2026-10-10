@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiPackage, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBell, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiMessageSquare, FiPackage, FiRadio, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
 import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { playAdminAlertSound } from "@/lib/admin-alert-sound";
 import VisitorLogsPanel from "@/components/admin-visitor-logs";
 import AdminUsersPanel from "@/components/admin-users-panel";
 import AdminTeamPanel from "@/components/admin-team-panel";
 import AdminReferralsPanel from "@/components/admin-referrals-panel";
 import AdminProofsPanel from "@/components/admin-proofs-panel";
+import AdminTicketsPanel from "@/components/admin-tickets-panel";
+import AdminAnnouncementsPanel from "@/components/admin-announcements-panel";
 import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
@@ -20,7 +23,7 @@ type Order = { id: string; orderCode: string; customerName: string; customerWhat
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "feedbacks" | "visitors" | "users" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
@@ -54,6 +57,8 @@ const MENU: MenuSection[] = [
     name: "Operations",
     items: [
       { view: "orders", label: "Orders", icon: FiArchive, scope: "orders" },
+      { view: "tickets", label: "Support Tickets", icon: FiMessageSquare, scope: "tickets" },
+      { view: "announcements", label: "Announcements", icon: FiRadio, scope: "announcements" },
       { view: "referrals", label: "Referrals & Points", icon: FiAward, scope: "referrals" },
       { view: "proofs", label: "Customer Proofs", icon: FiCheckCircle, scope: "proofs" },
       { view: "messages", label: "Messages", icon: FiMail, scope: "messages" },
@@ -100,6 +105,9 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const [databaseError, setDatabaseError] = useState("");
   const [pendingFeedbacks, setPendingFeedbacks] = useState(0);
   const [pendingRedemptions, setPendingRedemptions] = useState(0);
+  // Live unread count for the "Support Tickets" sidebar badge.
+  const [unreadTickets, setUnreadTickets] = useState(0);
+  const unreadTicketsRef = useRef(0);
   // Admin-configured logo, shown at the top of the dashboard.
   const { settings: publicSettings } = useStoreSettings();
   const logoSrc = publicSettings.logo_url || images.logo;
@@ -165,12 +173,42 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     }
   };
 
+  const toast = (message: string) => { setNotice(message); setTimeout(() => setNotice(""), 2600); };
+
   useEffect(() => {
     load().catch(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toast = (message: string) => { setNotice(message); setTimeout(() => setNotice(""), 2600); };
+  /**
+   * Live Support Tickets watcher — polls the unread badge count every 5s and
+   * fires a toast + sound alert whenever a customer sends a new message or
+   * opens a ticket (only for roles with the "tickets" scope).
+   */
+  useEffect(() => {
+    if (!roleHasScope(role, "tickets")) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/admin/tickets?summary=1", { cache: "no-store", credentials: "same-origin" });
+        const data = await res.json().catch(() => null);
+        if (!alive || !res.ok || !data) return;
+        const count = Number(data.unreadCount ?? 0);
+        if (count > unreadTicketsRef.current) {
+          const fresh = count - unreadTicketsRef.current;
+          playAdminAlertSound();
+          toast(fresh === 1 ? "\U0001F514 New support message from a customer." : `\U0001F514 ${fresh} new support messages from customers.`);
+        }
+        unreadTicketsRef.current = count;
+        setUnreadTickets(count);
+      } catch {
+        // offline — the next poll retries
+      }
+    };
+    void poll();
+    const timer = setInterval(poll, 5000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [role]);
 
   const signout = () => {
     // Clears the Google session cookie and returns to the login page.
@@ -286,6 +324,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   /** Live badge count shown beside a menu item. */
   const badgeFor = (itemView: View): number => {
     if (itemView === "messages") return unread;
+    if (itemView === "tickets") return unreadTickets;
     if (itemView === "feedbacks") return pendingFeedbacks;
     if (itemView === "orders") return pendingOrders;
     if (itemView === "referrals") return pendingRedemptions;
@@ -437,6 +476,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
             packsCount={packs.length}
             orders={orders}
             unreadMessages={unread}
+            unreadTickets={unreadTickets}
             pendingFeedbacks={pendingFeedbacks}
             pendingOrders={pendingOrders}
             pendingRedemptions={pendingRedemptions}
@@ -456,6 +496,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "referrals" && <AdminReferralsPanel />}
         {view === "proofs" && <AdminProofsPanel />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
+        {view === "tickets" && <AdminTicketsPanel onToast={toast} />}
+        {view === "announcements" && <AdminAnnouncementsPanel onToast={toast} />}
         {view === "site" && <SitePanel settings={settings} save={saveSetting} />}
         {view === "visitors" && <VisitorLogsPanel />}
         {view === "users" && <AdminUsersPanel ownerEmail={session?.email ?? ""} />}
@@ -470,13 +512,14 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
  * needs action, then the weekly chart and the newest orders. Every shortcut
  * is scope-checked so staff only jump to places they're allowed into.
  */
-function Overview({ role, go, productsCount, packsCount, orders, unreadMessages, pendingFeedbacks, pendingOrders, pendingRedemptions, totalRevenue, deliveredCount, charts }: {
+function Overview({ role, go, productsCount, packsCount, orders, unreadMessages, unreadTickets, pendingFeedbacks, pendingOrders, pendingRedemptions, totalRevenue, deliveredCount, charts }: {
   role: string;
   go: (view: View) => void;
   productsCount: number;
   packsCount: number;
   orders: Order[];
   unreadMessages: number;
+  unreadTickets: number;
   pendingFeedbacks: number;
   pendingOrders: number;
   pendingRedemptions: number;
@@ -862,7 +905,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
   /** Owner only — order history can only be erased by the owner. */
   canDelete: boolean;
 }) {
-  const { upiId, whatsappNumber } = useStoreSettings();
+  const { upiId, whatsappNumber, whatsappEnabled } = useStoreSettings();
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Order | null>(null);
   const [credModal, setCredModal] = useState<Order | null>(null);
@@ -971,7 +1014,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
                           </button>
                         )}
                         {o.status === "delivered" && (
-                          <button onClick={() => downloadInvoice(o, { upiId, whatsappNumber })} className="inline-flex items-center justify-center gap-1 rounded border border-[#0f4c81]/30 px-2 py-1 text-[9px] font-black text-[#0f4c81] transition-colors hover:bg-[#0f4c81] hover:text-white" title="Generate & download invoice for this delivered order">
+                          <button onClick={() => downloadInvoice(o, { upiId, whatsappNumber, whatsappEnabled })} className="inline-flex items-center justify-center gap-1 rounded border border-[#0f4c81]/30 px-2 py-1 text-[9px] font-black text-[#0f4c81] transition-colors hover:bg-[#0f4c81] hover:text-white" title="Generate & download invoice for this delivered order">
                             <FiDownload /> INVOICE
                           </button>
                         )}
@@ -1059,13 +1102,17 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
 }
 
 function MessagePanel({ messages, refresh }: { messages: Message[]; refresh: () => void }) {
+  const { whatsappEnabled } = useStoreSettings();
   const read = async (id: string) => { await fetch("/api/admin/management", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: id, markRead: true }) }); refresh(); };
-  return <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white"><ListHeader title="Customer inbox" count={messages.length} /><div className="divide-y divide-[#e5e8ef]">{messages.length ? messages.map((m) => <article key={m.id} className={`p-5 ${!m.isRead ? "bg-[#f1f5fb]" : ""}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-black text-[#0f172a]">{m.name} <span className="ml-2 text-xs font-medium text-[#64748b]">{m.whatsapp}</span></p><p className="mt-3 max-w-2xl text-sm leading-6 text-[#64748b]">{m.message}</p></div><div className="flex items-center gap-3"><a href={`https://wa.me/91${m.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-[#0f4c81]"><FaWhatsapp /></a>{!m.isRead && <button onClick={() => read(m.id)} className="rounded border border-[#dbe2ec] px-2 py-1 text-[9px] font-black text-[#64748b]">MARK READ</button>}</div></div></article>) : <Empty text="The customer inbox is clear." />}</div></section>;
+  return <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white"><ListHeader title="Customer inbox" count={messages.length} /><div className="divide-y divide-[#e5e8ef]">{messages.length ? messages.map((m) => <article key={m.id} className={`p-5 ${!m.isRead ? "bg-[#f1f5fb]" : ""}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-black text-[#0f172a]">{m.name} <span className="ml-2 text-xs font-medium text-[#64748b]">{m.whatsapp}</span></p><p className="mt-3 max-w-2xl text-sm leading-6 text-[#64748b]">{m.message}</p></div><div className="flex items-center gap-3">{whatsappEnabled && <a href={`https://wa.me/91${m.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-[#0f4c81]" title="Reply on WhatsApp"><FaWhatsapp /></a>}{!m.isRead && <button onClick={() => read(m.id)} className="rounded border border-[#dbe2ec] px-2 py-1 text-[9px] font-black text-[#64748b]">MARK READ</button>}</div></div></article>) : <Empty text="The customer inbox is clear." />}</div></section>;
 }
 
 function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: string, v: unknown) => void }) {
   const existing = (key: string, fallback: string) => String(settings.find((s) => s.settingKey === key)?.value ?? fallback);
   const [whatsapp, setWhatsapp] = useState(existing("whatsapp_number", "7737073654"));
+  // WhatsApp contact channel — while OFF, every WhatsApp button / icon / link
+  // stays hidden across the whole website (header, footer, support, checkout).
+  const [whatsappEnabled, setWhatsappEnabled] = useState(existing("whatsapp_enabled", "false") === "true");
   const [hero, setHero] = useState(existing("homepage_headline", "PLAY WITHOUT THE GRIND."));
   const [logo, setLogo] = useState(existing("logo_url", ""));
   // Favicon is a SEPARATE image from the logo (browser tab icon).
@@ -1081,7 +1128,10 @@ function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: strin
   const upiPreview = `upi://pay?pa=${encodeURIComponent(upiId || "battlegroundstore@upi")}&pn=${encodeURIComponent("Battleground Mobile India Store")}&am=100&cu=INR`;
   const qrPreview = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiPreview)}`;
   return <div className="grid gap-5 xl:grid-cols-2">
-    <section className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiLayout} title="Homepage & contact" copy="Public headline, WhatsApp & socials. Change reflects instantly on site." /><div className="mt-5 grid gap-3"><input value={hero} onChange={(e) => setHero(e.target.value)} className="admin-input" placeholder="Homepage headline" /><input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="admin-input" placeholder="WhatsApp number (10-digit)" /><ImageInput value={logo} onChange={setLogo} label="SITE LOGO (header + footer) — PNG transparency supported" placeholder="Logo URL or upload a PNG/JPG logo" transparent square maxDimension={512} /><input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="admin-input" placeholder="Instagram URL" /><input value={youtube} onChange={(e) => setYoutube(e.target.value)} className="admin-input" placeholder="YouTube URL" /><button onClick={() => { save("homepage_headline", hero); save("whatsapp_number", whatsapp); save("logo_url", logo); save("instagram_url", instagram); save("youtube_url", youtube); }} className="admin-primary"><FiSettings /> SAVE PUBLIC SETTINGS</button></div></section>
+    <section className="rounded-xl border border-[#e5e8ef] bg-white p-6"><PanelTitle icon={FiLayout} title="Homepage & contact" copy="Public headline, WhatsApp channel & socials. Change reflects instantly on site." />
+<div className="mt-5 grid gap-3"><input value={hero} onChange={(e) => setHero(e.target.value)} className="admin-input" placeholder="Homepage headline" />
+<label className="flex items-center justify-between rounded-lg border border-[#e5e8ef] bg-[#f8fafc] p-4 cursor-pointer"><span><span className="block text-sm font-black text-[#0f172a]">WhatsApp contact channel</span><span className="mt-1 block text-xs text-[#64748b]">While OFF, every WhatsApp button, icon & link stays hidden site-wide (session / QR connection toggle).</span></span><input checked={whatsappEnabled} onChange={(e) => { setWhatsappEnabled(e.target.checked); save("whatsapp_enabled", e.target.checked); }} type="checkbox" className="h-5 w-5 accent-[#16a34a] cursor-pointer" /></label>
+<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="admin-input" placeholder="WhatsApp number (10-digit)" disabled={!whatsappEnabled} /><ImageInput value={logo} onChange={setLogo} label="SITE LOGO (header + footer) — PNG transparency supported" placeholder="Logo URL or upload a PNG/JPG logo" transparent square maxDimension={512} /><input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="admin-input" placeholder="Instagram URL" /><input value={youtube} onChange={(e) => setYoutube(e.target.value)} className="admin-input" placeholder="YouTube URL" /><button onClick={() => { save("homepage_headline", hero); save("whatsapp_number", whatsapp); save("logo_url", logo); save("instagram_url", instagram); save("youtube_url", youtube); }} className="admin-primary"><FiSettings /> SAVE PUBLIC SETTINGS</button></div></section>
     <section className="rounded-xl border border-[#e5e8ef] bg-white p-6">
       <PanelTitle icon={FiStar} title="Browser favicon (separate from logo)" copy="Tab icon alag image se set hota hai — logo se independent. Square PNG (512x512 ya 256x256) best rehta hai, transparency bhi support hai." />
       <div className="mt-5 grid gap-3">
@@ -1112,7 +1162,7 @@ function SitePanel({ settings, save }: { settings: SettingRow[]; save: (k: strin
             <button type="button" onClick={() => setCheckoutMode("qr")} className={`rounded-xl border px-3 py-3 text-xs font-black transition ${checkoutMode === "qr" ? "border-[#0f4c81] bg-[#0f4c81] text-white shadow-[0_6px_18px_rgba(15,76,129,.25)]" : "border-[#dbe2ec] bg-white text-[#64748b] hover:text-[#0f172a]"}`}>💳 QR PAYMENT</button>
             <button type="button" onClick={() => setCheckoutMode("whatsapp")} className={`rounded-xl border px-3 py-3 text-xs font-black transition ${checkoutMode === "whatsapp" ? "border-[#16a34a] bg-[#16a34a] text-white shadow-[0_6px_18px_rgba(22,163,74,.25)]" : "border-[#dbe2ec] bg-white text-[#64748b] hover:text-[#0f172a]"}`}>💬 WHATSAPP</button>
           </div>
-          <p className="text-[10px] leading-4 text-[#64748b]">{checkoutMode === "qr" ? "✨ User details ke baad instant UPI QR generate hoga — exact payable amount ke saath. Order auto-save." : "↗️ User details ke baad direct WhatsApp redirect (old flow). QR nahi dikhega."}</p>
+          <p className="text-[10px] leading-4 text-[#64748b]">{checkoutMode === "qr" ? "✨ User details ke baad instant UPI QR generate hoga — exact payable amount ke saath. Order auto-save." : "↗️ User details ke baad direct WhatsApp redirect (old flow). QR nahi dikhega."}{!whatsappEnabled && checkoutMode === "whatsapp" ? " WhatsApp channel is currently OFF — checkout automatically uses the QR flow until it is enabled above." : ""}</p>
         </label>
         <div className="flex gap-3 rounded-xl border border-[#e5e8ef] bg-[#f8fafc] p-4 items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}

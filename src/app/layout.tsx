@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: "%s | Battleground Mobile India Store",
   },
   description:
-    "Premium BGMI accounts and UC packages with detailed listings, guided delivery, and official WhatsApp support.",
+    "Premium BGMI accounts and UC packages with detailed listings, guided delivery, and dedicated order-based support.",
   keywords: ["BGMI accounts", "BGMI UC", "Battleground Mobile India Store", "gaming marketplace", "BGMI store"],
   icons: {
     icon: "/api/favicon",

@@ -3,6 +3,7 @@ import { orders } from "@/db/schema";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoUpdateOrder } from "@/lib/demo-orders";
+import { notifyOrderStatusChange } from "@/lib/notifications";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 

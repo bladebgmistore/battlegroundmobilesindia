@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
 import { UserNav, UserMobileAuth } from "@/components/user-nav";
+import { NotificationBell } from "@/components/notification-bell";
 import { images } from "@/lib/store-data";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -72,7 +73,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
-  const { maintenance, settings } = useStoreSettings();
+  const { maintenance, settings, whatsappEnabled } = useStoreSettings();
   const logoUrl = settings.logo_url;
 
   // Respect admin's enabled/disabled categories: a disabled category's nav
@@ -102,7 +103,8 @@ export function SiteHeader() {
     <>
       {maintenance && (
         <div className="relative z-50 flex items-center justify-center gap-2 bg-[#f4b400] px-4 py-2 text-[10px] font-bold tracking-wide text-[#231a02]">
-          <FiAlertTriangle className="text-sm" /> PAYMENT GATEWAY IS UNDER MAINTENANCE — PLEASE USE OFFICIAL WHATSAPP FOR ALL ORDERS
+          <FiAlertTriangle className="text-sm" />
+          {whatsappEnabled ? "PAYMENT GATEWAY IS UNDER MAINTENANCE — PLEASE USE OFFICIAL WHATSAPP FOR ALL ORDERS" : "PAYMENT GATEWAY IS UNDER MAINTENANCE — PLEASE CONTACT SUPPORT FOR ALL ORDERS"}
         </div>
       )}
       <header className="sticky top-0 z-40 border-b border-[#dbe2ec] bg-white/85 backdrop-blur-xl">
@@ -132,6 +134,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
+            <NotificationBell />
             <UserNav />
           </div>
           <button
@@ -145,6 +148,9 @@ export function SiteHeader() {
         </div>
         {isOpen && (
           <div className="border-t border-[#dbe2ec] bg-white px-5 py-4 lg:hidden">
+            <div className="mx-auto flex max-w-7xl justify-end">
+              <NotificationBell />
+            </div>
             <nav className="mx-auto grid max-w-7xl gap-1">
               {navLinks.map(([label, href]) => (
                 <Link
@@ -166,7 +172,7 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
-  const { settings } = useStoreSettings();
+  const { settings, whatsappEnabled } = useStoreSettings();
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -192,7 +198,9 @@ export function SiteFooter() {
             <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-[#e3e9f2] bg-white"><img src={settings.logo_url || images.logo} alt="" className="h-full w-full object-cover" /></span>
             <span className="text-sm font-extrabold tracking-[.14em] text-[#0f172a]">BATTLEGROUNDS MOBILE <span className="text-[#0f4c81]">INDIA</span></span>
           </Link>
-          <p className="mt-5 max-w-md text-sm leading-6 text-[#64748b]">A refined digital marketplace built for the BGMI community. Clear listing details, guided handovers, and prompt WhatsApp support.</p>
+          <p className="mt-5 max-w-md text-sm leading-6 text-[#64748b]">
+            A refined digital marketplace built for the BGMI community. Clear listing details, guided handovers, and {whatsappEnabled ? "prompt WhatsApp support" : "prompt order-based support"}.
+          </p>
           <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#e3e9f2] bg-[#f8fafc] p-3 text-xs leading-5 text-[#64748b]">
             <FiShield className="mt-0.5 shrink-0 text-base text-[#0f4c81]" />
             <span>Independent BGMI digital marketplace. Not affiliated with or endorsed by Krafton or BGMI.</span>

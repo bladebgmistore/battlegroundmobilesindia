@@ -6,6 +6,7 @@ import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
 import { syncReferralCommissions } from "@/lib/referrals";
+import { getOrderForNotification, notifyOrderStatusChange } from "@/lib/notifications";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -164,12 +165,32 @@ export async function PATCH(request: NextRequest) {
 
     try {
       await ensureOrderColumns();
+      // Capture the previous status so a real change can notify the buyer
+      // (header bell: "Order Completed / Cancelled / …").
+      let previousStatus: string | null = null;
+      if (status) {
+        const [current] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, String(id)))
+          .limit(1);
+        previousStatus = current?.status ?? null;
+      }
       await db.update(orders).set(patch).where(eq(orders.id, String(id)));
       // Refer & Earn: confirming a purchase credits the referrer's points; cancelling reverses them.
       if (status) {
         await syncReferralCommissions({ orderId: String(id) }).catch((error) =>
           console.error("Referral commission sync failed:", error),
         );
+      }
+      // Notification bell: automated order status update for the buyer.
+      if (status && previousStatus && previousStatus !== String(status)) {
+        const order = await getOrderForNotification(String(id));
+        if (order) {
+          await notifyOrderStatusChange(order).catch((error) =>
+            console.error("Order status notification failed:", error),
+          );
+        }
       }
       return Response.json({ ok: true });
     } catch {

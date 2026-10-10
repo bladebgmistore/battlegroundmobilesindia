@@ -71,7 +71,7 @@ export default function CheckoutPage() {
       }
     })();
   }, [setValue]);
-  const { whatsappWithText, whatsappNumber, checkoutMode } = useStoreSettings();
+  const { whatsappWithText, whatsappNumber, checkoutMode, whatsappEnabled } = useStoreSettings();
 
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
   const discountAmount = couponResult?.discountAmount ?? 0;
@@ -227,7 +227,10 @@ export default function CheckoutPage() {
     }
   };
 
-  const isQrMode = checkoutMode === "qr";
+  // The WhatsApp checkout flow is a contact channel — it is only available
+  // while the admin has enabled WhatsApp contact (Site Controls). Otherwise
+  // the buyer always gets the on-site UPI QR flow.
+  const isQrMode = checkoutMode === "qr" || !whatsappEnabled;
   // Login is compulsory to checkout — guests see a sign-in gate instead of the form.
   const checkoutLocked = authChecked && (!authedUser || authRequired);
   // Preserve the full product/amount/uid/category query when sending the buyer
@@ -285,10 +288,10 @@ export default function CheckoutPage() {
               {needsUid && <p className="pt-2 text-[10px] font-bold tracking-wide text-[#0f4c81]">* Player UID required for this product</p>}
             </div>
             <div className="mt-6 space-y-3 text-xs text-[#64748b]">
-              <p className="flex gap-2"><FiCheckCircle className="shrink-0 text-[#0e9f6e]" /> Official WhatsApp follow-up</p>
-              <p className="flex gap-2"><FiCheckCircle className="shrink-0 text-[#0e9f6e]" /> {isQrMode ? "Secure UPI QR Payment" : "Guided completion steps"}</p>
+              <p className="flex gap-2"><FiCheckCircle className="shrink-0 text-[#0e9f6e]" /> {isQrMode ? "Secure UPI QR Payment" : "Official WhatsApp follow-up"}</p>
+              <p className="flex gap-2"><FiCheckCircle className="shrink-0 text-[#0e9f6e]" /> {isQrMode ? "Instant order confirmation" : "Guided completion steps"}</p>
               <p className="flex gap-2"><FiLock className="shrink-0 text-[#0e9f6e]" /> Never share OTP or recovery codes</p>
-              <p className="flex gap-2"><FaWhatsapp className="shrink-0 text-[#0e9f6e]" /> Official support: +91 {whatsappNumber}</p>
+              {whatsappEnabled && whatsappNumber && <p className="flex gap-2"><FaWhatsapp className="shrink-0 text-[#0e9f6e]" /> Official support: +91 {whatsappNumber}</p>}
             </div>
             {isQrMode && (
               <div className="mt-6 rounded-xl border border-[#d9e4f0] bg-[#f3f8fe] p-4">

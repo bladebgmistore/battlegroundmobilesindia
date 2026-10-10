@@ -19,7 +19,7 @@ type Props = {
 
 export default function SpecialCategoryPage({ category, eyebrow, title, copy }: Props) {
   const router = useRouter();
-  const { whatsapp } = useStoreSettings();
+  const { whatsapp, whatsappEnabled } = useStoreSettings();
   const [items, setItems] = useState<Product[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
@@ -136,14 +136,20 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
             <p className="text-sm text-[#64748b]">
               Need help choosing a package? Talk to our official support desk.
             </p>
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-outline !px-4 !py-2.5 text-[10px] tracking-[.1em]"
-            >
-              <FaWhatsapp className="text-sm" /> WHATSAPP SUPPORT
-            </a>
+            {whatsappEnabled && whatsapp ? (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-outline !px-4 !py-2.5 text-[10px] tracking-[.1em]"
+              >
+                <FaWhatsapp className="text-sm" /> WHATSAPP SUPPORT
+              </a>
+            ) : (
+              <Link href="/contact" className="btn-outline !px-4 !py-2.5 text-[10px] tracking-[.1em]">
+                CONTACT SUPPORT
+              </Link>
+            )}
           </div>
         </section>
       </main>

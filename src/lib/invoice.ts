@@ -28,6 +28,8 @@ export type InvoiceOrder = {
 export type InvoiceStoreInfo = {
   upiId?: string;
   whatsappNumber?: string | number;
+  /** WhatsApp contact details are printed only while the admin-enabled channel is on. */
+  whatsappEnabled?: boolean;
 };
 
 const STORE_NAME = "BATTLEGROUNDS MOBILE INDIA STORE";
@@ -56,7 +58,8 @@ export function buildInvoiceHtml(order: InvoiceOrder, store: InvoiceStoreInfo = 
   const original = order.originalAmount && order.originalAmount > 0 ? order.originalAmount : order.amount;
   const discount = order.discountAmount ?? 0;
   const total = order.amount;
-  const whatsapp = store.whatsappNumber ? String(store.whatsappNumber) : "";
+  // Hidden unless the caller confirms the admin-enabled WhatsApp channel is on.
+  const whatsapp = store.whatsappEnabled === true && store.whatsappNumber ? String(store.whatsappNumber) : "";
   const upi = store.upiId ? String(store.upiId) : "";
   const category = order.categorySlug ? order.categorySlug.replace(/-/g, " ").toUpperCase() : "DIGITAL PRODUCT";
 

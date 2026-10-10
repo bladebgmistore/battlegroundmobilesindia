@@ -5,6 +5,7 @@ import { inArray } from "drizzle-orm";
 
 const PUBLIC_SETTING_KEYS = [
   "whatsapp_number",
+  "whatsapp_enabled",
   "instagram_url",
   "youtube_url",
   "maintenance_mode",
@@ -20,13 +21,20 @@ const PUBLIC_SETTING_KEYS = [
 
 export type PublicSettings = {
   values: Record<string, string>;
+  /** True only when the admin enabled the WhatsApp channel in Site Controls. */
+  whatsappEnabled: boolean;
+  /** Empty string while the WhatsApp channel is disabled (hidden site-wide). */
   whatsappNumber: string;
+  /** Empty string while the WhatsApp channel is disabled. */
   whatsappUrl: string;
 };
 
 /**
  * Server-side reader for admin-managed public settings so server components
  * return the correct WhatsApp number in the first HTML paint.
+ *
+ * WhatsApp contact is admin-controlled: unless the admin enabled the channel
+ * (whatsapp_enabled = "true"), the number and wa.me URL are withheld entirely.
  */
 export async function getPublicSettings(): Promise<PublicSettings> {
   const values: Record<string, string> = {};
@@ -41,10 +49,12 @@ export async function getPublicSettings(): Promise<PublicSettings> {
     console.error("Public settings read failed, using defaults:", error);
   }
 
-  const whatsappNumber = values.whatsapp_number || DEFAULT_WHATSAPP_NUMBER;
+  const whatsappEnabled = values.whatsapp_enabled === "true";
+  const whatsappNumber = whatsappEnabled ? values.whatsapp_number || DEFAULT_WHATSAPP_NUMBER : "";
   return {
     values,
+    whatsappEnabled,
     whatsappNumber,
-    whatsappUrl: buildWhatsappUrl(whatsappNumber),
+    whatsappUrl: whatsappEnabled ? buildWhatsappUrl(whatsappNumber) : "",
   };
 }

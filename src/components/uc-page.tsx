@@ -16,7 +16,7 @@ export default function UcPage() {
   const [category, setCategory] = useState<Category | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
-  const { whatsapp } = useStoreSettings();
+  const { whatsapp, whatsappEnabled } = useStoreSettings();
 
   useEffect(() => {
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
@@ -122,7 +122,11 @@ export default function UcPage() {
 
           <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-[#dbe2ec] bg-white p-5 text-center sm:flex-row sm:text-left shadow-sm">
             <p className="text-sm text-[#64748b]">Need help choosing a UC quantity? Speak to the official support desk.</p>
-            <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn-outline !py-2.5 !px-4 text-xs"><FaWhatsapp className="text-sm" /> WHATSAPP SUPPORT</a>
+            {whatsappEnabled && whatsapp ? (
+              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn-outline !py-2.5 !px-4 text-xs"><FaWhatsapp className="text-sm" /> WHATSAPP SUPPORT</a>
+            ) : (
+              <Link href="/contact" className="btn-outline !py-2.5 !px-4 text-xs">CONTACT SUPPORT</Link>
+            )}
           </div>
         </section>
       </main>

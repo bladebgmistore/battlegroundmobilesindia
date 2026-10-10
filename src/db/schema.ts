@@ -313,6 +313,102 @@ export const rewardItems = pgTable("reward_items", {
 export type RedemptionStatus = "pending" | "completed" | "rejected";
 
 /**
+ * Order-based Support Tickets — one ticket per order, opened from the buyer's
+ * "My Orders" page ("Chat with Admin"). The ticket is deleted permanently when
+ * the admin clicks "Close & Resolve Ticket" (see src/lib/support.ts).
+ */
+export const supportTickets = pgTable("support_tickets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** orders.id — unique: one open ticket per order. */
+  orderId: uuid("order_id").notNull().unique(),
+  orderCode: varchar("order_code", { length: 24 }).notNull(),
+  /** users.id of the buyer who opened the ticket. */
+  userId: uuid("user_id").notNull(),
+  customerName: varchar("customer_name", { length: 120 }),
+  customerEmail: varchar("customer_email", { length: 180 }),
+  productName: varchar("product_name", { length: 180 }).notNull(),
+  /** `open` while active; resolved tickets are deleted outright. */
+  status: varchar("status", { length: 16 }).notNull().default("open"),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+/**
+ * Support chat messages. `sender` is `user` (the buyer) or `admin` (staff).
+ * `is_read` tracks read state from the opposite side: a user message is
+ * unread until an admin opens the ticket (drives the admin sidebar badge);
+ * an admin message is unread until the buyer opens the chat.
+ * Attachments are stored as Base64 data URLs (client-side compressed).
+ */
+export const supportMessages = pgTable("support_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ticketId: uuid("ticket_id").notNull(),
+  sender: varchar("sender", { length: 12 }).notNull(),
+  senderName: varchar("sender_name", { length: 120 }),
+  message: text("message").notNull(),
+  attachment: text("attachment"),
+  attachmentName: varchar("attachment_name", { length: 255 }),
+  attachmentType: varchar("attachment_type", { length: 64 }),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * User notifications — the header bell inbox.
+ * `user_id = null` means a broadcast visible to every signed-in user.
+ * `type`: order_update | support_reply | announcement.
+ */
+export const userNotifications = pgTable("user_notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Nullable: null → broadcast to all users. */
+  userId: uuid("user_id"),
+  type: varchar("type", { length: 24 }).notNull(),
+  /** Badge shown on the notification (General / Offer / Urgent Maintenance / Update). */
+  badge: varchar("badge", { length: 32 }),
+  title: varchar("title", { length: 180 }).notNull(),
+  body: text("body"),
+  /** Where clicking the notification navigates (e.g. /account, /support?orderId=…). */
+  link: varchar("link", { length: 300 }),
+  orderId: uuid("order_id"),
+  ticketId: uuid("ticket_id"),
+  announcementId: uuid("announcement_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Per-user read state for notifications. Broadcasts (user_id = null on the
+ * notification) still need one read row per reader, so reads live in their own
+ * table keyed by (notification_id, user_id).
+ */
+export const notificationReads = pgTable("notification_reads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  notificationId: uuid("notification_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Announcements / Broadcasts composed by the admin. Publishing an
+ * announcement inserts a matching `user_notifications` row (broadcast →
+ * user_id null; targeted → the specific user), which is what the bell reads.
+ */
+export const announcements = pgTable("announcements", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 180 }).notNull(),
+  message: text("message").notNull(),
+  /** General | Offer | Urgent Maintenance | Update */
+  badge: varchar("badge", { length: 32 }).notNull().default("General"),
+  /** `all` (broadcast) or `user` (specific account). */
+  target: varchar("target", { length: 12 }).notNull().default("all"),
+  targetUserId: uuid("target_user_id"),
+  targetEmail: varchar("target_email", { length: 180 }),
+  createdBy: varchar("created_by", { length: 180 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * A points → UC redemption request. Points are debited when the request is
  * created; `rejected` requests are refunded, `completed` ones are final.
  */

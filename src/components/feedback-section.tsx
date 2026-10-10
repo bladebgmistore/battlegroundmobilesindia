@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FaStar, FaWhatsapp } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { FiCheckCircle, FiEdit3, FiLoader, FiX } from "react-icons/fi";
+import { useStoreSettings } from "@/lib/use-store-settings";
 
 type Feedback = {
   id?: string;
@@ -57,6 +58,7 @@ function initials(name: string) {
 }
 
 export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
+  const { whatsappEnabled } = useStoreSettings();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [session, setSession] = useState<SessionState>({ authenticated: false });
   const [formOpen, setFormOpen] = useState(false);
@@ -185,14 +187,16 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
                 <FcGoogle className="text-base" /> SIGN IN TO REVIEW
               </a>
             )}
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]"
-            >
-              <FaWhatsapp className="text-base" /> SPEAK WITH SUPPORT
-            </a>
+            {whatsappEnabled && whatsappUrl && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]"
+              >
+                <FaWhatsapp className="text-base" /> SPEAK WITH SUPPORT
+              </a>
+            )}
           </div>
 
           {/* Success banner */}

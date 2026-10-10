@@ -50,6 +50,8 @@ export type AdminScope =
   | "referrals" // Refer & Earn: referral tree, commission logs, redemptions, points store items
   | "proofs" // Customer Proofs: verified order deliveries published on /proofs
   | "messages"
+  | "tickets" // order-based Support Tickets: live chat with customers, resolve & close
+  | "announcements" // broadcast announcements to the user notification bell
   | "feedbacks"
   | "logs" // visitor logs (IP + location data)
   | "users" // registered users list
@@ -63,6 +65,8 @@ export const SCOPE_ROLES: Record<AdminScope, string[]> = {
   referrals: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   proofs: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   messages: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
+  tickets: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
+  announcements: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER],
   feedbacks: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
   logs: [ROLE_OWNER, ROLE_ADMIN],
   users: [ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_MODERATOR],
@@ -93,7 +97,7 @@ export const ROLE_META: Record<string, { label: string; tagline: string; badge: 
   },
   moderator: {
     label: "Moderator",
-    tagline: "Support desk — customer messages & review moderation.",
+    tagline: "Support desk — customer messages, order tickets & review moderation.",
     badge: "bg-[#f59e0b] text-white",
   },
   customer: {
@@ -109,7 +113,7 @@ export function roleLabel(role: string | null | undefined): string {
 
 /** Scopes each staff role unlocks — used for the "what this role can do" chips. */
 export const ROLE_SCOPES: Record<StaffRole, AdminScope[]> = {
-  admin: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "feedbacks", "logs", "users", "site"],
-  manager: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "feedbacks", "users"],
-  moderator: ["overview", "messages", "feedbacks", "users"],
+  admin: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "tickets", "announcements", "feedbacks", "logs", "users", "site"],
+  manager: ["overview", "catalog", "orders", "referrals", "proofs", "messages", "tickets", "announcements", "feedbacks", "users"],
+  moderator: ["overview", "messages", "tickets", "feedbacks", "users"],
 };

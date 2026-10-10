@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh } from "react-icons/fi";
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { formatINR } from "@/lib/store-data";
@@ -95,7 +95,7 @@ function OtpAction({ order, verificationPaid }: {
 
 export default function AccountPage() {
   const router = useRouter();
-  const { upiId, whatsappNumber } = useStoreSettings();
+  const { upiId, whatsappNumber, whatsappEnabled } = useStoreSettings();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -266,6 +266,13 @@ export default function AccountPage() {
                             <div className="text-right">
                               <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${st.className}`}>{st.label}</span>
                               <p className="mt-2 text-sm font-black text-[#0f172a]">{formatINR(order.amount)}</p>
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/support?orderId=${order.id}`)}
+                                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#0f4c81]/30 px-3 py-1.5 text-[10px] font-black tracking-[.08em] text-[#0f4c81] transition hover:bg-[#0f4c81] hover:text-white"
+                              >
+                                <FiMessageSquare /> CHAT WITH ADMIN
+                              </button>
                             </div>
                           </div>
                           {/* Delivered → invoice (generate, print & download) */}
@@ -278,7 +285,7 @@ export default function AccountPage() {
                                 onClick={() =>
                                   downloadInvoice(
                                     { ...order, customerName: order.customerName ?? user.name, customerWhatsapp: order.customerWhatsapp ?? user.whatsapp },
-                                    { upiId, whatsappNumber },
+                                    { upiId, whatsappNumber, whatsappEnabled },
                                   )
                                 }
                                 className="btn-outline inline-flex items-center gap-2 !py-2.5 !px-4 text-[10px] font-black tracking-[.1em]"

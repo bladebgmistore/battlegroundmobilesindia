@@ -3,6 +3,7 @@ import { orders, supportMessages, supportTickets, userNotifications, users } fro
 import { ensureSupportTables } from "@/lib/support-tables";
 import { ensureNotificationTables } from "@/lib/notification-tables";
 import { notifySupportReply } from "@/lib/notifications";
+import { notifyAdminSupportMessage } from "@/lib/telegram";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 
 /**
@@ -58,7 +59,16 @@ export async function createOrGetTicketForOrder(order: TicketOrder, user: { id: 
     .onConflictDoNothing({ target: supportTickets.orderId })
     .returning();
 
-  if (created) return created;
+  if (created) {
+    // A brand-new support ticket → instant Telegram alert to the admin's
+    // phone (fire-and-forget — never blocks the buyer's request).
+    notifyAdminSupportMessage({
+      orderCode: created.orderCode,
+      customerName: created.customerName ?? order.customerName,
+      messageText: "Opened a new support ticket",
+    });
+    return created;
+  }
 
   // Lost a race with a concurrent create — return the winner.
   const [winner] = await db
@@ -234,6 +244,16 @@ export async function addMessage(
     await notifySupportReply(ticket, String(input.senderName ?? "Admin")).catch((error) =>
       console.error("Support reply notification failed:", error),
     );
+  }
+
+  // Customer wrote → instant Telegram alert to the admin's phone. Covers
+  // replies AND the first message on a brand-new ticket. Fire-and-forget.
+  if (sender === "user" && created) {
+    notifyAdminSupportMessage({
+      orderCode: ticket.orderCode,
+      customerName: ticket.customerName ?? input.senderName ?? "Customer",
+      messageText: created.message,
+    });
   }
 
   return created ?? null;

@@ -14,8 +14,8 @@ import { isUniqueViolation, rowsOf } from "@/lib/sql-rows";
  * Refer & Earn — server logic.
  *
  * Business rules
- *  - Every account gets a unique referral code at signup (lazily for older accounts).
- *  - A new account that signs up through a referral link gets `referred_by` = referrer.id.
+ *  - Every account gets a unique referral code when created (lazily for older accounts).
+ *  - A new account created after following a referral link gets `referred_by` = referrer.id.
  *  - When an order of a referred user reaches `payment_confirmed` or `delivered`,
  *    the referrer earns 20% of the amount paid, in points (1 point = ₹1).
  *  - If that order is later cancelled, moved back, or deleted, the commission is reversed.

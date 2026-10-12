@@ -58,7 +58,7 @@ export function UserNav() {
   }
 
   if (!user) {
-    // Signed-out visitor on public pages. Offers both Login and Signup.
+    // Signed-out visitor on public pages. Show the single Google sign-in action.
     return (
       <div className="hidden items-center gap-2 sm:flex">
         <Link
@@ -66,12 +66,6 @@ export function UserNav() {
           className="flex items-center gap-1.5 rounded-xl border border-[#dbe2ec] bg-white px-3.5 py-2 text-xs font-black tracking-[.08em] text-[#0f172a] shadow-sm transition hover:border-[#0f4c81] hover:shadow-md"
         >
           <FcGoogle className="text-base" /> LOGIN
-        </Link>
-        <Link
-          href="/signup?next=/dashboard"
-          className="btn-primary !py-2 !px-3.5 !text-xs !font-black tracking-[.08em]"
-        >
-          SIGN UP
         </Link>
       </div>
     );
@@ -159,9 +153,6 @@ export function UserMobileAuth() {
       <div className="mt-3 grid gap-2 border-t border-[#dbe2ec] pt-4 lg:hidden">
         <Link href="/login?next=/dashboard" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
           <FcGoogle className="text-base" /> SIGN IN TO ACCOUNT
-        </Link>
-        <Link href="/signup?next=/dashboard" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
-          <FcGoogle className="text-base" /> CREATE PLAYER ACCOUNT
         </Link>
       </div>
     );

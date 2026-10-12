@@ -6,8 +6,8 @@ the server before the app issues its own signed session cookie.
 
 ## OAuth flow
 
-1. `/login` and `/signup` display the same Google-only sign-in button in the
-   site's dark gaming theme.
+1. `/login` displays the single Google sign-in button in the site's light
+   storefront theme.
 2. The button requests `/auth/google`. The route creates a CSRF `state` value
    and PKCE verifier, saves them with the safe return path in a short-lived,
    HTTP-only cookie, and redirects to Google.

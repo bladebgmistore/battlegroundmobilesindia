@@ -29,7 +29,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return (
     <AuthView
-      mode="login"
       next={target}
       error={params.error}
       signedOut={params.signedout === "1"}

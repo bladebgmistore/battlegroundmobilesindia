@@ -11,5 +11,5 @@ export default function GoogleLogin({
   error?: string;
   signedOut?: boolean;
 }) {
-  return <AuthView mode="login" next={next} error={error} signedOut={signedOut} />;
+  return <AuthView next={next} error={error} signedOut={signedOut} />;
 }

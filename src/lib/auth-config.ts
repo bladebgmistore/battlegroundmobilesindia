@@ -70,7 +70,6 @@ export function getAuthSecret(): string {
 export const PUBLIC_PAGES: string[] = [
   "/",
   "/login",
-  "/signup",
   "/accounts",
   "/uc-purchase",
   "/how-to-buy",

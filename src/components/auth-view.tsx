@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
-import { FiArrowLeft, FiLock, FiShield, FiUserPlus, FiLogIn } from "react-icons/fi";
+import { FiArrowLeft, FiLock, FiShield } from "react-icons/fi";
+import { GridBackdrop } from "@/components/site-chrome";
 import { images } from "@/lib/store-data";
 import { safeAuthRedirect } from "@/lib/auth-redirect";
 
@@ -21,147 +22,95 @@ const ERRORS: Record<string, string> = {
 };
 
 export interface AuthViewProps {
-  mode: "login" | "signup";
   next?: string;
   error?: string;
   signedOut?: boolean;
 }
 
-/** Google-only auth screen using the site's original custom Google OAuth flow. */
-export default function AuthView({ mode, next = "/dashboard", error, signedOut }: AuthViewProps) {
+/** Google sign-in screen styled to match the site's light storefront theme. */
+export default function AuthView({ next = "/dashboard", error, signedOut }: AuthViewProps) {
   const [busy, setBusy] = useState(false);
   const safeNext = safeAuthRedirect(next);
   const googleHref = `/auth/google?next=${encodeURIComponent(safeNext)}`;
-  const isLogin = mode === "login";
-  const toggleUrl = isLogin
-    ? `/signup?next=${encodeURIComponent(safeNext)}`
-    : `/login?next=${encodeURIComponent(safeNext)}`;
 
   return (
-    <main className="relative min-h-screen w-full bg-[#070b14] text-slate-100 flex flex-col justify-center items-center px-4 py-12 selection:bg-cyan-500 selection:text-black overflow-hidden">
-      {/* ── Background Cyber / Gaming Atmosphere ──────────────────── */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#13233f15_1px,transparent_1px),linear-gradient(to_bottom,#13233f15_1px,transparent_1px)] bg-[size:32px_32px]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-[#0f4c81]/25 blur-[120px]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-40 -right-40 h-[32rem] w-[32rem] rounded-full bg-[#38bdf8]/15 blur-[130px]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[34rem] w-[34rem] rounded-full bg-[#0a3557]/20 blur-[150px]"
-      />
-
-      {/* ── Top Navigation / Back to Store ────────────────────────── */}
-      <div className="relative z-10 w-full max-w-md mb-6 flex items-center justify-between">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 hover:text-cyan-400 transition"
-        >
-          <FiArrowLeft className="text-sm" /> BACK TO STORE
-        </Link>
-        <span className="flex items-center gap-1.5 text-[10px] font-black tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-full uppercase">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          SYSTEM SECURED
-        </span>
-      </div>
-
-      {/* ── Main Gaming Auth Container ────────────────────────────── */}
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-[#0d1527]/90 p-6 sm:p-8 shadow-[0_0_50px_rgba(15,76,129,0.25)] backdrop-blur-2xl">
-        {/* Glowing Top Accent Rim */}
-        <div className="absolute -top-[1px] inset-x-8 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-80" />
-
-        {/* Brand Header */}
-        <div className="flex items-center gap-3 pb-5 border-b border-slate-800/80">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-[#131d31] p-1 shadow-inner">
-            <img
-              src={images.logo}
-              alt="Battleground Mobile India"
-              className="h-full w-full object-cover rounded-lg"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] font-black tracking-[.25em] text-cyan-400 uppercase">
-              BATTLEGROUNDS MOBILE INDIA
-            </p>
-            <h1 className="text-xl font-black tracking-tight text-white">
-              {isLogin ? "Player Sign In" : "Create Player Account"}
-            </h1>
-          </div>
-        </div>
-
-        <p className="mt-4 text-xs leading-5 text-slate-400">
-          {isLogin
-            ? "Sign in to access your BGMI purchases, UC balance, order tracking, and exclusive discounts."
-            : "Register your player account to get instant delivery on UC packages, accounts, and rewards."}
-        </p>
-
-        {/* Error / Signed Out Banners */}
-        {error && ERRORS[error] && (
-          <div className="mt-4 rounded-xl border border-red-500/40 bg-red-950/70 p-3.5 text-xs text-red-200">
-            <p className="font-semibold">{ERRORS[error]}</p>
-          </div>
-        )}
-        {signedOut && !error && (
-          <div className="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-950/70 p-3.5 text-xs text-emerald-200">
-            <p className="font-semibold">You have been signed out successfully.</p>
-          </div>
-        )}
-
-        {/* Single custom Google OAuth sign-in action */}
-        <div className="mt-6 space-y-4">
-          <a
-            href={googleHref}
-            onClick={() => setBusy(true)}
-            aria-busy={busy}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-[#131d31] hover:bg-[#1a2742] hover:border-cyan-500/50 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg transition"
+    <>
+      <GridBackdrop />
+      <main className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-transparent px-4 py-10 text-[#0f172a] selection:bg-[#0f4c81] selection:text-white">
+        <div className="relative z-10 mb-6 flex w-full max-w-md items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider text-[#64748b] transition hover:text-[#0f4c81]"
           >
-            <FcGoogle className="text-xl" />
-            {busy ? "REDIRECTING TO GOOGLE…" : isLogin ? "CONTINUE WITH GOOGLE" : "SIGN UP WITH GOOGLE"}
-          </a>
-          <p className="flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed pt-2">
-            <FiLock className="mt-0.5 shrink-0 text-cyan-400" />
-            <span>Secure Google sign-in. Only your verified email and basic public profile are used for your player account.</span>
-          </p>
+            <FiArrowLeft className="text-sm" /> BACK TO STORE
+          </Link>
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/90 px-2.5 py-1 text-[10px] font-black tracking-widest text-emerald-700 shadow-sm uppercase">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            SECURE SIGN-IN
+          </span>
         </div>
 
-        {/* ── Toggle between Login and Signup ─────────────────────── */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-          <p className="text-xs text-slate-400">
-            {isLogin ? "Don't have a player account yet? " : "Already have a player account? "}
-            <Link
-              href={toggleUrl}
-              className="inline-flex items-center gap-1 font-bold text-cyan-400 hover:text-cyan-300 underline underline-offset-4 transition"
+        <section className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white p-6 shadow-[0_16px_48px_rgba(15,40,70,0.10)] sm:p-8">
+          <div className="absolute inset-x-8 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#0f4c81] to-transparent opacity-80" />
+
+          <div className="flex items-center gap-3 border-b border-[#eef1f6] pb-5">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[#e3e9f2] bg-[#f8fafc] p-1 shadow-sm">
+              <img
+                src={images.logo}
+                alt="Battleground Mobile India"
+                className="h-full w-full rounded-lg object-cover"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-black tracking-[.22em] text-[#0f4c81] uppercase">
+                BATTLEGROUNDS MOBILE INDIA
+              </p>
+              <h1 className="text-xl font-black tracking-tight text-[#0f172a]">Player Sign In</h1>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs leading-5 text-[#64748b]">
+            Sign in to access your BGMI purchases, UC balance, order tracking, and exclusive discounts.
+          </p>
+
+          {error && ERRORS[error] && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
+              <p className="font-semibold">{ERRORS[error]}</p>
+            </div>
+          )}
+          {signedOut && !error && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800">
+              <p className="font-semibold">You have been signed out successfully.</p>
+            </div>
+          )}
+
+          <div className="mt-6 space-y-4">
+            <a
+              href={googleHref}
+              onClick={() => setBusy(true)}
+              aria-busy={busy}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#dbe2ec] bg-white px-5 py-3.5 text-sm font-black tracking-wide text-[#0f172a] shadow-sm transition hover:border-[#0f4c81] hover:bg-[#f8fafc] hover:shadow-md"
             >
-              {isLogin ? (
-                <>
-                  <FiUserPlus className="text-xs" /> Sign up here
-                </>
-              ) : (
-                <>
-                  <FiLogIn className="text-xs" /> Sign in here
-                </>
-              )}
-            </Link>
-          </p>
-        </div>
-      </div>
+              <FcGoogle className="text-xl" />
+              {busy ? "REDIRECTING TO GOOGLE…" : "CONTINUE WITH GOOGLE"}
+            </a>
+            <p className="flex items-start gap-2 border-t border-[#eef1f6] pt-4 text-[11px] leading-relaxed text-[#64748b]">
+              <FiLock className="mt-0.5 shrink-0 text-[#0f4c81]" />
+              <span>Secure Google sign-in. Only your verified email and basic public profile are used for your player account.</span>
+            </p>
+          </div>
+        </section>
 
-      {/* Footer Trust Badges */}
-      <div className="relative z-10 mt-6 flex flex-wrap items-center justify-center gap-4 text-[10px] font-bold text-slate-500">
-        <span className="flex items-center gap-1.5">
-          <FiShield className="text-cyan-400" /> 256-BIT ENCRYPTION
-        </span>
-        <span>•</span>
-        <span>GOOGLE SECURED SIGN-IN</span>
-        <span>•</span>
-        <span>OFFICIAL BGMI STORE</span>
-      </div>
-    </main>
+        <div className="relative z-10 mt-6 flex flex-wrap items-center justify-center gap-4 text-[10px] font-bold text-[#64748b]">
+          <span className="flex items-center gap-1.5">
+            <FiShield className="text-[#0f4c81]" /> SECURE SIGN-IN
+          </span>
+          <span aria-hidden="true">•</span>
+          <span>GOOGLE PROTECTED</span>
+          <span aria-hidden="true">•</span>
+          <span>BATTLEGROUNDS MOBILE INDIA STORE</span>
+        </div>
+      </main>
+    </>
   );
 }

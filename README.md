@@ -29,7 +29,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 ### Authentication — custom Google Sign-In only
 - Google OAuth 2.0 **Authorization Code + PKCE** flow: `/auth/google` → Google → `/auth/google/callback`.
 - Google profile is verified by the server before issuing a signed, `httpOnly`, 30-day application session cookie.
-- `/login` and `/signup` share the same Google-only auth screen, styled to match the dark gaming theme.
+- `/login` is the single Google sign-in page, styled to match the site's light storefront theme.
 - Browsing, categories and cart actions are public; checkout and order APIs require a signed-in account. Guests are sent to `/login?next=…` and returned to their selected checkout after sign-in.
 - Setup / troubleshooting: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**.
 - Only the custom Google sign-in method is supported; legacy password sign-in has been removed.
@@ -179,7 +179,7 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
 | `/checkout` | Buy flow + coupon (`?cart=1` = multi-item cart checkout) |
-| `/login` / `/signup` | Sign in or create an account with the custom Google OAuth flow |
+| `/login` | Sign in with the custom Google OAuth flow |
 | `/auth/google` → `/auth/google/callback` | Google OAuth 2.0 Authorization Code + PKCE flow |
 | `/auth/logout` | Sign out |
 | `/dashboard` | User dashboard (profile, orders, admin link) |
@@ -204,7 +204,7 @@ If the database is offline, the storefront still shows default catalog data and 
 
 ## Refer & Earn rules
 
-- **Attribution** happens only for brand-new accounts that sign up through a referral link. Existing accounts are never re-attributed. The latest referral link opened before signing up is the one credited.
+- **Attribution** happens only for brand-new accounts created after following a referral link. Existing accounts are never re-attributed. The latest referral link opened before the first sign-in is the one credited.
 - **Commission** = `floor(amount paid × 20%)` points, where *amount paid* is the order total after coupons. It is credited once per order (`referral_commissions.order_id` is unique) when the order is `payment_confirmed` or `delivered`, and reversed when it is cancelled, moved back to an unconfirmed status or deleted.
 - **OTP copies** created by the account verification flow are stored with `orders.commissionable = false`, so one purchase never earns commission twice.
 - **Redemptions** debit the balance and create the request in a single SQL statement, so no partial state is possible. Rejecting a pending request refunds the points exactly once. If a commission is reversed after its points were spent, the balance can go negative and new redemptions are blocked until it is positive again.

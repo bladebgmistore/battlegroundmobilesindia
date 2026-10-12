@@ -21,8 +21,8 @@ export async function proxy(request: NextRequest) {
 
 /**
  * Refer & Earn: remember the referrer from a `?ref=CODE` link so a new Google
- * sign-up can be attributed to them (read by the Google OAuth callback).
- * The latest link opened before signing up wins.
+ * account created at first sign-in can be attributed to them (read by the OAuth
+ * callback). The latest referral link opened before sign-in wins.
  */
 function captureReferralLink(request: NextRequest, response: NextResponse) {
   if (request.method !== "GET") return;
@@ -45,6 +45,14 @@ function captureReferralLink(request: NextRequest, response: NextResponse) {
 
 async function gate(request: NextRequest): Promise<NextResponse> {
   const { pathname, search } = request.nextUrl;
+
+  // Keep old signup URLs from breaking bookmarked or external links. Account
+  // access now starts from the single sign-in page.
+  if (pathname === "/signup" || pathname === "/signup/") {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.search = search;
+    return NextResponse.redirect(loginUrl, 308);
+  }
 
   const forwardHeaders = () => {
     const headers = new Headers(request.headers);

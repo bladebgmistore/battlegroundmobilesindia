@@ -262,7 +262,7 @@ export default function CheckoutPage() {
   // Login is compulsory to checkout — guests see a sign-in gate instead of the form.
   const checkoutLocked = authChecked && (!authedUser || authRequired);
   // Preserve the full product/amount/uid/category query when sending the buyer
-  // to sign-in / signup so they land right back on this checkout after auth.
+  // to sign-in so they land right back on this checkout after authentication.
   const checkoutNext = encodeURIComponent(`/checkout${params.toString() ? `?${params.toString()}` : ""}`);
 
   // Redirect to login if unauthenticated

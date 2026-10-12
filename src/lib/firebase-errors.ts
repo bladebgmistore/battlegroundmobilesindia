@@ -52,7 +52,20 @@ export function firebaseErrorCode(error: unknown): string {
 /** Short customer-facing sentence for a thrown Firebase error. */
 export function firebasePhoneAuthMessage(error: unknown): string {
   const code = firebaseErrorCode(error);
-  return MESSAGES[code] ?? FALLBACK;
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message?: unknown }).message)
+      : "";
+
+  if (rawMessage) {
+    if (code && MESSAGES[code]) {
+      return `${MESSAGES[code]} (${rawMessage})`;
+    }
+    return rawMessage;
+  }
+  return MESSAGES[code] ?? (code ? `Firebase error (${code})` : FALLBACK);
 }
 
 /** True when the code means "the OTP itself was wrong / stale". */

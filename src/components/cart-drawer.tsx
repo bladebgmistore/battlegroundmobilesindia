@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { FiArrowRight, FiLock, FiMinus, FiPlus, FiShoppingBag, FiTrash2, FiX } from "react-icons/fi";
 import { useCart } from "@/components/cart-provider";
 import { formatINR } from "@/lib/store-data";
+import { navigateToCheckout } from "@/lib/checkout-auth";
 
 /**
  * Slide-over cart drawer.
@@ -40,9 +41,10 @@ export function CartDrawer() {
     };
   }, [isOpen]);
 
-  const checkout = () => {
+  const checkout = async () => {
+    const url = buildCheckoutUrl();
     closeCart();
-    router.push(buildCheckoutUrl());
+    await navigateToCheckout(router, url);
   };
 
   return (

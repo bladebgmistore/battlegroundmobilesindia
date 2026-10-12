@@ -11,6 +11,7 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
+import { navigateToCheckout } from "@/lib/checkout-auth";
 
 export default function UcPage() {
   const router = useRouter();
@@ -114,9 +115,10 @@ export default function UcPage() {
                       addedLabel="ADDED"
                     />
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         addToCart({ id: pack.id, name: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, category: "uc" });
-                        router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`);
+                        const target = `/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`;
+                        await navigateToCheckout(router, target);
                       }}
                       className="btn-primary group !py-2 !px-3.5 !text-[10px]"
                     >

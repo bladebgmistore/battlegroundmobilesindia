@@ -33,6 +33,16 @@ export function toE164India(mobile: string): string {
   return `${INDIA_DIAL_CODE}${normalizeIndianMobile(mobile) ?? String(mobile).replace(/\D/g, "").slice(-10)}`;
 }
 
+/**
+ * Strictly format any phone input to `+91XXXXXXXXXX` for Firebase Phone Auth.
+ * Returns null if the number is not a valid 10-digit Indian mobile number.
+ */
+export function formatStrictIndianPhone(input: string | null | undefined): string | null {
+  const norm = normalizeIndianMobile(input);
+  if (!norm) return null;
+  return `${INDIA_DIAL_CODE}${norm}`;
+}
+
 /** `9876543210` → `98765 43210` — how Indian numbers are usually written. */
 export function formatIndianMobile(mobile: string | null | undefined): string {
   const local = normalizeIndianMobile(mobile);

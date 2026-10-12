@@ -1,33 +1,45 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiCheckCircle, FiEdit2, FiLoader, FiLock, FiRefreshCw, FiShield, FiSmartphone } from "react-icons/fi";
+import {
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiEdit2,
+  FiLoader,
+  FiLock,
+  FiRefreshCw,
+  FiShield,
+  FiSmartphone,
+  FiUser,
+} from "react-icons/fi";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
-import { FIREBASE_PHONE_AUTH_ENABLED, createInvisibleRecaptcha, getFirebaseAuth } from "@/lib/firebase";
+import { FIREBASE_PHONE_AUTH_ENABLED, getFirebaseAuth } from "@/lib/firebase";
 import { firebasePhoneAuthMessage, isOtpMismatch } from "@/lib/firebase-errors";
 import {
   INDIA_DIAL_CODE,
   formatIndianMobile,
+  formatStrictIndianPhone,
   maskIndianMobile,
   normalizeIndianMobile,
-  toE164India,
 } from "@/lib/phone-number";
 
+interface PhoneLoginProps {
+  next?: string;
+  mode?: "login" | "signup";
+}
+
 /**
- * Mobile Number OTP sign-in for Indian (+91) numbers.
+ * Mobile Number OTP sign-in/up for Indian (+91) numbers.
  *
  * Flow (Firebase Phone Auth):
- *   1. customer types a 10-digit number            → `signInWithPhoneNumber`
- *   2. invisible reCAPTCHA runs in `#recaptcha-container` (no checkbox UI)
- *   3. Firebase sends the OTP to the SIM
- *   4. the 6-digit code is confirmed client-side   → `ConfirmationResult.confirm`
- *   5. the Firebase ID token is exchanged for the store's own signed session
- *      cookie at `/api/auth/phone` (verified server-side — never trusted here)
- *
- * Styling intentionally mirrors the existing Google sign-in card: light panel,
- * `#0f4c81` accent, 12px tracking-wide labels.
+ *   1. Customer enters 10-digit number -> strictly formatted as +91XXXXXXXXXX.
+ *   2. Invisible reCAPTCHA container initialized & cleaned up inside useEffect.
+ *   3. Firebase sends OTP -> ConfirmationResult.
+ *   4. Customer enters 6-digit OTP -> confirmation.confirm(code).
+ *   5. ID token exchanged for store session cookie at /api/auth/phone.
+ *   6. Detailed error.message displayed on UI for easy debugging.
  */
-export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
+export default function PhoneLogin({ next = "/dashboard", mode = "login" }: PhoneLoginProps) {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -42,59 +54,119 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
   const verifyingRef = useRef(false);
   const autoSubmittedRef = useRef("");
 
-  const mobile = normalizeIndianMobile(phone);
+  const localDigits = normalizeIndianMobile(phone);
 
-  /** Drop the current reCAPTCHA widget (it is single-use per challenge). */
-  const resetRecaptcha = useCallback(() => {
-    try {
-      verifierRef.current?.clear();
-    } catch {
-      // Already torn down — nothing to do.
+  // Initialize and clean up RecaptchaVerifier inside useEffect
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initRecaptcha() {
+      try {
+        const container = document.getElementById("recaptcha-container");
+        if (!container || !isMounted) return;
+
+        // Clear previous verifier instance if any
+        if (verifierRef.current) {
+          try {
+            verifierRef.current.clear();
+          } catch {
+            // ignore
+          }
+          verifierRef.current = null;
+        }
+
+        const auth = await getFirebaseAuth();
+        const { RecaptchaVerifier } = await import("firebase/auth");
+
+        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+          callback: () => {
+            // reCAPTCHA solved
+          },
+          "expired-callback": () => {
+            setError("reCAPTCHA check expired. Please tap 'Send OTP' again.");
+          },
+        });
+
+        if (isMounted) {
+          verifierRef.current = verifier;
+        } else {
+          verifier.clear();
+        }
+      } catch (err: unknown) {
+        console.error("Recaptcha initialization failed:", err);
+      }
     }
-    verifierRef.current = null;
+
+    void initRecaptcha();
+
+    return () => {
+      isMounted = false;
+      if (verifierRef.current) {
+        try {
+          verifierRef.current.clear();
+        } catch {
+          // ignore
+        }
+        verifierRef.current = null;
+      }
+    };
   }, []);
 
-  // Never leave a reCAPTCHA widget (or its iframe) behind on navigation.
-  useEffect(() => resetRecaptcha, [resetRecaptcha]);
-
-  // Resend countdown.
+  // Countdown timer for Resend OTP
   useEffect(() => {
     if (seconds <= 0) return;
-    const timer = setInterval(() => setSeconds((value) => (value > 0 ? value - 1 : 0)), 1000);
+    const timer = setInterval(() => {
+      setSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
     return () => clearInterval(timer);
   }, [seconds]);
 
-  const ensureVerifier = useCallback(async (): Promise<RecaptchaVerifier> => {
-    resetRecaptcha();
-    const verifier = await createInvisibleRecaptcha("recaptcha-container");
+  // Helper to ensure an active RecaptchaVerifier exists
+  const getOrInitVerifier = useCallback(async (): Promise<RecaptchaVerifier> => {
+    if (verifierRef.current) {
+      return verifierRef.current;
+    }
+    const auth = await getFirebaseAuth();
+    const { RecaptchaVerifier } = await import("firebase/auth");
+    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+      size: "invisible",
+      callback: () => {},
+      "expired-callback": () => {
+        setError("reCAPTCHA check expired. Please try again.");
+      },
+    });
     verifierRef.current = verifier;
     return verifier;
-  }, [resetRecaptcha]);
+  }, []);
 
-  /** Step 1 — validate the number and ask Firebase to send an OTP. */
+  /** Step 1: Send OTP to the strictly formatted +91 number */
   const sendOtp = useCallback(
     async (resend = false) => {
-      const target = normalizeIndianMobile(phone);
-      if (!target) {
+      // 1. Strict formatting with +91 prefix
+      const formattedPhone = formatStrictIndianPhone(phone);
+      if (!formattedPhone) {
         setStep("phone");
-        setError("Enter a valid 10-digit Indian mobile number (starting with 6, 7, 8 or 9).");
+        setError("Enter a valid 10-digit Indian mobile number starting with 6, 7, 8 or 9.");
         return;
       }
+
       if (!FIREBASE_PHONE_AUTH_ENABLED) {
-        setError(
-          "Phone sign-in is not configured on this deployment yet. Add the NEXT_PUBLIC_FIREBASE_* variables and redeploy.",
-        );
+        setError("Firebase phone authentication is not configured yet. Check NEXT_PUBLIC_FIREBASE_* variables.");
         return;
       }
 
       setBusy(true);
       setError("");
       setNotice("");
+
       try {
         const auth = await getFirebaseAuth();
         const { signInWithPhoneNumber } = await import("firebase/auth");
-        const verifier = await ensureVerifier();
-        const confirmation = await signInWithPhoneNumber(auth, toE164India(target), verifier);
+        const verifier = await getOrInitVerifier();
+
+        // Pass strictly formatted +91XXXXXXXXXX phone number
+        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, verifier);
 
         confirmationRef.current = confirmation;
         setStep("otp");
@@ -102,29 +174,58 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
         autoSubmittedRef.current = "";
         setSeconds(45);
         setNotice(
-          `${resend ? "A new OTP was sent" : "OTP sent"} to ${formatIndianMobile(target)}. It is valid for a few minutes.`,
+          `${resend ? "A new OTP was sent" : "OTP sent"} to ${formatIndianMobile(formattedPhone)}. It is valid for a few minutes.`,
         );
-      } catch (thrown) {
-        resetRecaptcha();
-        setError(firebasePhoneAuthMessage(thrown));
+      } catch (thrown: unknown) {
+        // Reset verifier so subsequent attempts don't use a stale widget
+        if (verifierRef.current) {
+          try {
+            verifierRef.current.clear();
+          } catch {
+            // ignore
+          }
+          verifierRef.current = null;
+        }
+
+        // Display exact error.message for easy debugging
+        const rawMessage =
+          thrown instanceof Error
+            ? thrown.message
+            : typeof thrown === "object" && thrown !== null && "message" in thrown
+            ? String((thrown as { message?: unknown }).message)
+            : String(thrown);
+
+        const errorCode =
+          typeof thrown === "object" && thrown !== null && "code" in thrown
+            ? String((thrown as { code?: unknown }).code)
+            : "";
+
+        const friendlyMsg = firebasePhoneAuthMessage(thrown);
+        const display = rawMessage
+          ? friendlyMsg.includes(rawMessage)
+            ? friendlyMsg
+            : `${friendlyMsg} (${rawMessage})`
+          : friendlyMsg || `Authentication error: ${errorCode || "Unknown"}`;
+
+        setError(display);
       } finally {
         setBusy(false);
       }
     },
-    [ensureVerifier, phone, resetRecaptcha],
+    [getOrInitVerifier, phone],
   );
 
-  /** Step 2 — confirm the OTP and exchange the ID token for a session. */
+  /** Step 2: Confirm OTP & exchange ID token for session */
   const verifyOtp = useCallback(
     async (code: string = otp) => {
       const clean = code.replace(/\D/g, "").slice(0, 6);
       if (clean.length !== 6) {
-        setError("Enter the 6-digit OTP we sent to your mobile number.");
+        setError("Enter the complete 6-digit OTP sent to your mobile number.");
         return;
       }
       if (!confirmationRef.current) {
         setStep("phone");
-        setError("Your verification expired. Tap “Send OTP” again.");
+        setError("Your verification expired. Please request a new OTP.");
         return;
       }
       if (verifyingRef.current) return;
@@ -132,6 +233,7 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
       verifyingRef.current = true;
       setBusy(true);
       setError("");
+
       try {
         const credential = await confirmationRef.current.confirm(clean);
         const idToken = await credential.user.getIdToken(true);
@@ -142,20 +244,37 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
           cache: "no-store",
           body: JSON.stringify({ idToken, next, name: name.trim() || undefined }),
         });
-        const data = (await response.json().catch(() => null)) as { ok?: boolean; redirect?: string; error?: string } | null;
+        const data = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          redirect?: string;
+          error?: string;
+        } | null;
 
         if (!response.ok || !data?.ok) {
           setError(data?.error ?? "Could not create your session. Please try again.");
           return;
         }
 
-        setNotice("Mobile number verified. Opening your dashboard…");
-        // Hard navigation: guarantees the fresh httpOnly cookie is sent and
-        // the proxy sees the new session immediately.
+        setNotice("Mobile verified! Redirecting you now…");
         window.location.assign(data.redirect || next || "/dashboard");
-      } catch (thrown) {
+      } catch (thrown: unknown) {
         if (isOtpMismatch(thrown)) setOtp("");
-        setError(firebasePhoneAuthMessage(thrown));
+
+        const rawMessage =
+          thrown instanceof Error
+            ? thrown.message
+            : typeof thrown === "object" && thrown !== null && "message" in thrown
+            ? String((thrown as { message?: unknown }).message)
+            : String(thrown);
+
+        const friendlyMsg = firebasePhoneAuthMessage(thrown);
+        const display = rawMessage
+          ? friendlyMsg.includes(rawMessage)
+            ? friendlyMsg
+            : `${friendlyMsg} (${rawMessage})`
+          : friendlyMsg;
+
+        setError(display);
       } finally {
         verifyingRef.current = false;
         setBusy(false);
@@ -164,7 +283,7 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
     [name, next, otp],
   );
 
-  // Auto-verify once a full 6-digit code has been typed.
+  // Auto-verify when 6 digits are typed
   useEffect(() => {
     if (step !== "otp" || busy) return;
     const clean = otp.replace(/\D/g, "");
@@ -174,7 +293,14 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
   }, [busy, otp, step, verifyOtp]);
 
   const changeNumber = () => {
-    resetRecaptcha();
+    if (verifierRef.current) {
+      try {
+        verifierRef.current.clear();
+      } catch {
+        // ignore
+      }
+      verifierRef.current = null;
+    }
     confirmationRef.current = null;
     setStep("phone");
     setOtp("");
@@ -184,26 +310,28 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
   };
 
   return (
-    <div className="mt-6">
-      {/* ── Step 1: mobile number ───────────────────────────────────── */}
+    <div className="w-full">
+      {/* ── Step 1: Phone input ─────────────────────────────────────── */}
       {step === "phone" ? (
         <form
-          onSubmit={(event) => {
-            event.preventDefault();
+          onSubmit={(e) => {
+            e.preventDefault();
             void sendOtp(false);
           }}
-          className="grid gap-4"
+          className="space-y-4"
         >
-          <label className="grid gap-2 text-[10px] font-bold tracking-[.12em] text-[#334155]">
-            MOBILE NUMBER
-            <span className="flex items-stretch overflow-hidden rounded-xl border border-[#dbe2ec] bg-white focus-within:border-[#0f4c81] focus-within:ring-2 focus-within:ring-[#cfe3f7]">
-              <span className="flex items-center gap-1.5 border-r border-[#e3e9f2] bg-[#f6f9fd] px-3 text-sm font-black text-[#0f4c81]">
-                <FiSmartphone aria-hidden /> {INDIA_DIAL_CODE}
+          <div>
+            <label className="block text-[11px] font-black tracking-wider text-slate-300 uppercase mb-2">
+              Indian Mobile Number (+91)
+            </label>
+            <div className="flex items-center overflow-hidden rounded-xl border border-slate-700 bg-[#0b1220] focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/20 transition-all">
+              <span className="flex items-center gap-1.5 border-r border-slate-700/80 bg-slate-800/60 px-3.5 py-3 text-sm font-bold text-cyan-400 select-none">
+                <FiSmartphone className="text-base" /> {INDIA_DIAL_CODE}
               </span>
               <input
                 value={phone}
-                onChange={(event) => {
-                  const digits = event.target.value.replace(/\D/g, "").slice(0, 10);
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                   setPhone(digits);
                   if (error) setError("");
                 }}
@@ -212,116 +340,143 @@ export default function PhoneLogin({ next = "/dashboard" }: { next?: string }) {
                 type="tel"
                 name="mobile"
                 placeholder="98765 43210"
-                className="h-12 w-full border-0 bg-transparent px-3 text-sm font-semibold tracking-wide text-[#0f172a] outline-none placeholder:font-normal placeholder:text-[#97a3b6]"
+                className="h-12 w-full bg-transparent px-3.5 text-sm font-bold tracking-wider text-white placeholder:text-slate-500 outline-none"
                 aria-invalid={Boolean(error) || undefined}
               />
-              {mobile ? <FiCheckCircle className="mr-3 self-center text-[#0e9f6e]" aria-hidden /> : null}
-            </span>
-          </label>
+              {localDigits ? (
+                <FiCheckCircle className="mr-3 text-emerald-400 text-lg shrink-0" aria-label="Valid format" />
+              ) : null}
+            </div>
+            <p className="mt-1.5 text-[10px] text-slate-400">
+              Enter your 10-digit number. Firebase will send a secure verification code via SMS.
+            </p>
+          </div>
 
-          <label className="grid gap-2 text-[10px] font-bold tracking-[.12em] text-[#334155]">
-            YOUR NAME <span className="font-semibold tracking-normal text-[#94a3b8]">(OPTIONAL)</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value.slice(0, 60))}
-              autoComplete="name"
-              placeholder="Player name"
-              className="form-input"
-            />
-          </label>
+          <div>
+            <label className="block text-[11px] font-black tracking-wider text-slate-300 uppercase mb-2">
+              Player Name {mode === "login" && <span className="font-normal text-slate-500 lowercase">(optional)</span>}
+            </label>
+            <div className="flex items-center overflow-hidden rounded-xl border border-slate-700 bg-[#0b1220] focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/20 transition-all">
+              <span className="flex items-center border-r border-slate-700/80 bg-slate-800/60 px-3.5 py-3 text-sm text-slate-400">
+                <FiUser />
+              </span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value.slice(0, 60))}
+                autoComplete="name"
+                placeholder={mode === "signup" ? "Your BGMI username / in-game name" : "Player name"}
+                className="h-12 w-full bg-transparent px-3.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none"
+              />
+            </div>
+          </div>
 
           <button
             type="submit"
-            disabled={busy || !mobile}
-            className="mt-1 flex w-full items-center justify-center gap-3 rounded-xl bg-[#0f4c81] px-5 py-4 text-xs font-black tracking-[.1em] text-white shadow-sm transition hover:bg-[#0a3557] disabled:cursor-not-allowed disabled:opacity-55"
+            disabled={busy || !localDigits}
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-[#0f4c81] to-[#1e6fbe] hover:from-[#0d3f6c] hover:to-[#175b9c] px-5 py-3.5 text-xs font-black tracking-wider text-white shadow-[0_4px_20px_rgba(15,76,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {busy ? <FiLoader className="animate-spin text-base" /> : <FiSmartphone className="text-base" />}
-            {busy ? "SENDING OTP…" : "SEND OTP"}
+            {busy ? "SENDING OTP VIA FIREBASE…" : "SEND OTP TO PHONE"}
           </button>
         </form>
       ) : (
-        /* ── Step 2: OTP ───────────────────────────────────────────── */
-        <div className="grid gap-4">
-          <div className="flex items-center justify-between rounded-xl border border-[#dbe2ec] bg-[#f6f9fd] px-3.5 py-3">
+        /* ── Step 2: OTP verification ───────────────────────────────── */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3">
             <div className="min-w-0">
-              <p className="text-[9px] font-bold tracking-[.16em] text-[#64748b]">OTP SENT TO</p>
-              <p className="mt-1 truncate text-sm font-black tracking-wide text-[#0f172a]">
-                {maskIndianMobile(phone) || phone}
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">OTP SENT TO</p>
+              <p className="mt-0.5 truncate text-sm font-black tracking-wider text-cyan-400">
+                {maskIndianMobile(phone) || `+91 ${phone}`}
               </p>
             </div>
             <button
               type="button"
               onClick={changeNumber}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#dbe2ec] bg-white px-3 py-2 text-[10px] font-bold tracking-[.08em] text-[#0f4c81] transition hover:border-[#0f4c81]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-[11px] font-bold text-slate-300 hover:text-white hover:border-slate-600 transition"
             >
-              <FiEdit2 /> CHANGE
+              <FiEdit2 /> Change
             </button>
           </div>
 
-          <label className="grid gap-2 text-[10px] font-bold tracking-[.12em] text-[#334155]">
-            6-DIGIT OTP
+          <div>
+            <label className="block text-[11px] font-black tracking-wider text-slate-300 uppercase mb-2 text-center">
+              Enter 6-Digit Verification Code
+            </label>
             <input
               value={otp}
-              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
               placeholder="••••••"
-              aria-label="One time password"
-              className="form-input text-center text-xl font-black tracking-[.55em]"
+              aria-label="6-digit verification code"
+              className="h-14 w-full rounded-xl border border-slate-700 bg-[#0b1220] text-center text-2xl font-black tracking-[.6em] text-cyan-300 placeholder:text-slate-600 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 outline-none transition"
             />
-          </label>
+          </div>
 
           <button
             type="button"
             onClick={() => void verifyOtp()}
             disabled={busy || otp.replace(/\D/g, "").length !== 6}
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#0f4c81] px-5 py-4 text-xs font-black tracking-[.1em] text-white shadow-sm transition hover:bg-[#0a3557] disabled:cursor-not-allowed disabled:opacity-55"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-[#0f4c81] to-[#1e6fbe] hover:from-[#0d3f6c] hover:to-[#175b9c] px-5 py-3.5 text-xs font-black tracking-wider text-white shadow-[0_4px_20px_rgba(15,76,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {busy ? <FiLoader className="animate-spin text-base" /> : <FiShield className="text-base" />}
-            {busy ? "VERIFYING…" : "VERIFY & CONTINUE"}
+            {busy ? "VERIFYING CODE…" : "VERIFY OTP & CONTINUE"}
           </button>
 
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-[#64748b]">Didn’t get the code?</span>
+          <div className="flex items-center justify-between text-xs pt-1">
+            <span className="text-slate-400">Didn’t receive the code?</span>
             <button
               type="button"
               onClick={() => void sendOtp(true)}
               disabled={busy || seconds > 0}
-              className="inline-flex items-center gap-1.5 font-bold tracking-[.06em] text-[#0f4c81] transition hover:text-[#0a3557] disabled:cursor-not-allowed disabled:text-[#94a3b8]"
+              className="inline-flex items-center gap-1.5 font-bold text-cyan-400 hover:text-cyan-300 disabled:text-slate-500 disabled:cursor-not-allowed transition"
             >
               <FiRefreshCw className={busy ? "animate-spin" : ""} />
-              {seconds > 0 ? `RESEND IN ${seconds}s` : "RESEND OTP"}
+              {seconds > 0 ? `Resend in ${seconds}s` : "Resend OTP"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Feedback banners */}
+      {/* Error Banner with exact error.message displayed */}
       {error ? (
-        <p
+        <div
           role="alert"
-          className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold leading-5 text-red-700"
+          className="mt-4 rounded-xl border border-red-500/40 bg-red-950/70 p-3.5 text-xs text-red-200"
         >
-          {error}
-        </p>
+          <div className="flex items-start gap-2.5">
+            <FiAlertTriangle className="mt-0.5 text-base shrink-0 text-red-400" />
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-red-300 uppercase tracking-wider text-[10px]">Authentication Error</p>
+              <p className="mt-1 break-words font-mono text-[11px] leading-relaxed text-red-200">{error}</p>
+            </div>
+          </div>
+        </div>
       ) : null}
+
+      {/* Notice Banner */}
       {notice && !error ? (
-        <p
+        <div
           aria-live="polite"
-          className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-700"
+          className="mt-4 rounded-xl border border-emerald-500/40 bg-emerald-950/70 p-3.5 text-xs text-emerald-200"
         >
-          {notice}
-        </p>
+          <div className="flex items-start gap-2.5">
+            <FiCheckCircle className="mt-0.5 text-base shrink-0 text-emerald-400" />
+            <p className="leading-relaxed font-medium">{notice}</p>
+          </div>
+        </div>
       ) : null}
 
-      <p className="mt-5 flex items-start gap-2 text-[11px] leading-5 text-[#94a3b8]">
-        <FiLock className="mt-0.5 shrink-0" />
-        The OTP goes straight to your SIM through Firebase (Google). We never see or store your OTP, and we only keep your
-        verified number for order updates.
-      </p>
+      <div className="mt-4 flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed border-t border-slate-800/80 pt-3">
+        <FiLock className="mt-0.5 shrink-0 text-cyan-400" />
+        <span>
+          SMS OTP is routed securely through Google Firebase. Your phone number is verified instantly and used for
+          order tracking.
+        </span>
+      </div>
 
-      {/* Invisible reCAPTCHA host — required by Firebase Phone Auth. */}
+      {/* Invisible reCAPTCHA container required by Firebase Phone Auth */}
       <div id="recaptcha-container" />
     </div>
   );

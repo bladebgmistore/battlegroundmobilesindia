@@ -265,6 +265,13 @@ export default function CheckoutPage() {
   // to sign-in / signup so they land right back on this checkout after auth.
   const checkoutNext = encodeURIComponent(`/checkout${params.toString() ? `?${params.toString()}` : ""}`);
 
+  // Redirect to login if unauthenticated
+  useEffect(() => {
+    if (authChecked && (!authedUser || authRequired)) {
+      router.push(`/login?next=${checkoutNext}`);
+    }
+  }, [authChecked, authedUser, authRequired, checkoutNext, router]);
+
   return (
     <>
       <GridBackdrop />

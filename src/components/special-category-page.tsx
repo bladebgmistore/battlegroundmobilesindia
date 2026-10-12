@@ -11,6 +11,7 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
+import { navigateToCheckout } from "@/lib/checkout-auth";
 
 type Props = {
   category: string;
@@ -27,7 +28,6 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    setCatalogLoaded(false);
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json().catch(() => null))
       .then((data: { products?: Product[]; categories?: { slug: string }[] } | null) => {
@@ -49,9 +49,10 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   }, [category]);
 
   const requiresUid = category === "super-cars" || category === "x-suits";
-  const buy = (name: string, price: number, id?: string) => {
+  const buy = async (name: string, price: number, id?: string) => {
     addToCart({ id: id ?? name, name, price, category });
-    router.push(`/checkout?product=${encodeURIComponent(name)}&amount=${price}${requiresUid ? "&uid=1" : ""}&category=${encodeURIComponent(category)}`);
+    const target = `/checkout?product=${encodeURIComponent(name)}&amount=${price}${requiresUid ? "&uid=1" : ""}&category=${encodeURIComponent(category)}`;
+    await navigateToCheckout(router, target);
   };
 
   return (

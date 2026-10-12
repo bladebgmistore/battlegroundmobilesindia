@@ -13,6 +13,7 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { FeedbackSection } from "@/components/feedback-section";
 import { addToCart } from "@/lib/fpixel";
+import { navigateToCheckout } from "@/lib/checkout-auth";
 
 const fadeUp = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
 
@@ -20,9 +21,10 @@ type BuyableItem = { id?: string; title: string; price: number; categorySlug?: s
 
 export function BuyButton({ item, requiresUid = false, category }: { item: BuyableItem; requiresUid?: boolean; category?: string }) {
   const router = useRouter();
-  const buy = () => {
+  const buy = async () => {
     addToCart({ id: item.id ?? item.title, name: item.title, price: item.price, category: category ?? item.categorySlug });
-    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
+    const target = `/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`;
+    await navigateToCheckout(router, target);
   };
   return (
     <button onClick={buy} className="btn-primary group w-full">
@@ -33,9 +35,10 @@ export function BuyButton({ item, requiresUid = false, category }: { item: Buyab
 
 export function UcBuyButton({ item }: { item: BuyableItem }) {
   const router = useRouter();
-  const buy = () => {
+  const buy = async () => {
     addToCart({ id: item.id ?? item.title, name: item.title, price: item.price, category: "uc" });
-    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
+    const target = `/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`;
+    await navigateToCheckout(router, target);
   };
   return (
     <button onClick={buy} className="btn-primary group !py-2 !px-3.5 !text-[10px] uppercase font-bold tracking-wide">

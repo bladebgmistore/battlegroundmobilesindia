@@ -78,29 +78,39 @@ export function getAuthSecret(): string {
 /**
  * Pages that can be viewed WITHOUT signing in.
  *
- * Only the homepage is public — the header shows a "Login with Google" button
- * there. Every other page (accounts, UC, checkout, account, dashboard, admin,
- * info pages…) redirects to /login first.
- *
- * To make another page public, just add its path here, e.g. "/terms".
+ * Browsing products, viewing categories, guides and policies are public.
+ * Checkout, dashboard, user account, order history and admin areas are gated.
  */
 export const PUBLIC_PAGES: string[] = [
   "/", // homepage
   "/login",
-  "/proofs", // Customer Proofs — public social proof, no sign-in needed
+  "/signup",
+  "/accounts", // accounts catalog
+  "/uc-purchase", // UC packages catalog
+  "/how-to-buy", // how to buy guide
+  "/proofs", // Customer Proofs
+  "/contact", // contact page
+  "/terms", // terms of service
+  "/refund-policy", // refund policy
+  "/rewards", // rewards / points store preview
+  "/refer-earn", // referral program preview
 ];
 
-/** API routes the public homepage + login screen need in order to render. */
+/** API routes public pages and cart need in order to render without authentication. */
 export const PUBLIC_API: string[] = [
   "/api/store", // catalog shown on the homepage
   "/api/feedbacks", // customer reviews carousel
   "/api/proofs", // verified customer proofs shown on /proofs
   "/api/auth/session", // header: logged in or not?
+  "/api/auth/me", // user session check
   "/api/auth/phone", // +91 OTP sign-in: exchanges a Firebase ID token for a session
   "/api/auth/config-check", // deployment diagnostics
-  "/api/track", // page-view beacon (also logs guest visits to the homepage)
+  "/api/track", // page-view beacon
   "/api/health",
   "/api/favicon",
+  "/api/contact",
+  "/api/coupons/validate",
+  "/api/bgmi/verify-uid",
 ];
 
 /** Misc. files that must never be gated. */
@@ -110,9 +120,14 @@ export const PUBLIC_PATHS: string[] = [...PUBLIC_PAGES, ...PUBLIC_API, ...PUBLIC
 
 export function isPublicPath(pathname: string): boolean {
   // Trailing slashes aside, match the allow-list exactly so that e.g. "/"
-  // stays public while "/accounts" does not.
+  // stays public while "/dashboard" does not.
   const clean = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
   if (PUBLIC_PATHS.includes(clean)) return true;
+
+  // Category pages: /category/super-car, /category/x-suit, etc.
+  if (clean === "/category" || clean.startsWith("/category/")) return true;
+  if (clean === "/accounts" || clean.startsWith("/accounts/")) return true;
+  if (clean === "/proofs" || clean.startsWith("/proofs/")) return true;
 
   // The OAuth round-trip itself (/auth/google, /auth/google/callback, /auth/logout).
   if (clean === "/auth" || clean.startsWith("/auth/")) return true;

@@ -36,8 +36,8 @@ export type VerifyResult =
   | { ok: true; identity: FirebasePhoneIdentity }
   | { ok: false; error: string; status: number };
 
-const PROJECT_ID = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "").trim();
-const API_KEY = (process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "").trim();
+const PROJECT_ID = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "battlegroundmobileindias-f8e2f").trim();
+const API_KEY = (process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY").trim();
 
 /** `strict` = Google lookup required · `jwt` = claims only · auto by NODE_ENV. */
 function verificationMode(): "strict" | "jwt" {

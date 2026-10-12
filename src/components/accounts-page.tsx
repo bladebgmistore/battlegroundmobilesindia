@@ -11,6 +11,7 @@ import { PriceTag } from "@/components/price-tag";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { addToCart, viewContent } from "@/lib/fpixel";
+import { navigateToCheckout } from "@/lib/checkout-auth";
 
 export default function AccountsPage() {
   const router = useRouter();
@@ -19,12 +20,18 @@ export default function AccountsPage() {
   const [query, setQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(100000);
   const [selected, setSelected] = useState<Product | null>(null);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("bgmi-wishlist") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
   const [copied, setCopied] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    setWishlist(JSON.parse(localStorage.getItem("bgmi-wishlist") ?? "[]"));
     fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json().catch(() => null))
       .then((d: { products?: Product[]; categories?: { slug: string }[] } | null) => {
@@ -65,9 +72,10 @@ export default function AccountsPage() {
   }, [selected]);
 
   // Accounts never require Player UID; only UC, Super Cars and X-Suits do.
-  const checkout = (item: Product) => {
+  const checkout = async (item: Product) => {
     addToCart({ id: item.id, name: item.title, price: item.price, category: item.categorySlug });
-    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&category=accounts`);
+    const target = `/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&category=accounts`;
+    await navigateToCheckout(router, target);
   };
 
   const copy = async () => {

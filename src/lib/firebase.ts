@@ -17,13 +17,13 @@
 import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 
 export const firebaseConfig = {
-  apiKey: (process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "").trim(),
-  authDomain: (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "").trim(),
-  projectId: (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "").trim(),
-  storageBucket: (process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "").trim(),
-  messagingSenderId: (process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "").trim(),
-  appId: (process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "").trim(),
-  measurementId: (process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ?? "").trim(),
+  apiKey: (process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY").trim(),
+  authDomain: (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "battlegroundmobileindias-f8e2f.firebaseapp.com").trim(),
+  projectId: (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "battlegroundmobileindias-f8e2f").trim(),
+  storageBucket: (process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "battlegroundmobileindias-f8e2f.firebasestorage.app").trim(),
+  messagingSenderId: (process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "982171987292").trim(),
+  appId: (process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:982171987292:web:4f52d95624d271caa02599").trim(),
+  measurementId: (process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-WKTZZ2KHYH").trim(),
 };
 
 /**

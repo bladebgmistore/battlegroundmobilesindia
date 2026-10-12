@@ -4,9 +4,6 @@ import {
   DEFAULT_CHECKOUT_MODE,
   DEFAULT_UPI_ID,
   DEFAULT_WHATSAPP_NUMBER,
-  defaultCategories,
-  defaultProducts,
-  defaultUcPackages,
 } from "@/lib/store-data";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -16,6 +13,7 @@ export const revalidate = 0;
 
 const PUBLIC_SETTING_KEYS = [
   "whatsapp_number",
+  "whatsapp_enabled",
   "instagram_url",
   "youtube_url",
   "maintenance_mode",
@@ -64,9 +62,19 @@ export async function GET() {
 
     const settings: Record<string, string> = {};
     for (const row of settingRows) settings[row.settingKey] = String(row.value ?? "");
-    if (!settings.whatsapp_number) settings.whatsapp_number = DEFAULT_WHATSAPP_NUMBER;
     if (!settings.upi_id) settings.upi_id = DEFAULT_UPI_ID;
     if (!settings.checkout_mode) settings.checkout_mode = DEFAULT_CHECKOUT_MODE;
+
+    // WhatsApp contact is admin-controlled: the number is only exposed
+    // publicly while the admin has enabled the WhatsApp channel. Otherwise no
+    // client can build a wa.me link from the public payload at all.
+    const whatsappEnabled = settings.whatsapp_enabled === "true";
+    if (whatsappEnabled) {
+      if (!settings.whatsapp_number) settings.whatsapp_number = DEFAULT_WHATSAPP_NUMBER;
+    } else {
+      delete settings.whatsapp_number;
+    }
+    settings.whatsapp_enabled = whatsappEnabled ? "true" : "false";
 
     // When the database query succeeds, return its exact state. This is
     // important so admin deletes/disables are reflected publicly.
@@ -81,16 +89,17 @@ export async function GET() {
       { headers: noStoreHeaders },
     );
   } catch (error) {
-    console.error("Store database read failed, using bundled fallback:", error);
-    return Response.json(
+    console.error("Store database read failed:", error);
+      return Response.json(
       {
-        categories: defaultCategories,
-        products: defaultProducts,
-        ucPackages: defaultUcPackages,
-        settings: { whatsapp_number: DEFAULT_WHATSAPP_NUMBER, upi_id: DEFAULT_UPI_ID, checkout_mode: DEFAULT_CHECKOUT_MODE },
+        categories: [],
+        products: [],
+        ucPackages: [],
+        // DB offline → WhatsApp contact stays hidden (admin toggle required).
+        settings: { whatsapp_enabled: "false", upi_id: DEFAULT_UPI_ID, checkout_mode: DEFAULT_CHECKOUT_MODE },
         databaseOnline: false,
       },
-      { headers: noStoreHeaders },
+      { headers: noStoreHeaders, status: 503 },
     );
   }
 }

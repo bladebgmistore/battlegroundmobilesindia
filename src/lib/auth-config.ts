@@ -14,12 +14,39 @@ export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 /** Short-lived cookie that carries the OAuth `state` + post-login redirect. */
 export const OAUTH_STATE_COOKIE = "bgmi_oauth_state";
 
-export const ROLE_OWNER = "owner";
-export const ROLE_CUSTOMER = "customer";
+// Role constants live in rbac.ts (shared with the client-side dashboard);
+// re-exported here so existing server imports keep working.
+import {
+  ROLE_OWNER,
+  ROLE_ADMIN,
+  ROLE_MANAGER,
+  ROLE_MODERATOR,
+  ROLE_CUSTOMER,
+  STAFF_ROLES,
+  ADMIN_AREA_ROLES,
+  isStaffRole,
+  isAdminAreaRole,
+  roleHasScope,
+} from "@/lib/rbac";
+
+export {
+  ROLE_OWNER,
+  ROLE_ADMIN,
+  ROLE_MANAGER,
+  ROLE_MODERATOR,
+  ROLE_CUSTOMER,
+  STAFF_ROLES,
+  ADMIN_AREA_ROLES,
+  isStaffRole,
+  isAdminAreaRole,
+  roleHasScope,
+};
 
 /**
- * The single site owner. Only this Google account can open /admin.
- * Override in production with OWNER_EMAIL (comma separated for extra admins).
+ * The site owners. Only these Google accounts get the full-access `owner`
+ * role (including the Team & Roles manager) — comma separated env var.
+ * Everyone else gets their role from the staff_members table (managed by the
+ * owner from the admin panel) or falls back to `customer`.
  */
 export const OWNER_EMAILS: string[] = (process.env.OWNER_EMAIL ?? "manavjeph800@gmail.com")
   .split(",")
@@ -60,12 +87,14 @@ export function getAuthSecret(): string {
 export const PUBLIC_PAGES: string[] = [
   "/", // homepage
   "/login",
+  "/proofs", // Customer Proofs — public social proof, no sign-in needed
 ];
 
 /** API routes the public homepage + login screen need in order to render. */
 export const PUBLIC_API: string[] = [
   "/api/store", // catalog shown on the homepage
   "/api/feedbacks", // customer reviews carousel
+  "/api/proofs", // verified customer proofs shown on /proofs
   "/api/auth/session", // header: logged in or not?
   "/api/auth/config-check", // deployment diagnostics
   "/api/track", // page-view beacon (also logs guest visits to the homepage)

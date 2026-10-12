@@ -13,8 +13,8 @@ how to configure and deploy it for **battlegroundmobilesindia.shop**.
 | Continue with Google | OAuth 2.0 **Authorization Code + PKCE** flow: `/auth/google` → Google → `/auth/google/callback`. |
 | Compulsory auth | `src/proxy.ts` runs on every request. No session ⇒ redirect to `/login?next=…` (HTML) or `401 JSON` (API). |
 | User dashboard | `/dashboard` — Google name, email and profile picture, recent orders, quick links. |
-| RBAC | `OWNER_EMAIL` allow-list (default `manavjeph800@gmail.com`) ⇒ role `owner`; everyone else is `customer`. Owners see an **Open Admin Panel** button. |
-| Admin area | `/admin` — owner-only (enforced in the proxy (edge) *and* in the page via `requireOwner()`). |
+| RBAC | `OWNER_EMAIL` allow-list (default `manavjeph800@gmail.com`) ⇒ role `owner`. The owner can add **admin / manager / moderator** staff by Google email from **Admin → Team & Roles** (stored in `staff_members`, see `sql/003_staff_members.sql` — no redeploy needed; suspend/remove is instant). Everyone else is a `customer`. Staff see an **Open Admin Panel** button. |
+| Admin area | `/admin` — every staff role (owner/admin/manager/moderator), with per-section permissions enforced in the proxy (edge), the page via `requireAdminArea()`, and every admin API via scope guards (`src/lib/rbac.ts`). |
 | Visitor tracking | Every page view is written to `site_logs` (email, IP, page URL, timestamp, device, referrer) and shown in the **Visitor Logs** tab of the admin panel, with search, CSV export, pagination and auto-refresh. Signed-out homepage visitors are logged as **Guest**. |
 
 ### Key files

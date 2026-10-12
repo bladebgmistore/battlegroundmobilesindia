@@ -1,10 +1,13 @@
 import { db } from "@/db";
 import { coupons, orders } from "@/db/schema";
-import { getAdminSession } from "@/lib/admin-auth";
+import { isOwner, requireAdminScope } from "@/lib/admin-auth";
 import { getCurrentUser } from "@/lib/user-store";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
+import { syncReferralCommissions } from "@/lib/referrals";
+import { getOrderForNotification, notifyOrderStatusChange } from "@/lib/notifications";
+import { notifyAdminNewOrder } from "@/lib/telegram";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -95,6 +98,9 @@ export async function POST(request: NextRequest) {
         buyerRegion: geo.region,
         buyerCountry: geo.country,
       });
+      // Instant Telegram alert to the admin's phone — fire-and-forget, sent
+      // after this response so checkout is never blocked or slowed down.
+      notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: true }, { status: 201 });
     } catch {
       // DB offline — persist to the demo store so the order is still visible
@@ -120,6 +126,8 @@ export async function POST(request: NextRequest) {
         buyerCountry: geo.country,
         createdAt: new Date(),
       });
+      // Same admin alert for the demo fallback so the order still pings Telegram.
+      notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: false, demo: true }, { status: 201 });
     }
   } catch {
@@ -128,7 +136,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     await ensureOrderColumns();
     const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
@@ -139,7 +147,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
     const { id, status } = body;
@@ -163,7 +171,33 @@ export async function PATCH(request: NextRequest) {
 
     try {
       await ensureOrderColumns();
+      // Capture the previous status so a real change can notify the buyer
+      // (header bell: "Order Completed / Cancelled / …").
+      let previousStatus: string | null = null;
+      if (status) {
+        const [current] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, String(id)))
+          .limit(1);
+        previousStatus = current?.status ?? null;
+      }
       await db.update(orders).set(patch).where(eq(orders.id, String(id)));
+      // Refer & Earn: confirming a purchase credits the referrer's points; cancelling reverses them.
+      if (status) {
+        await syncReferralCommissions({ orderId: String(id) }).catch((error) =>
+          console.error("Referral commission sync failed:", error),
+        );
+      }
+      // Notification bell: automated order status update for the buyer.
+      if (status && previousStatus && previousStatus !== String(status)) {
+        const order = await getOrderForNotification(String(id));
+        if (order) {
+          await notifyOrderStatusChange(order).catch((error) =>
+            console.error("Order status notification failed:", error),
+          );
+        }
+      }
       return Response.json({ ok: true });
     } catch {
       // DB offline — update the demo order by orderCode/id if it exists.
@@ -181,8 +215,16 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+/**
+ * Order deletion is OWNER-only — admins and managers can view orders and
+ * update statuses / credentials, but they cannot erase order history.
+ */
 export async function DELETE(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const identity = await requireAdminScope(request, "orders");
+  if (!identity) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isOwner(request))) {
+    return Response.json({ error: "Only the owner can delete orders." }, { status: 403 });
+  }
   try {
     const { id, ids } = await request.json();
     const selectedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : id ? [String(id)] : [];
@@ -190,6 +232,8 @@ export async function DELETE(request: NextRequest) {
     try {
       if (selectedIds.length === 1) await db.delete(orders).where(eq(orders.id, selectedIds[0]));
       else await db.delete(orders).where(inArray(orders.id, selectedIds));
+      // Deleted orders no longer count, so their referral commission is reversed.
+      await syncReferralCommissions().catch((error) => console.error("Referral commission sync failed:", error));
     } catch {
       // DB offline — delete matching demo orders (keyed by orderCode or id).
       demoListAllOrders()

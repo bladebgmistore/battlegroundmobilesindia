@@ -1,13 +1,14 @@
 import { db } from "@/db";
 import { customerMessages, siteSettings } from "@/db/schema";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requireAdminScope } from "@/lib/admin-auth";
 import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  if (!(await getAdminSession(request))) {
+  // Every staff role can read the inbox + settings (the dashboard boot-loads both).
+  if (!(await requireAdminScope(request, "messages"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,14 +28,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!(await getAdminSession(request))) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const { key, value, messageId, markRead } = await request.json();
 
     if (messageId) {
+      // Inbox actions — every staff role.
+      if (!(await requireAdminScope(request, "messages"))) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
       await db
         .update(customerMessages)
         .set({ isRead: Boolean(markRead) })
@@ -44,6 +45,11 @@ export async function PATCH(request: NextRequest) {
 
     if (!key) {
       return Response.json({ error: "Missing setting key." }, { status: 400 });
+    }
+
+    // Site settings — owner / admin only.
+    if (!(await requireAdminScope(request, "site"))) {
+      return Response.json({ error: "Site settings are owner/admin only." }, { status: 403 });
     }
 
     await db

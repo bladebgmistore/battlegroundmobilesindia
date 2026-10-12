@@ -6,6 +6,9 @@ import { SettingsProvider } from "@/components/settings-provider";
 import { getPublicSettings } from "@/lib/site-settings";
 import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
+import { GamingEnhancements } from "@/components/gaming-enhancements";
+import ReferWinPopup from "@/components/refer-win-popup";
+import MetaPixel from "@/components/meta-pixel";
 
 /**
  * Every route is request-scoped: the root layout reads live site settings from
@@ -24,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | Battleground Mobile India Store",
   },
   description:
-    "Premium BGMI accounts and UC packages with detailed listings, guided delivery, and official WhatsApp support.",
+    "Premium BGMI accounts and UC packages with detailed listings, guided delivery, and dedicated order-based support.",
   keywords: ["BGMI accounts", "BGMI UC", "Battleground Mobile India Store", "gaming marketplace", "BGMI store"],
   icons: {
     icon: "/api/favicon",
@@ -47,14 +50,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <script
+        <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+        <style
           dangerouslySetInnerHTML={{
-            __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="2c8d03b1-d974-49ec-a013-585fe13bd77e";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
+            __html: `html:not(.reveal-ready) body [data-aos]{opacity:1!important;transform:none!important;transition:none!important}html.reveal-ready body [data-aos]{opacity:0!important;transform:translate3d(0,24px,0) scale(.985)!important;transition:opacity .62s ease,transform .62s cubic-bezier(.2,.8,.2,1)!important}html.reveal-ready body [data-aos=zoom-in]{transform:scale(.955)!important}html.reveal-ready body [data-aos=fade-left]{transform:translate3d(34px,0,0)!important}html.reveal-ready body [data-aos=fade-right]{transform:translate3d(-34px,0,0)!important}html.reveal-ready body [data-aos].reveal-visible{opacity:1!important;transform:none!important}`,
           }}
         />
       </head>
       <body>
+        {/* Meta (Facebook) Pixel — reads NEXT_PUBLIC_FACEBOOK_PIXEL_ID and
+            renders nothing when the variable is not configured. */}
+        <Suspense fallback={null}>
+          <MetaPixel />
+        </Suspense>
         <SettingsProvider value={values}>{children}</SettingsProvider>
+        <GamingEnhancements />
+        {/* "Refer & Win" pop-up — appears once, right after a Google sign-in. */}
+        <ReferWinPopup />
         {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
         <Suspense fallback={null}>
           <VisitTracker />

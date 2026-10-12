@@ -139,7 +139,7 @@ export const defaultUcPackages: UcPackageItem[] = [
 ];
 
 export const faqs = [
-  { question: "How quickly will I receive my order?", answer: "Most requests are handled quickly after WhatsApp verification. Delivery timing is confirmed by our support team before completion." },
+  { question: "How quickly will I receive my order?", answer: "Most requests are handled quickly after payment verification. Delivery timing is confirmed by our support team before completion." },
   { question: "Are account details transferred safely?", answer: "Yes. We guide every buyer through a controlled handover and recommend recording the entire process for your own records." },
   { question: "Can I make a payment directly on the site?", answer: "Our gateway is currently in maintenance. Use the official WhatsApp channel shown after selecting your product to complete the purchase." },
   { question: "What should I prepare before buying UC?", answer: "Keep your in-game details ready and contact support after selecting a package. Never share an OTP or recovery code with anyone." },

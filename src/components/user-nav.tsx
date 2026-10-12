@@ -3,10 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FiChevronDown, FiGrid, FiLogOut, FiPackage, FiRefreshCw, FiShield } from "react-icons/fi";
+import { FiAward, FiChevronDown, FiGift, FiGrid, FiLogOut, FiPackage, FiRefreshCw, FiShield } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 
-type User = { id: string; name: string; email: string | null; picture: string | null; isOwner: boolean };
+type User = {
+  id: string;
+  name: string;
+  email: string | null;
+  picture: string | null;
+  isOwner: boolean;
+  role?: string;
+  /** owner / admin / manager / moderator → can open /admin. */
+  adminAccess?: boolean;
+};
 
 /**
  * Header account control.
@@ -95,7 +104,13 @@ export function UserNav() {
             <Link href="/account" onClick={close} className="flex items-center gap-3 px-4 py-3 text-sm text-[#334155] hover:bg-[#f1f5fb]">
               <FiPackage className="text-[#0f4c81]" /> My Orders
             </Link>
-            {user.isOwner && (
+            <Link href="/refer-earn" onClick={close} className="flex items-center gap-3 px-4 py-3 text-sm text-[#334155] hover:bg-[#f1f5fb]">
+              <FiGift className="text-[#0f4c81]" /> Refer &amp; Earn
+            </Link>
+            <Link href="/rewards" onClick={close} className="flex items-center gap-3 px-4 py-3 text-sm text-[#334155] hover:bg-[#f1f5fb]">
+              <FiAward className="text-[#0f4c81]" /> Points Store
+            </Link>
+            {(user.adminAccess ?? user.isOwner) && (
               <Link href="/admin" onClick={close} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-[#0f4c81] hover:bg-[#f1f5fb]">
                 <FiShield /> Admin Panel
               </Link>
@@ -147,7 +162,9 @@ export function UserMobileAuth() {
     <div className="mt-3 grid gap-2 border-t border-[#dbe2ec] pt-4 lg:hidden">
       <Link href="/dashboard" className="btn-primary flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">MY DASHBOARD</Link>
       <Link href="/account" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">MY ORDERS</Link>
-      {user.isOwner && (
+      <Link href="/refer-earn" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">REFER &amp; EARN</Link>
+      <Link href="/rewards" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">POINTS STORE</Link>
+      {(user.adminAccess ?? user.isOwner) && (
         <Link href="/admin" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">ADMIN PANEL</Link>
       )}
       <a href="/auth/logout" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em] !text-[#c62828]">SIGN OUT</a>

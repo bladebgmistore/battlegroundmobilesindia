@@ -21,6 +21,8 @@ export type DashboardUser = {
   picture: string | null;
   role: string;
   isOwner: boolean;
+  /** owner / admin / manager / moderator → can open /admin. */
+  adminAccess?: boolean;
 };
 
 type Order = { id: string; orderCode: string; productName: string; amount: number; status: string; createdAt: string };
@@ -81,7 +83,7 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
           </div>
 
           <div className="flex flex-col gap-2">
-            {user.isOwner && (
+            {(user.adminAccess ?? user.isOwner) && (
               <Link
                 href="/admin"
                 className="btn-primary flex items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-[.12em]"
@@ -98,11 +100,15 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
           </div>
         </section>
 
-        {/* ── Owner banner ─────────────────────────────────────────── */}
-        {user.isOwner && (
+        {/* ── Staff banner (owner / admin / manager / moderator) ──── */}
+        {(user.adminAccess ?? user.isOwner) && (
           <section className="mt-6 rounded-2xl border border-[#0f4c81]/20 bg-[#0f4c81] p-6 text-white">
-            <p className="text-[10px] font-black tracking-[.2em] text-white/70">OWNER ACCESS</p>
-            <h2 className="mt-2 text-xl font-black">You are signed in as the store owner</h2>
+            <p className="text-[10px] font-black tracking-[.2em] text-white/70">
+              {user.role === "owner" ? "OWNER ACCESS" : `STAFF ACCESS · ${user.role.toUpperCase()}`}
+            </p>
+            <h2 className="mt-2 text-xl font-black">
+              {user.role === "owner" ? "You are signed in as the store owner" : `You are on the store team as ${user.role}`}
+            </h2>
             <p className="mt-2 max-w-2xl text-sm text-white/80">
               The admin panel gives you catalog management, order processing, site controls and the live visitor
               tracking log — every page view with user email, IP address and timestamp.

@@ -25,6 +25,7 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
    | `GOOGLE_REDIRECT_URI` | ✅ Yes | `https://battlegroundmobilesindia.shop/auth/google/callback` |
    | `AUTH_SECRET` | ✅ Yes | `openssl rand -base64 32` se banao (session cookie sign hoti hai) |
    | `OWNER_EMAIL` | ✅ Yes | `manavjeph800@gmail.com` — sirf isi account ko `/admin` milega |
+   | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` | Optional | `4056208531176598` (Meta Pixel — details: `META_PIXEL_SETUP.md`. Khali chhodo to tracking band) |
    | `SMTP_HOST` | Optional | `smtp.gmail.com` (admin OTP email ke liye) |
    | `SMTP_PORT` | Optional | `465` |
    | `SMTP_USER` | Optional | aapki email |

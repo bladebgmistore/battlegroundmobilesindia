@@ -27,6 +27,9 @@ const STATEMENTS = [
     role varchar(20) NOT NULL DEFAULT 'customer',
     is_active boolean NOT NULL DEFAULT true,
     last_login_at timestamptz,
+    referral_code varchar(16),
+    referred_by uuid,
+    points_balance integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
@@ -38,6 +41,13 @@ const STATEMENTS = [
   `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_unique ON users (google_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx ON users (lower(email))`,
+
+  // Refer & Earn: unique share code, parent user id and spendable points.
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code varchar(16)`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by uuid`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS points_balance integer NOT NULL DEFAULT 0`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users (referral_code)`,
+  `CREATE INDEX IF NOT EXISTS users_referred_by_idx ON users (referred_by)`,
 
   // Visitor / page tracking.
   `CREATE TABLE IF NOT EXISTS site_logs (

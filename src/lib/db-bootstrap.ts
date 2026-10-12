@@ -92,10 +92,12 @@ export async function bootstrapDatabase() {
   if (settingsCount === 0) {
     await db.insert(siteSettings).values([
       { settingKey: "whatsapp_number", value: DEFAULT_WHATSAPP_NUMBER },
+      // WhatsApp contact stays hidden until the admin enables it (Site Controls).
+      { settingKey: "whatsapp_enabled", value: "false" },
       { settingKey: "upi_id", value: DEFAULT_UPI_ID },
       { settingKey: "checkout_mode", value: DEFAULT_CHECKOUT_MODE },
     ]);
-    summary.siteSettings = 3;
+    summary.siteSettings = 4;
   } else {
     // Ensure new keys exist without overwriting existing ones
     const existingKeys = await db.select({ key: siteSettings.settingKey }).from(siteSettings);
@@ -104,6 +106,7 @@ export async function bootstrapDatabase() {
     if (!keySet.has("upi_id")) toInsert.push({ settingKey: "upi_id", value: DEFAULT_UPI_ID });
     if (!keySet.has("checkout_mode")) toInsert.push({ settingKey: "checkout_mode", value: DEFAULT_CHECKOUT_MODE });
     if (!keySet.has("whatsapp_number")) toInsert.push({ settingKey: "whatsapp_number", value: DEFAULT_WHATSAPP_NUMBER });
+    if (!keySet.has("whatsapp_enabled")) toInsert.push({ settingKey: "whatsapp_enabled", value: "false" });
     if (toInsert.length) {
       await db.insert(siteSettings).values(toInsert as never);
       summary.siteSettings = `preserved ${settingsCount} + seeded ${toInsert.length}`;

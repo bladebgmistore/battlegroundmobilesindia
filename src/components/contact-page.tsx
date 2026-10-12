@@ -18,7 +18,7 @@ interface FieldProps {
 export default function ContactPage() {
   const [state, setState] = useState<"idle" | "success" | "error">("idle");
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ContactForm>();
-  const { whatsapp: whatsappUrl, whatsappNumber } = useStoreSettings();
+  const { whatsapp: whatsappUrl, whatsappNumber, whatsappEnabled } = useStoreSettings();
 
   const submit = async (values: ContactForm) => {
     setState("idle");
@@ -40,10 +40,13 @@ export default function ContactPage() {
         <PageTitle
           eyebrow="CONTACT SUPPORT"
           title="Here when the match matters."
-          copy="Use the official WhatsApp channel for the quickest response, or leave the team a message and we will review it in the support inbox."
+          copy={whatsappEnabled
+            ? "Use the official WhatsApp channel for the quickest response, or leave the team a message and we will review it in the support inbox."
+            : "Leave the team a message and we will review it in the support inbox. You can also open a support ticket from any of your orders."}
         />
-        <section className="mx-auto grid max-w-6xl gap-5 px-5 pb-20 lg:grid-cols-[.75fr_1.25fr] lg:px-8">
+        <section className={`mx-auto grid max-w-6xl gap-5 px-5 pb-20 lg:px-8 ${whatsappEnabled ? "lg:grid-cols-[.75fr_1.25fr]" : ""}`}>
           <aside className="space-y-4">
+            {whatsappEnabled && (
             <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="premium-card block p-6 transition hover:border-[#0f4c81]">
               <FaWhatsapp className="text-3xl text-[#0e9f6e]" />
               <p className="mt-5 text-[10px] font-bold tracking-[.16em] text-[#0e9f6e]">FASTEST RESPONSE</p>
@@ -51,6 +54,7 @@ export default function ContactPage() {
               <p className="mt-2 text-sm text-[#64748b]">+91 {whatsappNumber}</p>
               <span className="mt-5 inline-flex text-[10px] font-bold tracking-[.12em] text-[#0e9f6e]">OPEN WHATSAPP →</span>
             </a>
+            )}
             <div className="premium-card grid gap-3 p-6">
               {[[FiClock, "Support hours", "Every day · prompt online responses"], [FiShield, "Official channel", "Use the number shown on this website only"], [FiMail, "Message support", "Leave a request with your purchase question"]].map(([Icon, h, b]) => {
                 const IconComp = Icon as typeof FiClock;
@@ -83,7 +87,7 @@ export default function ContactPage() {
                 <textarea {...register("message", { required: "Tell us how we can help", minLength: { value: 10, message: "Please add a little more detail" } })} placeholder="Tell us about the account, UC pack or support you need..." rows={6} className="form-input resize-none py-3" />
               </Field>
               {state === "success" && <div className="flex items-center gap-2 rounded-lg bg-[#e6f8ef] p-3 text-xs font-bold text-[#0e9f6e]"><FiCheckCircle /> Message sent to the support inbox.</div>}
-              {state === "error" && <div className="rounded-lg bg-red-50 p-3 text-xs font-bold text-red-600">We couldn&apos;t send this message. Please use WhatsApp instead.</div>}
+              {state === "error" && <div className="rounded-lg bg-red-50 p-3 text-xs font-bold text-red-600">We couldn&apos;t send this message. Please try again in a moment.</div>}
               <button disabled={isSubmitting} className="btn-primary w-fit"><FiSend />{isSubmitting ? "SENDING..." : "SEND SUPPORT MESSAGE"}</button>
             </form>
           </section>

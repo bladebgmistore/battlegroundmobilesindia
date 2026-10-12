@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { feedbacks } from "@/db/schema";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requireAdminScope } from "@/lib/admin-auth";
 import { ensureFeedbackTables } from "@/lib/feedback-tables";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { desc, eq } from "drizzle-orm";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 const STATUSES = new Set(["pending", "approved", "rejected"]);
 
 export async function GET(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   await ensureFeedbackTables();
   try {
     const rows = await db.select().from(feedbacks).orderBy(desc(feedbacks.createdAt)).limit(200);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
 /** Admin-written review — published straight away. */
 export async function POST(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   await ensureFeedbackTables();
   try {
     const body = await request.json();
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
  * Send `{ id, status: "approved" | "rejected" | "pending" }` to accept/deny.
  */
 export async function PATCH(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   await ensureFeedbackTables();
   try {
     const { id, ...data } = await request.json();
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await getAdminSession(request))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await request.json();
     if (!id) return Response.json({ error: "Missing id." }, { status: 400 });

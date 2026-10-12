@@ -2,8 +2,9 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
-import { roleForEmail } from "@/lib/auth-config";
+import { resolveLoginRole } from "@/lib/staff";
 import type { GoogleProfile } from "@/lib/google-oauth";
+import { ensureReferralCode, findReferrerIdByCode, generateUniqueReferralCode } from "@/lib/referrals";
 
 export type AppUser = {
   id: string;
@@ -22,11 +23,19 @@ export type AppUser = {
  *
  * Matching order: google_id → email (so accounts created by the old
  * password login are adopted instead of duplicated).
- * The owner role is always recomputed from the email allow-list, so
- * promoting/demoting an owner is a pure env-var change.
+ * The role is recomputed on every sign-in: OWNER_EMAIL env → owner, an
+ * active staff_members row → admin/manager/moderator, otherwise customer.
+ * Promoting or removing staff therefore never needs a redeploy.
+ *
+ * Refer & Earn: a NEW account gets its own referral code, and — when it signs
+ * up through a referral link — `referred_by` points at the referrer.
+ * Existing accounts are never re-attributed.
  */
-export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser> {
-  const role = roleForEmail(profile.email);
+export async function upsertGoogleUser(
+  profile: GoogleProfile,
+  options: { referralCode?: string | null } = {},
+): Promise<AppUser> {
+  const role = await resolveLoginRole(profile.email);
   const fallback: AppUser = {
     id: profile.sub,
     googleId: profile.sub,
@@ -63,6 +72,9 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
         })
         .where(eq(users.id, existing.id));
 
+      // Accounts created before Refer & Earn get their code on their next sign-in.
+      if (!existing.referralCode) await ensureReferralCode(existing.id).catch(() => null);
+
       return {
         id: existing.id,
         googleId: profile.sub,
@@ -76,6 +88,9 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
       };
     }
 
+    const referredBy = await findReferrerIdByCode(options.referralCode);
+    const referralCode = await generateUniqueReferralCode().catch(() => null);
+
     const [created] = await db
       .insert(users)
       .values({
@@ -86,6 +101,8 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<AppUser>
         role,
         isActive: true,
         lastLoginAt: new Date(),
+        referralCode,
+        referredBy,
       })
       .returning();
 

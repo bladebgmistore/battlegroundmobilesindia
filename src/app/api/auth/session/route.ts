@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
+import { ROLE_OWNER, isAdminAreaRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,9 @@ export async function GET(request: NextRequest) {
       email: session.email,
       picture: session.picture,
       role: session.role,
-      isOwner: session.role === "owner",
+      isOwner: session.role === ROLE_OWNER,
+      /** Any staff role (owner/admin/manager/moderator) → show the Admin Panel link. */
+      adminAccess: isAdminAreaRole(session.role),
     },
   });
 }

@@ -96,6 +96,7 @@ export const PUBLIC_API: string[] = [
   "/api/feedbacks", // customer reviews carousel
   "/api/proofs", // verified customer proofs shown on /proofs
   "/api/auth/session", // header: logged in or not?
+  "/api/auth/phone", // +91 OTP sign-in: exchanges a Firebase ID token for a session
   "/api/auth/config-check", // deployment diagnostics
   "/api/track", // page-view beacon (also logs guest visits to the homepage)
   "/api/health",

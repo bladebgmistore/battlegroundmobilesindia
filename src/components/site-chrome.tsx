@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
 import { UserNav, UserMobileAuth } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
+import { CartButton } from "@/components/cart-button";
 import { images } from "@/lib/store-data";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
@@ -133,18 +134,23 @@ export function SiteHeader() {
             ))}
           </nav>
 
-          <div className="hidden items-center gap-3 sm:flex">
-            <NotificationBell />
-            <UserNav />
+          <div className="flex items-center gap-3">
+            {/* Cart lives outside the `hidden sm:flex` group so the icon (and its
+                live badge) is always reachable — including on phones. */}
+            <CartButton />
+            <div className="hidden items-center gap-3 sm:flex">
+              <NotificationBell />
+              <UserNav />
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(!isOpen)}
+              className="grid h-10 w-10 place-items-center rounded-lg border border-[#dbe2ec] text-xl text-[#334155] lg:hidden"
+              aria-label="Toggle menu"
+            >
+              {isOpen ? <FiX /> : <FiMenu />}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            className="grid h-10 w-10 place-items-center rounded-lg border border-[#dbe2ec] text-xl text-[#334155] lg:hidden"
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <FiX /> : <FiMenu />}
-          </button>
         </div>
         {isOpen && (
           <div className="border-t border-[#dbe2ec] bg-white px-5 py-4 lg:hidden">

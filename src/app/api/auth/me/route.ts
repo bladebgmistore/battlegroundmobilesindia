@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
       name: user.name,
       email: user.email,
       whatsapp: user.whatsapp,
+      /** +91 OTP accounts: the verified E.164 number, else null. */
+      phone: user.phone ?? null,
+      provider: user.provider ?? (user.email ? "google" : "phone"),
       picture: user.avatarUrl,
       role: user.role,
       isOwner: user.role === ROLE_OWNER,

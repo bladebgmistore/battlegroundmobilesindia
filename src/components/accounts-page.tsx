@@ -8,6 +8,7 @@ import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
 import { formatINR, Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { addToCart, viewContent } from "@/lib/fpixel";
 
@@ -180,12 +181,23 @@ export default function AccountsPage() {
                         </span>
                       ))}
                     </div>
-                    <button
-                      onClick={() => checkout(item)}
-                      className="btn-primary mt-5 w-full !py-3.5 text-[11px]"
-                    >
-                      PROCEED TO CHECKOUT
-                    </button>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                      <AddToCartButton
+                        item={{
+                          id: item.id,
+                          title: item.title,
+                          price: item.price,
+                          image: item.image,
+                          categorySlug: item.categorySlug,
+                        }}
+                        compact
+                        label="ADD TO CART"
+                        addedLabel="ADDED"
+                      />
+                      <button onClick={() => checkout(item)} className="btn-primary !py-3.5 text-[11px]">
+                        PROCEED TO CHECKOUT
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -239,11 +251,24 @@ export default function AccountsPage() {
                       </p>
                     ))}
                   </div>
-                  <div className="mt-7 grid grid-cols-2 gap-3">
+                  <div className="mt-7 grid gap-3 sm:grid-cols-3">
                     <button onClick={copy} className="inline-flex items-center justify-center gap-2 rounded-xl btn-outline py-3 text-[10px]">
                       <FiCopy />
                       {copied ? "LINK COPIED" : "COPY LINK"}
                     </button>
+                    <AddToCartButton
+                      item={{
+                        id: selected.id,
+                        title: selected.title,
+                        price: selected.price,
+                        image: selected.image,
+                        categorySlug: selected.categorySlug,
+                      }}
+                      compact
+                      label="ADD TO CART"
+                      addedLabel="ADDED"
+                      openDrawer
+                    />
                     <button onClick={() => checkout(selected)} className="btn-primary py-3 text-[10px]">
                       CHECKOUT NOW
                     </button>

@@ -4,12 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
+import Link from "next/link";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { formatINR } from "@/lib/store-data";
+import { formatE164India } from "@/lib/phone-number";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
-type User = { id: string; email: string | null; whatsapp: string | null; name: string; role: string };
+type User = {
+  id: string;
+  email: string | null;
+  whatsapp: string | null;
+  /** Verified E.164 number for +91 OTP accounts (see /api/auth/me). */
+  phone?: string | null;
+  /** "google" (default) or "phone". */
+  provider?: string;
+  name: string;
+  role: string;
+};
 type Order = {
   id: string;
   orderCode: string;
@@ -105,6 +117,7 @@ export default function AccountPage() {
   // Profile form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -125,6 +138,7 @@ export default function AccountPage() {
         setUser(u);
         setName(u.name);
         setEmail(u.email ?? "");
+        setPhone(u.phone ?? "");
         setWhatsapp(u.whatsapp ?? "");
 
         const orderRes = await fetch("/api/account/orders", { credentials: "same-origin", cache: "no-store" });
@@ -173,6 +187,9 @@ export default function AccountPage() {
     // Clears the signed Google session cookie server-side, then back to login.
     window.location.href = "/auth/logout";
   };
+
+  // +91 OTP accounts have no Google email — show their verified mobile instead.
+  const isPhoneAccount = user?.provider === "phone" || (!user?.email && Boolean(phone));
 
   if (loading) {
     return (
@@ -346,12 +363,26 @@ export default function AccountPage() {
                       <input value={name} onChange={(e) => setName(e.target.value)} required className="form-input" />
                     </label>
                     <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
-                      EMAIL ADDRESS (GOOGLE)
+                      {isPhoneAccount ? "VERIFIED MOBILE NUMBER" : "EMAIL ADDRESS (GOOGLE)"}
                       <div className="relative">
-                        <input value={email} readOnly disabled type="email" className="form-input pl-10 opacity-70" />
-                        <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+                        <input
+                          value={isPhoneAccount ? formatE164India(phone) : email}
+                          readOnly
+                          disabled
+                          type={isPhoneAccount ? "tel" : "email"}
+                          className="form-input pl-10 opacity-70"
+                        />
+                        {isPhoneAccount ? (
+                          <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+                        ) : (
+                          <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+                        )}
                       </div>
-                      <span className="text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">Managed by your Google account.</span>
+                      <span className="text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">
+                        {isPhoneAccount
+                          ? "Verified with a one-time password sent to your SIM."
+                          : "Managed by your Google account."}
+                      </span>
                     </label>
                     <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
                       WHATSAPP NUMBER
@@ -374,15 +405,31 @@ export default function AccountPage() {
                 <div className="premium-card p-6 sm:p-8">
                   <h2 className="text-xl font-black tracking-[-.03em] text-[#0f172a]">Sign-in &amp; Security</h2>
                   <p className="mt-3 text-sm leading-6 text-[#64748b]">
-                    This store uses <strong>Google Sign-In only</strong>. There is no store password to manage —
-                    your password, 2-step verification and device security are handled by Google.
+                    {isPhoneAccount ? (
+                      <>
+                        You sign in with your <strong>+91 mobile number</strong> and a one-time password sent to your SIM.
+                        There is no store password to manage.
+                      </>
+                    ) : (
+                      <>
+                        This store uses <strong>Google Sign-In</strong>. There is no store password to manage — your
+                        password, 2-step verification and device security are handled by Google.
+                      </>
+                    )}
                   </p>
                   <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#dcf5e8] bg-[#f3fbf7] px-4 py-3 text-xs font-bold text-[#0e9f6e]">
-                    <FiCheckCircle className="text-base" /> Signed in with Google as {user.email}
+                    <FiCheckCircle className="text-base" />
+                    {isPhoneAccount ? `Signed in with mobile OTP as ${formatE164India(phone)}` : `Signed in with Google as ${user.email}`}
                   </div>
-                  <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="btn-outline mt-5 flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em]">
-                    <FiShield /> MANAGE GOOGLE SECURITY
-                  </a>
+                  {isPhoneAccount ? (
+                    <Link href="/login" className="btn-outline mt-5 flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em]">
+                      <FiShield /> USE ANOTHER SIGN-IN METHOD
+                    </Link>
+                  ) : (
+                    <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="btn-outline mt-5 flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em]">
+                      <FiShield /> MANAGE GOOGLE SECURITY
+                    </a>
+                  )}
                 </div>
               </div>
             )}

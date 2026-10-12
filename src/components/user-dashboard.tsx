@@ -14,10 +14,15 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { GridBackdrop, SiteHeader } from "@/components/site-chrome";
+import { formatE164India } from "@/lib/phone-number";
 
 export type DashboardUser = {
   name: string;
   email: string;
+  /** Verified E.164 number for +91 OTP accounts (empty for Google accounts). */
+  phone?: string | null;
+  /** "google" (default) or "phone". */
+  provider?: string;
   picture: string | null;
   role: string;
   isOwner: boolean;
@@ -75,10 +80,11 @@ export default function UserDashboard({ user, forbidden }: { user: DashboardUser
             <p className="text-[11px] font-bold tracking-[.22em] text-[#0f4c81]">MY DASHBOARD</p>
             <h1 className="mt-2 text-3xl font-black tracking-[-.04em] text-[#0f172a]">{user.name}</h1>
             <p className="mt-1 flex items-center gap-2 text-sm text-[#64748b]">
-              <FiMail className="text-[#0f4c81]" /> {user.email}
+              <FiMail className="text-[#0f4c81]" /> {user.email || (user.phone ? formatE164India(user.phone) : "—")}
             </p>
             <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#ecfdf5] px-3 py-1.5 text-[11px] font-black text-emerald-700">
-              <FiCheckCircle /> SIGNED IN WITH GOOGLE · {user.role.toUpperCase()}
+              <FiCheckCircle /> SIGNED IN WITH {user.provider === "phone" || !user.email ? "MOBILE OTP" : "GOOGLE"} ·{" "}
+              {user.role.toUpperCase()}
             </p>
           </div>
 

@@ -22,6 +22,7 @@ const STATEMENTS = [
     whatsapp varchar(24) UNIQUE,
     name varchar(120) NOT NULL,
     google_id varchar(64) UNIQUE,
+    phone_uid varchar(128) UNIQUE,
     avatar_url text,
     password_hash text,
     role varchar(20) NOT NULL DEFAULT 'customer',
@@ -41,6 +42,10 @@ const STATEMENTS = [
   `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_unique ON users (google_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx ON users (lower(email))`,
+
+  // Firebase Phone Auth (+91 OTP): one row per verified mobile identity.
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_uid varchar(128)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_phone_uid_unique ON users (phone_uid)`,
 
   // Refer & Earn: unique share code, parent user id and spendable points.
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code varchar(16)`,

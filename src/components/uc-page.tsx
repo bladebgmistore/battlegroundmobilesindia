@@ -7,6 +7,7 @@ import { FaBolt, FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiShield } from "react-icons/fi";
 import { Category, UcPackageItem } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
@@ -98,17 +99,30 @@ export default function UcPage() {
                   <p className="text-4xl font-black tracking-[-.06em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-lg text-[#0f4c81]">UC</span></p>
                   <p className="mt-1 text-xs font-bold text-[#64748b]">UNKNOWN CASH</p>
                 </div>
-                <div className="relative mt-7 flex items-center justify-between border-t border-[#e5e8ef] pt-5">
+                <div className="relative mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5e8ef] pt-5">
                   <PriceTag price={pack.price} align="start" priceClass="text-xl font-black text-[#0f172a]" />
-                  <button
-                    onClick={() => {
-                      addToCart({ id: pack.id, name: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, category: "uc" });
-                      router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`);
-                    }}
-                    className="btn-primary group !py-2.5 !px-4 text-[11px]"
-                  >
-                    CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <AddToCartButton
+                      item={{
+                        id: pack.id,
+                        title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`,
+                        price: pack.price,
+                        categorySlug: "uc",
+                      }}
+                      compact
+                      label="ADD"
+                      addedLabel="ADDED"
+                    />
+                    <button
+                      onClick={() => {
+                        addToCart({ id: pack.id, name: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, category: "uc" });
+                        router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`);
+                      }}
+                      className="btn-primary group !py-2 !px-3.5 !text-[10px]"
+                    >
+                      CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

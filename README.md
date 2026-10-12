@@ -17,8 +17,23 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Dynamic WhatsApp number, social links, maintenance banner
 - Mobile responsive + SEO metadata + branded 404
 
-### Authentication — Google Sign-In only
-- **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — no passwords anywhere
+### Shopping cart
+- **Navbar cart icon with a live badge** (total units), visible on desktop *and* mobile
+- **Slide-over cart drawer** — line items, quantity −/+, remove, *you save*, total payable, *clear cart*, `Esc`/backdrop to close
+- **Add to Cart** on every product card (home shelves, UC tiles, `/accounts` grid + quick view, `/uc-purchase`, category pages) with an **ADDED ✓** confirmation
+- Cart state = **React Context + `useSyncExternalStore`**, persisted in **`localStorage`** (survives reloads, synced across tabs, SSR-safe)
+- Checkout strips into the existing flow: `/checkout?...&cart=1`, UID requirement detected automatically, cart emptied once the order is registered
+- Full walkthrough: **[CART_SETUP.md](./CART_SETUP.md)**
+
+### Authentication — Google **or** +91 Mobile OTP
+- **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — unchanged, still the default tab
+- **Mobile Number OTP** — Firebase Phone Auth (`signInWithPhoneNumber` + invisible
+  `RecaptchaVerifier` bound to `<div id="recaptcha-container">`), 10-digit Indian
+  number validation with a fixed **+91** prefix, 6-digit OTP, resend + countdown
+- The Firebase ID token is **verified server-side** (Google Identity Toolkit in
+  production) before a session is issued; both methods end in the *same* signed,
+  `httpOnly`, 30-day session cookie
+- Setup / troubleshooting: **[PHONE_AUTH_SETUP.md](./PHONE_AUTH_SETUP.md)**
 - **Homepage is public** with a *Login* button in the header; `src/proxy.ts`
   gates every other page and API route and redirects guests to `/login?next=…`
   (allow-list: `PUBLIC_PAGES` in `src/lib/auth-config.ts`)
@@ -107,6 +122,14 @@ GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
 AUTH_SECRET=$(openssl rand -base64 32)
 OWNER_EMAIL=manavjeph800@gmail.com
 NEXT_PUBLIC_FACEBOOK_PIXEL_ID=4056208531176598
+# Firebase Phone Auth (+91 mobile OTP) — see PHONE_AUTH_SETUP.md
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=battlegroundmobileindias-f8e2f.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=battlegroundmobileindias-f8e2f
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=battlegroundmobileindias-f8e2f.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=982171987292
+NEXT_PUBLIC_FIREBASE_APP_ID=1:982171987292:web:4f52d95624d271caa02599
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-WKTZZ2KHYH
 ```
 
 `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` is public by design (it ships in the browser
@@ -134,7 +157,7 @@ against the production database once.
 | `orders` | Checkout requests |
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
-| `users` | Google accounts (name, email, `google_id`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
+| `users` | Google **and +91 phone** accounts (name, email, `google_id`, `phone_uid`, `whatsapp`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
 | `staff_members` | Team roles — email → admin / manager / moderator (managed from Admin → Team & Roles) |
 | `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
 | `referral_commissions` | Commission ledger — one row per confirmed purchase of a referred user (unique per order; `credited` / `reversed`) |
@@ -158,7 +181,12 @@ If the database is offline, the storefront still shows default catalog data and 
    npx drizzle-kit push
    ```
 6. Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `AUTH_SECRET`, `OWNER_EMAIL`
-7. Sign in at `/login` with the owner Google account, then open `/admin`
+7. Add the seven `NEXT_PUBLIC_FIREBASE_*` variables for mobile-OTP login, then add
+   the deployed domain to Firebase → Authentication → Settings → Authorised domains
+8. Sign in at `/login` (Google or +91 mobile OTP) with the owner account, then open `/admin`
+9. Optional: run [`sql/007_phone_auth.sql`](./sql/007_phone_auth.sql) if you apply
+   migrations by hand instead of letting `ensureAuthTables()` provision the
+   `users.phone_uid` column automatically
 
 ---
 
@@ -169,9 +197,10 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/` | Home |
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
-| `/checkout` | Buy flow + coupon |
-| `/login` | Continue with Google (only public page) |
-| `/auth/google` → `/auth/google/callback` | OAuth 2.0 flow |
+| `/checkout` | Buy flow + coupon (`?cart=1` = multi-item cart checkout) |
+| `/login` | Sign in — Google tab or +91 Mobile OTP tab (only public page) |
+| `/auth/google` → `/auth/google/callback` | Google OAuth 2.0 flow |
+| `/api/auth/phone` | `POST { idToken }` → verifies a Firebase phone token, issues the session cookie |
 | `/auth/logout` | Sign out |
 | `/dashboard` | User dashboard (profile, orders, admin link) |
 | `/refer-earn` | Refer & Earn dashboard (link, totals, referred friends, points history) |

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SettingsProvider } from "@/components/settings-provider";
+import { CartProvider } from "@/components/cart-provider";
+import { CartDrawer } from "@/components/cart-drawer";
 import { getPublicSettings } from "@/lib/site-settings";
 import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
@@ -63,7 +65,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <Suspense fallback={null}>
           <MetaPixel />
         </Suspense>
-        <SettingsProvider value={values}>{children}</SettingsProvider>
+        {/* Shopping cart — React Context + localStorage. Wraps the whole app so
+            the navbar badge and the slide-over drawer stay in sync everywhere. */}
+        <CartProvider>
+          <SettingsProvider value={values}>{children}</SettingsProvider>
+          <CartDrawer />
+        </CartProvider>
         <GamingEnhancements />
         {/* "Refer & Win" pop-up — appears once, right after a Google sign-in. */}
         <ReferWinPopup />

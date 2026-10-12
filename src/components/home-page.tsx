@@ -9,6 +9,7 @@ import { FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiChevronRight, Fi
 import { faqs, Product, Category, UcPackageItem } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { PriceTag } from "@/components/price-tag";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { FeedbackSection } from "@/components/feedback-section";
 import { addToCart } from "@/lib/fpixel";
@@ -84,7 +85,21 @@ function CategoryShelf({ category, products }: { category: Category; products: P
                     </div>
                   ))}
                 </div>
-                <div className="mt-5"><BuyButton item={item} requiresUid={category.slug === "super-cars" || category.slug === "x-suits"} category={category.slug} /></div>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <AddToCartButton
+                    item={{
+                      id: item.id,
+                      title: item.title,
+                      price: item.price,
+                      image: item.image,
+                      categorySlug: category.slug,
+                    }}
+                    compact
+                    label="ADD TO CART"
+                    addedLabel="ADDED"
+                  />
+                  <BuyButton item={item} requiresUid={category.slug === "super-cars" || category.slug === "x-suits"} category={category.slug} />
+                </div>
               </div>
             </article>
           )) : (
@@ -277,9 +292,22 @@ export default function HomePage() {
                       <FaBolt className="text-[#f4b400]" />
                     </div>
                     <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
-                    <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#e5e8ef] pt-3.5">
                       <PriceTag price={pack.price} align="start" priceClass="text-base font-extrabold text-[#0f4c81]" />
-                      <UcBuyButton item={{ id: pack.id, title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, categorySlug: "uc" }} />
+                      <div className="flex items-center gap-2">
+                        <AddToCartButton
+                          item={{
+                            id: pack.id,
+                            title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`,
+                            price: pack.price,
+                            categorySlug: "uc",
+                          }}
+                          compact
+                          label="ADD"
+                          addedLabel="ADDED"
+                        />
+                        <UcBuyButton item={{ id: pack.id, title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, categorySlug: "uc" }} />
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -5,10 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield, FiShoppingBag, FiSmartphone } from "react-icons/fi";
 import { DISCOUNT_PERCENT, formatINR, mrpOf, savingsOf } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { useCart } from "@/components/cart-provider";
 import { initiateCheckout, viewContent } from "@/lib/fpixel";
 
 type CheckoutForm = { name: string; whatsapp: string; playerUid: string };
@@ -36,6 +37,12 @@ export default function CheckoutPage() {
   // so no Checkout button can route to a usable form.
   const [categoryBlocked, setCategoryBlocked] = useState(false);
   const [categoryChecked, setCategoryChecked] = useState(false);
+
+  // Cart checkout (`?cart=1`, produced by the slide-over drawer): the same page
+  // and the same order API, but the line items are listed from the cart and the
+  // cart is emptied once the order has been registered.
+  const cartCheckout = params.get("cart") === "1";
+  const { items: cartItems, isReady: cartReady, clear: clearCart } = useCart();
 
   useEffect(() => {
     if (!categorySlug) {
@@ -206,6 +213,9 @@ export default function CheckoutPage() {
       const orderCode = data?.orderCode ?? `BG-${Date.now().toString(36).toUpperCase()}`;
       const uid = values.playerUid?.trim() || "";
 
+      // The order is registered server-side — the cart has done its job.
+      if (cartCheckout && response.ok) clearCart();
+
       // Meta Pixel: order created → the customer is entering the payment step.
       initiateCheckout(
         {
@@ -277,10 +287,12 @@ export default function CheckoutPage() {
               <p className="mt-6 text-[10px] font-black tracking-[.18em] text-[#0f4c81]">ACCOUNT REQUIRED</p>
               <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Sign in to continue checkout</h1>
               <p className="mt-3 text-sm leading-6 text-[#64748b]">
-                A Google account is required to place an order — your order, payment screenshot and delivery details stay saved in your account.
+                An account is required to place an order — sign in with Google or your +91 mobile number. Your order, payment
+                screenshot and delivery details stay saved in your account.
               </p>
               <div className="mt-7 grid gap-3">
                 <a href={`/auth/google?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> CONTINUE WITH GOOGLE</a>
+                <a href={`/login?next=${checkoutNext}`} className="btn-outline w-full"><FiSmartphone /> LOGIN WITH MOBILE OTP</a>
               </div>
               {authRequired && authedUser && (
                 <p className="mt-5 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] px-3.5 py-2.5 text-[11px] font-semibold text-[#8a6d1a]">
@@ -297,6 +309,23 @@ export default function CheckoutPage() {
           <aside className="premium-card p-6">
             <p className="text-[10px] font-bold tracking-[.17em] text-[#0f4c81]">YOUR SELECTION</p>
             <h1 className="mt-4 text-2xl font-black leading-7 tracking-[-.04em] text-[#0f172a]">{product}</h1>
+            {/* Cart line items (only for `?cart=1` checkouts coming from the drawer). */}
+            {cartCheckout && cartReady && cartItems.length > 1 && (
+              <ul className="mt-6 grid gap-2 rounded-xl border border-[#e5e8ef] bg-[#f8fafc] p-3">
+                {cartItems.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="flex min-w-0 items-center gap-2 text-[#334155]">
+                      <FiShoppingBag className="shrink-0 text-[#0f4c81]" />
+                      <span className="truncate">
+                        {item.title}
+                        {item.quantity > 1 ? <span className="text-[#94a3b8]"> × {item.quantity}</span> : null}
+                      </span>
+                    </span>
+                    <strong className="shrink-0 text-[#0f172a]">{formatINR(item.price * item.quantity)}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="mt-7 space-y-3 border-y border-[#e5e8ef] py-5 text-sm">
               <div className="flex items-center justify-between"><span className="text-[#64748b]">MRP</span><s className="font-bold text-[#94a3b8] decoration-[#ef4444]/70">{baseAmount ? formatINR(mrpOf(baseAmount)) : "—"}</s></div>
               <div className="flex items-center justify-between"><span className="text-[#64748b]">Store discount ({DISCOUNT_PERCENT}%)</span><strong className="text-[#0e9f6e]">{baseAmount ? `- ${formatINR(savingsOf(baseAmount))}` : "—"}</strong></div>

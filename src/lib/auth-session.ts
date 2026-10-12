@@ -11,14 +11,22 @@
 import { getAuthSecret, ROLE_OWNER, SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
 
 export type SessionUser = {
-  /** Internal users.id (uuid) — may be a Google sub if the DB was offline. */
+  /** Internal users.id (uuid) — may be a Google/Firebase id if the DB was offline. */
   id: string;
-  /** Google `sub` claim (stable unique account id). */
+  /** Google `sub` claim (stable unique account id). Empty for +91 phone accounts. */
   googleId: string;
+  /** Google email. Empty string for phone-only (+91 OTP) accounts. */
   email: string;
+  /**
+   * Verified Indian mobile number in E.164 (`+919876543210`) for accounts
+   * created through Firebase Phone Auth. Absent for Google accounts.
+   */
+  phone?: string | null;
   name: string;
   picture: string | null;
   role: string;
+  /** How this session was created — "google" (default) or "phone". */
+  authProvider?: "google" | "phone";
   /** Issued-at (ms epoch). */
   iat: number;
   /** Expiry (ms epoch). */
@@ -66,12 +74,17 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/** Create a signed session token for a freshly authenticated Google user. */
+/**
+ * Create a signed session token for a freshly authenticated user
+ * (Google OAuth or Firebase +91 phone OTP — the cookie format is identical).
+ */
 export async function createSession(payload: SessionPayload): Promise<string> {
   const now = Date.now();
   const session: SessionUser = {
     ...payload,
-    email: payload.email.toLowerCase(),
+    email: (payload.email ?? "").toLowerCase(),
+    phone: payload.phone ?? null,
+    authProvider: payload.authProvider ?? "google",
     iat: now,
     exp: now + SESSION_MAX_AGE_SECONDS * 1000,
   };
@@ -93,7 +106,9 @@ export async function verifySession(token: string | undefined | null): Promise<S
 
     const json = new TextDecoder().decode(base64UrlDecode(body));
     const session = JSON.parse(json) as SessionUser;
-    if (!session?.email || !session?.exp) return null;
+    // A session is valid when it carries either an email (Google) or a
+    // verified phone number (+91 OTP) — never when it carries neither.
+    if ((!session?.email && !session?.phone) || !session?.exp) return null;
     if (Date.now() >= session.exp) return null;
     return session;
   } catch {

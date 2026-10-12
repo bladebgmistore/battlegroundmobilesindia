@@ -166,6 +166,11 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 120 }).notNull(),
   /** Google `sub` claim — the stable unique id of the Google account. */
   googleId: varchar("google_id", { length: 64 }).unique(),
+  /**
+   * Firebase Phone Auth uid — set only for +91 OTP accounts.
+   * Nullable: Google accounts (and every pre-existing row) have no value.
+   */
+  phoneUid: varchar("phone_uid", { length: 128 }).unique(),
   /** Google profile photo URL. */
   avatarUrl: text("avatar_url"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),

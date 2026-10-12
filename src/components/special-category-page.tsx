@@ -7,6 +7,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
 import { Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
@@ -118,12 +119,26 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={() => buy(item.title, item.price, item.id)}
-                      className="btn-primary group mt-5 w-full !py-3.5 text-xs tracking-[.1em]"
-                    >
-                      CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
-                    </button>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                      <AddToCartButton
+                        item={{
+                          id: item.id,
+                          title: item.title,
+                          price: item.price,
+                          image: item.image,
+                          categorySlug: category,
+                        }}
+                        compact
+                        label="ADD TO CART"
+                        addedLabel="ADDED"
+                      />
+                      <button
+                        onClick={() => buy(item.title, item.price, item.id)}
+                        className="btn-primary group !py-3.5 text-xs tracking-[.1em]"
+                      >
+                        CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}

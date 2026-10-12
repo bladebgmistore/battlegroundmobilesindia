@@ -4,6 +4,9 @@ import {
   DEFAULT_CHECKOUT_MODE,
   DEFAULT_UPI_ID,
   DEFAULT_WHATSAPP_NUMBER,
+  defaultCategories,
+  defaultProducts,
+  defaultUcPackages,
 } from "@/lib/store-data";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -90,7 +93,39 @@ export async function GET() {
     );
   } catch (error) {
     console.error("Store database read failed:", error);
+
+    /**
+     * Preview / offline helper — DISABLED by default.
+     *
+     * When `STORE_DEMO_CATALOG=1` is set in a NON-production build, the built-in
+     * sample catalog (src/lib/store-data.ts) is served instead of an empty one,
+     * so the storefront, the cart drawer and the add-to-cart buttons can be
+     * exercised without a live database.
+     *
+     * It can never leak into a real storefront: it needs the explicit env
+     * opt-in AND a non-production runtime, and it only runs when the database
+     * read has already failed. Delete this block if you don't want it at all.
+     */
+    if (process.env.STORE_DEMO_CATALOG === "1" && process.env.NODE_ENV !== "production") {
+      console.warn("[store] STORE_DEMO_CATALOG=1 — serving the built-in demo catalog (non-production only).");
       return Response.json(
+        {
+          categories: defaultCategories,
+          products: defaultProducts,
+          ucPackages: defaultUcPackages,
+          settings: {
+            whatsapp_enabled: "false",
+            upi_id: DEFAULT_UPI_ID,
+            checkout_mode: DEFAULT_CHECKOUT_MODE,
+          },
+          databaseOnline: false,
+          demoCatalog: true,
+        },
+        { headers: noStoreHeaders, status: 200 },
+      );
+    }
+
+    return Response.json(
       {
         categories: [],
         products: [],

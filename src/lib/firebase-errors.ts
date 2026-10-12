@@ -24,6 +24,14 @@ const MESSAGES: Record<string, string> = {
   "auth/invalid-verification-id": "This verification is no longer valid. Tap “Resend OTP” and try again.",
   "auth/missing-verification-id": "This verification is no longer valid. Tap “Resend OTP” and try again.",
 
+  // ── Configuration / credentials ───────────────────────────────────────
+  // Firebase reports a bad key as `auth/api-key-not-valid.-please-pass-a-valid-api-key.`
+  // (the prefix lookup below still matches this entry).
+  "auth/api-key-not-valid": "Phone sign-in is misconfigured: Firebase rejected the API key. Set a valid NEXT_PUBLIC_FIREBASE_API_KEY in your hosting dashboard (or remove it entirely to use the built-in default) and redeploy.",
+  "auth/invalid-api-key": "Phone sign-in is misconfigured: Firebase rejected the API key. Set a valid NEXT_PUBLIC_FIREBASE_API_KEY in your hosting dashboard (or remove it entirely to use the built-in default) and redeploy.",
+  "auth/configuration-not-found": "Phone sign-in is not enabled for this Firebase project. Turn it on under Authentication → Sign-in method → Phone.",
+  "auth/app-not-authorized": "This domain is not authorised for the Firebase project. Add it under Firebase → Authentication → Settings → Authorised domains.",
+
   // ── reCAPTCHA ─────────────────────────────────────────────────────────
   "auth/captcha-check-failed": "reCAPTCHA verification failed. Please retry the sign-in.",
   "auth/invalid-app-credential": "The security check could not be completed. Refresh the page and try again.",
@@ -39,6 +47,23 @@ const MESSAGES: Record<string, string> = {
 };
 
 const FALLBACK = "We could not complete phone sign-in right now. Please try again or sign in with Google.";
+
+/**
+ * Resolve a human sentence for a Firebase error code.
+ *
+ * Exact match first; then a prefix match, because Firebase sometimes appends
+ * the fix to the code itself — e.g. `auth/api-key-not-valid` arrives as
+ * `auth/api-key-not-valid.-please-pass-a-valid-api-key.`.
+ */
+function messageForCode(code: string): string | undefined {
+  if (!code) return undefined;
+  const exact = MESSAGES[code];
+  if (exact) return exact;
+  for (const [key, message] of Object.entries(MESSAGES)) {
+    if (code.startsWith(`${key}.`) || code.startsWith(`${key}:`)) return message;
+  }
+  return undefined;
+}
 
 /** Extract the `code` from anything thrown by the Firebase SDK. */
 export function firebaseErrorCode(error: unknown): string {
@@ -59,13 +84,12 @@ export function firebasePhoneAuthMessage(error: unknown): string {
       ? String((error as { message?: unknown }).message)
       : "";
 
+  const friendly = messageForCode(code);
+
   if (rawMessage) {
-    if (code && MESSAGES[code]) {
-      return `${MESSAGES[code]} (${rawMessage})`;
-    }
-    return rawMessage;
+    return friendly ? `${friendly} (${rawMessage})` : rawMessage;
   }
-  return MESSAGES[code] ?? (code ? `Firebase error (${code})` : FALLBACK);
+  return friendly ?? (code ? `Firebase error (${code})` : FALLBACK);
 }
 
 /** True when the code means "the OTP itself was wrong / stale". */

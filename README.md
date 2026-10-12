@@ -123,7 +123,7 @@ AUTH_SECRET=$(openssl rand -base64 32)
 OWNER_EMAIL=manavjeph800@gmail.com
 NEXT_PUBLIC_FACEBOOK_PIXEL_ID=4056208531176598
 # Firebase Phone Auth (+91 mobile OTP) — see PHONE_AUTH_SETUP.md
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBo2oq92M_Ld6OGIWUWUwVd9q5GnW3oKNY
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=battlegroundmobileindias-f8e2f.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=battlegroundmobileindias-f8e2f
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=battlegroundmobileindias-f8e2f.firebasestorage.app

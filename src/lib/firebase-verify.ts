@@ -36,8 +36,21 @@ export type VerifyResult =
   | { ok: true; identity: FirebasePhoneIdentity }
   | { ok: false; error: string; status: number };
 
+/**
+ * Public Firebase web values. The direct string fallbacks (identical to
+ * `src/lib/firebase.ts`) matter here too: the Identity Toolkit `accounts:lookup`
+ * call below authenticates with this key, and an invalid one answers
+ * "API key not valid", which would reject every genuine OTP sign-in in
+ * production. Keep both files in sync when the key is ever rotated.
+ */
 const PROJECT_ID = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "battlegroundmobileindias-f8e2f").trim();
-const API_KEY = (process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY").trim();
+const API_KEY = (process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBo2oq92M_Ld6OGIWUWUwVd9q5GnW3oKNY").trim();
+
+/** Firebase web API keys are always `AIza` + 35 URL-safe characters. */
+const FIREBASE_API_KEY_PATTERN = /^AIza[0-9A-Za-z_-]{35}$/;
+
+/** Reject a malformed key before it reaches Google (avoids a confusing 400). */
+const EFFECTIVE_API_KEY = FIREBASE_API_KEY_PATTERN.test(API_KEY) ? API_KEY : "";
 
 /** `strict` = Google lookup required · `jwt` = claims only · auto by NODE_ENV. */
 function verificationMode(): "strict" | "jwt" {
@@ -116,13 +129,15 @@ function verifyClaims(token: string): { identity: FirebasePhoneIdentity } | { er
 async function lookupWithIdentityToolkit(
   token: string,
 ): Promise<{ ok: true; identity: FirebasePhoneIdentity } | { ok: false; rejected: boolean; error: string }> {
-  if (!API_KEY || !PROJECT_ID) return { ok: false, rejected: false, error: "Firebase is not configured on this server." };
+  if (!EFFECTIVE_API_KEY || !PROJECT_ID) {
+    return { ok: false, rejected: false, error: "Firebase is not configured on this server." };
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(API_KEY)}`,
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(EFFECTIVE_API_KEY)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -165,7 +180,7 @@ export async function verifyFirebasePhoneToken(idToken: string | null | undefine
 
   // Without a project + API key this server cannot know which project a token
   // belongs to, so it must not issue a phone session at all (fail closed).
-  if (!PROJECT_ID || !API_KEY) {
+  if (!PROJECT_ID || !EFFECTIVE_API_KEY) {
     return { ok: false, error: "Phone sign-in is not configured on this server.", status: 503 };
   }
 

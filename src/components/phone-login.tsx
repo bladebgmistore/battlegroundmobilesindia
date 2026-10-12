@@ -13,15 +13,35 @@ import {
   FiUser,
 } from "react-icons/fi";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
-import { FIREBASE_PHONE_AUTH_ENABLED, getFirebaseAuth } from "@/lib/firebase";
+import { FIREBASE_PHONE_AUTH_ENABLED, firebaseEnvIssues, getFirebaseAuth } from "@/lib/firebase";
 import { firebasePhoneAuthMessage, isOtpMismatch } from "@/lib/firebase-errors";
 import {
   INDIA_DIAL_CODE,
   formatIndianMobile,
   formatStrictIndianPhone,
+  isIndianE164,
   maskIndianMobile,
   normalizeIndianMobile,
+  toLocalIndianDigits,
 } from "@/lib/phone-number";
+
+/**
+ * One consistent, debuggable sentence for anything the Firebase SDK throws:
+ * the friendly copy from `firebase-errors.ts` plus the raw SDK message (which
+ * support can search for) — never the same text twice.
+ */
+function describeAuthError(thrown: unknown): string {
+  const friendly = firebasePhoneAuthMessage(thrown);
+  const raw =
+    thrown instanceof Error
+      ? thrown.message
+      : typeof thrown === "object" && thrown !== null && "message" in thrown
+        ? String((thrown as { message?: unknown }).message)
+        : "";
+
+  if (!raw) return friendly;
+  return friendly.includes(raw) ? friendly : `${friendly} (${raw})`;
+}
 
 interface PhoneLoginProps {
   next?: string;
@@ -151,6 +171,12 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
         return;
       }
 
+      // Final guard: Firebase must receive E.164 (+91XXXXXXXXXX) and nothing else.
+      if (!isIndianE164(formattedPhone)) {
+        setError("That mobile number could not be converted to +91 format. Please re-enter it.");
+        return;
+      }
+
       if (!FIREBASE_PHONE_AUTH_ENABLED) {
         setError("Firebase phone authentication is not configured yet. Check NEXT_PUBLIC_FIREBASE_* variables.");
         return;
@@ -177,7 +203,9 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
           `${resend ? "A new OTP was sent" : "OTP sent"} to ${formatIndianMobile(formattedPhone)}. It is valid for a few minutes.`,
         );
       } catch (thrown: unknown) {
-        // Reset verifier so subsequent attempts don't use a stale widget
+        // Reset the verifier so the next attempt never reuses a stale widget
+        // (reCAPTCHA tokens are single-use; a used one fails with
+        // auth/invalid-app-credential).
         if (verifierRef.current) {
           try {
             verifierRef.current.clear();
@@ -186,28 +214,9 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
           }
           verifierRef.current = null;
         }
+        confirmationRef.current = null;
 
-        // Display exact error.message for easy debugging
-        const rawMessage =
-          thrown instanceof Error
-            ? thrown.message
-            : typeof thrown === "object" && thrown !== null && "message" in thrown
-            ? String((thrown as { message?: unknown }).message)
-            : String(thrown);
-
-        const errorCode =
-          typeof thrown === "object" && thrown !== null && "code" in thrown
-            ? String((thrown as { code?: unknown }).code)
-            : "";
-
-        const friendlyMsg = firebasePhoneAuthMessage(thrown);
-        const display = rawMessage
-          ? friendlyMsg.includes(rawMessage)
-            ? friendlyMsg
-            : `${friendlyMsg} (${rawMessage})`
-          : friendlyMsg || `Authentication error: ${errorCode || "Unknown"}`;
-
-        setError(display);
+        setError(describeAuthError(thrown));
       } finally {
         setBusy(false);
       }
@@ -259,22 +268,7 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
         window.location.assign(data.redirect || next || "/dashboard");
       } catch (thrown: unknown) {
         if (isOtpMismatch(thrown)) setOtp("");
-
-        const rawMessage =
-          thrown instanceof Error
-            ? thrown.message
-            : typeof thrown === "object" && thrown !== null && "message" in thrown
-            ? String((thrown as { message?: unknown }).message)
-            : String(thrown);
-
-        const friendlyMsg = firebasePhoneAuthMessage(thrown);
-        const display = rawMessage
-          ? friendlyMsg.includes(rawMessage)
-            ? friendlyMsg
-            : `${friendlyMsg} (${rawMessage})`
-          : friendlyMsg;
-
-        setError(display);
+        setError(describeAuthError(thrown));
       } finally {
         verifyingRef.current = false;
         setBusy(false);
@@ -331,8 +325,8 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
               <input
                 value={phone}
                 onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                  setPhone(digits);
+                  // Keeps "+91 98765 43210" pastes honest — see toLocalIndianDigits.
+                  setPhone(toLocalIndianDigits(e.target.value));
                   if (error) setError("");
                 }}
                 inputMode="numeric"
@@ -465,6 +459,18 @@ export default function PhoneLogin({ next = "/dashboard", mode = "login" }: Phon
             <FiCheckCircle className="mt-0.5 text-base shrink-0 text-emerald-400" />
             <p className="leading-relaxed font-medium">{notice}</p>
           </div>
+        </div>
+      ) : null}
+
+      {/* Surfaces a broken hosting-dashboard value instead of failing silently:
+          the built-in Firebase defaults are used, so OTP keeps working. */}
+      {firebaseEnvIssues.length > 0 ? (
+        <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-950/40 p-3.5 text-[11px] leading-relaxed text-amber-200">
+          <p className="font-bold tracking-wider text-amber-300 uppercase text-[10px]">Deployment Notice</p>
+          <p className="mt-1">
+            {firebaseEnvIssues.join(", ")} {firebaseEnvIssues.length === 1 ? "is" : "are"} invalid — the built-in
+            Firebase defaults are being used instead. Fix or remove the variable in your hosting dashboard.
+          </p>
         </div>
       ) : null}
 

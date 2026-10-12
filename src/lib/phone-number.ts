@@ -50,6 +50,23 @@ export function formatIndianMobile(mobile: string | null | undefined): string {
   return `${local.slice(0, 5)} ${local.slice(5)}`;
 }
 
+/**
+ * Reduce raw keystrokes **and pastes** to the up-to-10-digit local part of an
+ * Indian mobile number.
+ *
+ * Pasting "+91 98765 43210" must never be read as the number 9198765432 — the
+ * country code is stripped as a whole, which is why the 91/0 prefixes are only
+ * removed once more digits than a local number can hold are present (so a
+ * number that genuinely starts with 9 is left alone).
+ */
+export function toLocalIndianDigits(input: string | null | undefined, maxLength = 10): string {
+  let digits = String(input ?? "").replace(/\D/g, "");
+  if (digits.startsWith("0091")) digits = digits.slice(4);
+  if (digits.length > maxLength && digits.startsWith("91")) digits = digits.slice(2);
+  if (digits.length > maxLength) digits = digits.replace(/^0+/, "");
+  return digits.slice(0, maxLength);
+}
+
 /** `+919876543210` → `98765 43210` (display helper for stored numbers). */
 export function formatE164India(e164: string | null | undefined): string {
   return formatIndianMobile(e164 ?? "");

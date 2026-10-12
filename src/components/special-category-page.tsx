@@ -9,6 +9,7 @@ import { Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { addToCart } from "@/lib/fpixel";
 
 type Props = {
   category: string;
@@ -47,8 +48,10 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
   }, [category]);
 
   const requiresUid = category === "super-cars" || category === "x-suits";
-  const buy = (name: string, price: number) =>
+  const buy = (name: string, price: number, id?: string) => {
+    addToCart({ id: id ?? name, name, price, category });
     router.push(`/checkout?product=${encodeURIComponent(name)}&amount=${price}${requiresUid ? "&uid=1" : ""}&category=${encodeURIComponent(category)}`);
+  };
 
   return (
     <>
@@ -116,7 +119,7 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
                       ))}
                     </div>
                     <button
-                      onClick={() => buy(item.title, item.price)}
+                      onClick={() => buy(item.title, item.price, item.id)}
                       className="btn-primary group mt-5 w-full !py-3.5 text-xs tracking-[.1em]"
                     >
                       CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />

@@ -9,6 +9,7 @@ import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from
 import { formatINR, Product } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { addToCart, viewContent } from "@/lib/fpixel";
 
 export default function AccountsPage() {
   const router = useRouter();
@@ -56,9 +57,17 @@ export default function AccountsPage() {
     localStorage.setItem("bgmi-wishlist", JSON.stringify(next));
   };
 
+  // Meta Pixel: opening a listing's quick view is a product detail view.
+  useEffect(() => {
+    if (!selected) return;
+    viewContent({ id: selected.id, name: selected.title, price: selected.price, category: selected.categorySlug });
+  }, [selected]);
+
   // Accounts never require Player UID; only UC, Super Cars and X-Suits do.
-  const checkout = (item: Product) =>
+  const checkout = (item: Product) => {
+    addToCart({ id: item.id, name: item.title, price: item.price, category: item.categorySlug });
     router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&category=accounts`);
+  };
 
   const copy = async () => {
     await navigator.clipboard.writeText(location.href);

@@ -8,6 +8,7 @@ import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
 import { GamingEnhancements } from "@/components/gaming-enhancements";
 import ReferWinPopup from "@/components/refer-win-popup";
+import MetaPixel from "@/components/meta-pixel";
 
 /**
  * Every route is request-scoped: the root layout reads live site settings from
@@ -57,6 +58,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body>
+        {/* Meta (Facebook) Pixel — reads NEXT_PUBLIC_FACEBOOK_PIXEL_ID and
+            renders nothing when the variable is not configured. */}
+        <Suspense fallback={null}>
+          <MetaPixel />
+        </Suspense>
         <SettingsProvider value={values}>{children}</SettingsProvider>
         <GamingEnhancements />
         {/* "Refer & Win" pop-up — appears once, right after a Google sign-in. */}

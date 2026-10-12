@@ -8,6 +8,7 @@ import { formatINR, buildUpiUrl, buildQrImageUrl } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { compressImageFile, formatBytes } from "@/lib/client-image";
+import { purchase } from "@/lib/fpixel";
 
 type UploadState = "idle" | "compressing" | "uploading" | "done" | "error";
 
@@ -85,6 +86,17 @@ export default function PaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderCode, markPaid: true }),
       }).catch(() => null);
+
+      // Meta Pixel: buyer confirmed the UPI transfer + payment screenshot.
+      // Revenue is reported in INR with the store's own order code.
+      purchase({
+        orderId: orderCode,
+        value: amount,
+        currency: "INR",
+        items: [{ id: product, name: product, price: amount, category: "upi-checkout" }],
+        paymentMethod: "upi",
+      });
+
       setShowPaidModal(true);
       // Buyer ko seedha "My Orders" page par bhej dete hain jahan order ka
       // live status dikhta hai. Modal 1.6s dikhta hai, phir redirect.

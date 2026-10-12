@@ -9,6 +9,7 @@ import { Category, UcPackageItem } from "@/lib/store-data";
 import { PriceTag } from "@/components/price-tag";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { addToCart } from "@/lib/fpixel";
 
 export default function UcPage() {
   const router = useRouter();
@@ -100,7 +101,10 @@ export default function UcPage() {
                 <div className="relative mt-7 flex items-center justify-between border-t border-[#e5e8ef] pt-5">
                   <PriceTag price={pack.price} align="start" priceClass="text-xl font-black text-[#0f172a]" />
                   <button
-                    onClick={() => router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`)}
+                    onClick={() => {
+                      addToCart({ id: pack.id, name: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, category: "uc" });
+                      router.push(`/checkout?product=${encodeURIComponent(`${pack.ucAmount.toLocaleString("en-IN")} UC Package`)}&amount=${pack.price}&uid=1&category=uc`);
+                    }}
                     className="btn-primary group !py-2.5 !px-4 text-[11px]"
                   >
                     CHECKOUT <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />

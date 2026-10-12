@@ -106,7 +106,13 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
 AUTH_SECRET=$(openssl rand -base64 32)
 OWNER_EMAIL=manavjeph800@gmail.com
+NEXT_PUBLIC_FACEBOOK_PIXEL_ID=4056208531176598
 ```
+
+`NEXT_PUBLIC_FACEBOOK_PIXEL_ID` is public by design (it ships in the browser
+bundle). Blank it out to disable Meta Pixel tracking in that environment — the
+`<MetaPixel />` component then renders nothing. Full walkthrough:
+[META_PIXEL_SETUP.md](./META_PIXEL_SETUP.md).
 
 For production on Netlify / Vercel, add `DATABASE_URL` in the host environment settings, then run:
 

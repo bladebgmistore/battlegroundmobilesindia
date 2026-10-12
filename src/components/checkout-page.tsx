@@ -9,6 +9,7 @@ import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, Fi
 import { DISCOUNT_PERCENT, formatINR, mrpOf, savingsOf } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { initiateCheckout, viewContent } from "@/lib/fpixel";
 
 type CheckoutForm = { name: string; whatsapp: string; playerUid: string };
 type CouponResult = { code: string; discountAmount: number; finalAmount: number; valid: boolean };
@@ -75,6 +76,13 @@ export default function CheckoutPage() {
 
   const payableAmount = couponResult?.finalAmount ?? baseAmount;
   const discountAmount = couponResult?.discountAmount ?? 0;
+
+  // Meta Pixel: the checkout screen is the product detail view for this store.
+  useEffect(() => {
+    if (!(baseAmount > 0)) return;
+    viewContent({ id: product, name: product, price: baseAmount, category: categorySlug || undefined });
+  }, [product, baseAmount, categorySlug]);
+
   // UID verification is enabled ONLY for UC, SUPER-CARS and X-SUIT categories.
   // Those category pages append uid=1 to the Checkout URL; account deals never do.
   const needsUid = params.get("uid") === "1";
@@ -197,6 +205,16 @@ export default function CheckoutPage() {
       const finalAmount = data?.finalAmount ?? payableAmount;
       const orderCode = data?.orderCode ?? `BG-${Date.now().toString(36).toUpperCase()}`;
       const uid = values.playerUid?.trim() || "";
+
+      // Meta Pixel: order created → the customer is entering the payment step.
+      initiateCheckout(
+        {
+          items: [{ id: product, name: product, price: finalAmount, category: categorySlug || undefined }],
+          value: finalAmount,
+          currency: "INR",
+        },
+        { params: { order_id: orderCode } },
+      );
 
       if (checkoutMode === "qr") {
         // Go to premium QR payment page

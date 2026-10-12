@@ -11,12 +11,18 @@ import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { PriceTag } from "@/components/price-tag";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { FeedbackSection } from "@/components/feedback-section";
+import { addToCart } from "@/lib/fpixel";
 
 const fadeUp = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0 } };
 
-export function BuyButton({ item, requiresUid = false, category }: { item: { title: string; price: number }; requiresUid?: boolean; category?: string }) {
+type BuyableItem = { id?: string; title: string; price: number; categorySlug?: string };
+
+export function BuyButton({ item, requiresUid = false, category }: { item: BuyableItem; requiresUid?: boolean; category?: string }) {
   const router = useRouter();
-  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
+  const buy = () => {
+    addToCart({ id: item.id ?? item.title, name: item.title, price: item.price, category: category ?? item.categorySlug });
+    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}${requiresUid ? "&uid=1" : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`);
+  };
   return (
     <button onClick={buy} className="btn-primary group w-full">
       CHECKOUT <FiArrowRight className="text-base transition-transform group-hover:translate-x-1" />
@@ -24,9 +30,12 @@ export function BuyButton({ item, requiresUid = false, category }: { item: { tit
   );
 }
 
-export function UcBuyButton({ item }: { item: { title: string; price: number } }) {
+export function UcBuyButton({ item }: { item: BuyableItem }) {
   const router = useRouter();
-  const buy = () => router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
+  const buy = () => {
+    addToCart({ id: item.id ?? item.title, name: item.title, price: item.price, category: "uc" });
+    router.push(`/checkout?product=${encodeURIComponent(item.title)}&amount=${item.price}&uid=1&category=${encodeURIComponent("uc")}`);
+  };
   return (
     <button onClick={buy} className="btn-primary group !py-2 !px-3.5 !text-[10px] uppercase font-bold tracking-wide">
       CHECKOUT <FiArrowRight className="text-[10px] transition-transform group-hover:translate-x-0.5" />
@@ -270,7 +279,7 @@ export default function HomePage() {
                     <p className="mt-5 text-2xl font-black tracking-[-.05em] text-[#0f172a]">{pack.ucAmount.toLocaleString("en-IN")} <span className="text-sm text-[#0f4c81]">UC</span></p>
                     <div className="mt-4 flex items-center justify-between border-t border-[#e5e8ef] pt-3.5">
                       <PriceTag price={pack.price} align="start" priceClass="text-base font-extrabold text-[#0f4c81]" />
-                      <UcBuyButton item={{ title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price }} />
+                      <UcBuyButton item={{ id: pack.id, title: `${pack.ucAmount.toLocaleString("en-IN")} UC Package`, price: pack.price, categorySlug: "uc" }} />
                     </div>
                   </div>
                 ))}

@@ -20,8 +20,8 @@ export async function proxy(request: NextRequest) {
 }
 
 /**
- * Refer & Earn: remember the referrer from a `?ref=CODE` link so the Google
- * sign-up that follows can be attributed to them (read by the OAuth callback).
+ * Refer & Earn: remember the referrer from a `?ref=CODE` link so a new Google
+ * sign-up can be attributed to them (read by the Google OAuth callback).
  * The latest link opened before signing up wins.
  */
 function captureReferralLink(request: NextRequest, response: NextResponse) {

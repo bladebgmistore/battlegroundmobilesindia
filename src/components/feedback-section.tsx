@@ -183,7 +183,7 @@ export function FeedbackSection({ whatsappUrl }: { whatsappUrl: string }) {
                 {formOpen ? "CLOSE" : "WRITE A REVIEW"} {formOpen ? <FiX /> : <FiEdit3 />}
               </button>
             ) : (
-              <a href="/auth/google?next=/%23feedback" className="btn-outline w-fit">
+              <a href="/login?next=/%23feedback" className="btn-outline w-fit">
                 <FcGoogle className="text-base" /> SIGN IN TO REVIEW
               </a>
             )}

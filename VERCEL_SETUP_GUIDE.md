@@ -20,11 +20,11 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
    | Key | Required | Value |
    |---|---|---|
    | `DATABASE_URL` | ✅ Yes (production ke liye) | Neon/Postgres connection string (`postgresql://...sslmode=require`) — same jo abhi Netlify pe use ho raha hai |
-   | `GOOGLE_CLIENT_ID` | ✅ Yes | `822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com` |
-   | `GOOGLE_CLIENT_SECRET` | ✅ Yes | Google Cloud Console wala client secret |
-   | `GOOGLE_REDIRECT_URI` | ✅ Yes | `https://battlegroundmobilesindia.shop/auth/google/callback` |
    | `AUTH_SECRET` | ✅ Yes | `openssl rand -base64 32` se banao (session cookie sign hoti hai) |
    | `OWNER_EMAIL` | ✅ Yes | `manavjeph800@gmail.com` — sirf isi account ko `/admin` milega |
+   | `GOOGLE_CLIENT_ID` | ✅ Yes | `822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com` |
+   | `GOOGLE_CLIENT_SECRET` | ✅ Yes | Google Cloud Console wala OAuth client secret |
+   | `GOOGLE_REDIRECT_URI` | ✅ Yes | `https://battlegroundmobilesindia.shop/auth/google/callback` |
    | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` | Optional | `4056208531176598` (Meta Pixel — details: `META_PIXEL_SETUP.md`. Khali chhodo to tracking band) |
    | `SMTP_HOST` | Optional | `smtp.gmail.com` (admin OTP email ke liye) |
    | `SMTP_PORT` | Optional | `465` |
@@ -73,6 +73,6 @@ vercel --prod                # production deploy
 ## Post-deploy checklist
 
 - [ ] `/api/health` 200 de raha hai
-- [ ] Signup → checkout → order flow ek baar manually test karo (login ab checkout ke liye **compulsory** hai)
+- [ ] Guest cart → Google sign-in → checkout/order flow test karo (login checkout ke liye **compulsory** hai); verify the OAuth redirect URI in Google Cloud Console
 - [ ] Admin panel (`/admin`) login + catalog save test karo
 - [ ] Payment QR aapke real UPI ID se generate ho raha hai (admin → Payment & Checkout Control)

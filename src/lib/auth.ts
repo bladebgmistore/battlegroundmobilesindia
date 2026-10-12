@@ -20,7 +20,7 @@ export async function getSessionFromRequest(request: NextRequest): Promise<Sessi
   return verifySession(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
-/** Server Component guard — redirects to the Google login page. */
+/** Server Component guard — redirects to the Google sign-in page. */
 export async function requireSession(nextPath = "/dashboard"): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect(`/login?next=${encodeURIComponent(nextPath)}`);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FiAward, FiChevronDown, FiGift, FiGrid, FiLogOut, FiPackage, FiRefreshCw, FiShield, FiSmartphone } from "react-icons/fi";
+import { FiAward, FiChevronDown, FiGift, FiGrid, FiLogOut, FiPackage, FiRefreshCw, FiShield } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 
 type User = {
@@ -161,7 +161,7 @@ export function UserMobileAuth() {
           <FcGoogle className="text-base" /> SIGN IN TO ACCOUNT
         </Link>
         <Link href="/signup?next=/dashboard" className="btn-outline flex items-center justify-center gap-2 py-3 text-xs font-black tracking-[.12em]">
-          <FiSmartphone className="text-base" /> CREATE PLAYER ACCOUNT
+          <FcGoogle className="text-base" /> CREATE PLAYER ACCOUNT
         </Link>
       </div>
     );

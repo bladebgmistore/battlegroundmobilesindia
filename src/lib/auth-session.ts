@@ -1,32 +1,24 @@
 /**
- * Stateless, HMAC-SHA256 signed session tokens for Google-authenticated users.
+ * Stateless, HMAC-SHA256 signed sessions for users authenticated by the custom Google OAuth flow.
  *
- * IMPORTANT: Edge-safe. Uses only Web Crypto (`globalThis.crypto.subtle`) and
- * base64url text helpers, so it can be imported from `src/proxy.ts`,
- * route handlers, and server components alike.
+ * Edge-safe: uses only Web Crypto (`globalThis.crypto.subtle`) and base64url
+ * helpers, so it can be imported from the proxy, route handlers and server
+ * components alike.
  *
- * Token layout:  base64url(JSON payload) + "." + base64url(HMAC-SHA256)
+ * Token layout: base64url(JSON payload) + "." + base64url(HMAC-SHA256)
  */
-
 import { getAuthSecret, ROLE_OWNER, SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
 
 export type SessionUser = {
-  /** Internal users.id (uuid) — may be a Google/Firebase id if the DB was offline. */
+  /** Internal users.id (UUID) — falls back to the verified Google id if DB is offline. */
   id: string;
-  /** Google `sub` claim (stable unique account id). Empty for +91 phone accounts. */
+  /** Stable Google `sub` claim returned by Google's userinfo endpoint. */
   googleId: string;
-  /** Google email. Empty string for phone-only (+91 OTP) accounts. */
+  /** Verified Google email. */
   email: string;
-  /**
-   * Verified Indian mobile number in E.164 (`+919876543210`) for accounts
-   * created through Firebase Phone Auth. Absent for Google accounts.
-   */
-  phone?: string | null;
   name: string;
   picture: string | null;
   role: string;
-  /** How this session was created — "google" (default) or "phone". */
-  authProvider?: "google" | "phone";
   /** Issued-at (ms epoch). */
   iat: number;
   /** Expiry (ms epoch). */
@@ -47,7 +39,7 @@ function base64UrlDecode(value: string): Uint8Array {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return bytes;
 }
 
@@ -66,25 +58,23 @@ async function sign(data: string): Promise<string> {
   return base64UrlEncode(new Uint8Array(signature));
 }
 
-/** Constant-time string compare (avoids signature timing oracles). */
+/** Constant-time string comparison (avoids signature timing oracles). */
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) difference |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  return difference === 0;
 }
 
-/**
- * Create a signed session token for a freshly authenticated user
- * (Google OAuth or Firebase +91 phone OTP — the cookie format is identical).
- */
+/** Create a signed session token for a Google OAuth-authenticated user. */
 export async function createSession(payload: SessionPayload): Promise<string> {
+  const email = payload.email.trim().toLowerCase();
+  if (!email) throw new Error("Google sign-in requires a verified email address.");
+
   const now = Date.now();
   const session: SessionUser = {
     ...payload,
-    email: (payload.email ?? "").toLowerCase(),
-    phone: payload.phone ?? null,
-    authProvider: payload.authProvider ?? "google",
+    email,
     iat: now,
     exp: now + SESSION_MAX_AGE_SECONDS * 1000,
   };
@@ -93,7 +83,7 @@ export async function createSession(payload: SessionPayload): Promise<string> {
   return `${body}.${signature}`;
 }
 
-/** Verify a token's signature + expiry. Returns null when invalid. */
+/** Verify a session signature and expiry. Returns null when invalid. */
 export async function verifySession(token: string | undefined | null): Promise<SessionUser | null> {
   if (!token || typeof token !== "string") return null;
   const parts = token.split(".");
@@ -104,11 +94,8 @@ export async function verifySession(token: string | undefined | null): Promise<S
     const expected = await sign(body);
     if (!safeEqual(expected, signature)) return null;
 
-    const json = new TextDecoder().decode(base64UrlDecode(body));
-    const session = JSON.parse(json) as SessionUser;
-    // A session is valid when it carries either an email (Google) or a
-    // verified phone number (+91 OTP) — never when it carries neither.
-    if ((!session?.email && !session?.phone) || !session?.exp) return null;
+    const session = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as SessionUser;
+    if (!session?.id || !session?.googleId || !session?.email?.trim() || !session?.exp) return null;
     if (Date.now() >= session.exp) return null;
     return session;
   } catch {

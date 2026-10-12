@@ -65,13 +65,12 @@ Drizzle will automatically connect to your database, create the following tables
 
 Add these environment variables in **Site configuration → Environment variables**:
 
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` from your Google OAuth client
 - `AUTH_SECRET` (run `openssl rand -base64 32`)
 - `OWNER_EMAIL` = `manavjeph800@gmail.com`
 - `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` = `4056208531176598` (Meta Pixel tracking — see `META_PIXEL_SETUP.md`; blank/omit to disable)
 
-Now open your deployed website — you will be redirected to `/login`.
-Click **Continue with Google** and sign in with the owner account, then open `/admin`.
+Register `https://<your-domain>/auth/google/callback` as an Authorized redirect URI on the Google OAuth client. Then open `/login`, click **Continue with Google**, and sign in with the owner account before opening `/admin`.
 
 #### You can now:
 - ✅ **Add / Edit / Delete Accounts & UC Packages** instantly from the panel.

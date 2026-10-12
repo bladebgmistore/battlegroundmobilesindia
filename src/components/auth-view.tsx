@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
-import { FiArrowLeft, FiLock, FiShield, FiSmartphone, FiUserPlus, FiLogIn } from "react-icons/fi";
-import PhoneLogin from "@/components/phone-login";
+import { FiArrowLeft, FiLock, FiShield, FiUserPlus, FiLogIn } from "react-icons/fi";
 import { images } from "@/lib/store-data";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 const ERRORS: Record<string, string> = {
   config:
@@ -27,25 +27,15 @@ export interface AuthViewProps {
   signedOut?: boolean;
 }
 
-/**
- * Dedicated Sleek Dark Gaming Auth Screen for /login and /signup.
- *
- * Matching the Battleground Mobile India theme:
- * - High-tech cyberpunk dark styling (#070b14, cyan/blue neon glows).
- * - 1-Click Google OAuth sign-in.
- * - Firebase Phone (+91) OTP login workflow with invisible reCAPTCHA.
- * - Seamless toggle between Login and Signup routes with query preservation.
- */
+/** Google-only auth screen using the site's original custom Google OAuth flow. */
 export default function AuthView({ mode, next = "/dashboard", error, signedOut }: AuthViewProps) {
-  const [tab, setTab] = useState<"google" | "phone">("phone");
   const [busy, setBusy] = useState(false);
-
-  const googleHref = `/auth/google?next=${encodeURIComponent(next || "/dashboard")}`;
+  const safeNext = safeAuthRedirect(next);
+  const googleHref = `/auth/google?next=${encodeURIComponent(safeNext)}`;
   const isLogin = mode === "login";
-
   const toggleUrl = isLogin
-    ? `/signup${next ? `?next=${encodeURIComponent(next)}` : ""}`
-    : `/login${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+    ? `/signup?next=${encodeURIComponent(safeNext)}`
+    : `/login?next=${encodeURIComponent(safeNext)}`;
 
   return (
     <main className="relative min-h-screen w-full bg-[#070b14] text-slate-100 flex flex-col justify-center items-center px-4 py-12 selection:bg-cyan-500 selection:text-black overflow-hidden">
@@ -123,60 +113,21 @@ export default function AuthView({ mode, next = "/dashboard", error, signedOut }
           </div>
         )}
 
-        {/* Method Switcher Tabs (Phone OTP is prioritized as requested, with Google available) */}
-        <div className="mt-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-[#080d18] p-1" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "phone"}
-            onClick={() => setTab("phone")}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-[11px] font-black tracking-wider transition ${
-              tab === "phone"
-                ? "bg-gradient-to-r from-[#0f4c81] to-[#1e6fbe] text-white shadow-[0_2px_12px_rgba(15,76,129,0.5)]"
-                : "text-slate-400 hover:text-white"
-            }`}
+        {/* Single custom Google OAuth sign-in action */}
+        <div className="mt-6 space-y-4">
+          <a
+            href={googleHref}
+            onClick={() => setBusy(true)}
+            aria-busy={busy}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-[#131d31] hover:bg-[#1a2742] hover:border-cyan-500/50 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg transition"
           >
-            <FiSmartphone className="text-base text-cyan-300" /> +91 MOBILE OTP
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "google"}
-            onClick={() => setTab("google")}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-[11px] font-black tracking-wider transition ${
-              tab === "google"
-                ? "bg-gradient-to-r from-[#0f4c81] to-[#1e6fbe] text-white shadow-[0_2px_12px_rgba(15,76,129,0.5)]"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <FcGoogle className="text-base" /> GOOGLE AUTH
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="mt-5">
-          {tab === "google" ? (
-            <div className="space-y-4">
-              <a
-                href={googleHref}
-                onClick={() => setBusy(true)}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-[#131d31] hover:bg-[#1a2742] hover:border-cyan-500/50 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg transition"
-              >
-                <FcGoogle className="text-xl" />
-                {busy
-                  ? "REDIRECTING TO GOOGLE…"
-                  : isLogin
-                  ? "CONTINUE WITH GOOGLE"
-                  : "SIGN UP WITH GOOGLE"}
-              </a>
-              <p className="flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed pt-2">
-                <FiLock className="mt-0.5 shrink-0 text-cyan-400" />
-                <span>1-Click Google OAuth. Only your basic public profile and email are retrieved.</span>
-              </p>
-            </div>
-          ) : (
-            <PhoneLogin next={next} mode={mode} />
-          )}
+            <FcGoogle className="text-xl" />
+            {busy ? "REDIRECTING TO GOOGLE…" : isLogin ? "CONTINUE WITH GOOGLE" : "SIGN UP WITH GOOGLE"}
+          </a>
+          <p className="flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed pt-2">
+            <FiLock className="mt-0.5 shrink-0 text-cyan-400" />
+            <span>Secure Google sign-in. Only your verified email and basic public profile are used for your player account.</span>
+          </p>
         </div>
 
         {/* ── Toggle between Login and Signup ─────────────────────── */}
@@ -207,7 +158,7 @@ export default function AuthView({ mode, next = "/dashboard", error, signedOut }
           <FiShield className="text-cyan-400" /> 256-BIT ENCRYPTION
         </span>
         <span>•</span>
-        <span>INSTANT SMS VERIFICATION</span>
+        <span>GOOGLE SECURED SIGN-IN</span>
         <span>•</span>
         <span>OFFICIAL BGMI STORE</span>
       </div>

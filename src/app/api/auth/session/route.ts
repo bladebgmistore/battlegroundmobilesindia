@@ -15,9 +15,6 @@ export async function GET(request: NextRequest) {
       id: session.id,
       name: session.name,
       email: session.email,
-      /** Set for +91 OTP accounts (E.164), null for Google accounts. */
-      phone: session.phone ?? null,
-      provider: session.authProvider ?? "google",
       picture: session.picture,
       role: session.role,
       isOwner: session.role === ROLE_OWNER,

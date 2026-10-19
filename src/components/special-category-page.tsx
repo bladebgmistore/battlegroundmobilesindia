@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
-import { Product } from "@/lib/store-data";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiRefreshCw } from "react-icons/fi";
+import { isVisible } from "@/lib/catalog";
 import { PriceTag } from "@/components/price-tag";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
 import { navigateToCheckout } from "@/lib/checkout-auth";
@@ -23,30 +23,15 @@ type Props = {
 export default function SpecialCategoryPage({ category, eyebrow, title, copy }: Props) {
   const router = useRouter();
   const { whatsapp, whatsappEnabled } = useStoreSettings();
-  const [items, setItems] = useState<Product[]>([]);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
+  const { categories, products, loading, error, refresh } = useStoreCatalog();
 
-  useEffect(() => {
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => r.json().catch(() => null))
-      .then((data: { products?: Product[]; categories?: { slug: string }[] } | null) => {
-        const categories = Array.isArray(data?.categories) ? data.categories : [];
-        const activeSlugs = new Set(categories.map((c) => c.slug));
-        // If the category was disabled in admin, don't surface any Checkout buttons.
-        if (categories.length && !activeSlugs.has(category)) {
-          setItems([]);
-          setUnavailable(true);
-          return;
-        }
-        setUnavailable(false);
-        setItems(Array.isArray(data?.products) ? data.products.filter((p) => p.categorySlug === category) : []);
-      })
-      .catch(() => {
-        setItems([]);
-      })
-      .finally(() => setCatalogLoaded(true));
-  }, [category]);
+  const categoryRow = categories.find((row) => row.slug === category);
+  const catalogLoaded = !loading;
+  // A disabled category is intentionally not returned by `/api/store`; treat
+  // that as unavailable. If the API itself failed, show a retry instead of
+  // pretending the category was deleted.
+  const unavailable = !error && categories.length > 0 && !categoryRow;
+  const items = products.filter((product) => product.categorySlug === category && isVisible(product));
 
   const requiresUid = category === "super-cars" || category === "x-suits";
   const buy = async (name: string, price: number, id?: string) => {
@@ -68,13 +53,25 @@ export default function SpecialCategoryPage({ category, eyebrow, title, copy }: 
             <FiArrowLeft /> BACK TO STORE
           </Link>
         </div>
-        <PageTitle eyebrow={eyebrow} title={title} copy={copy} />
+        <PageTitle
+          eyebrow={eyebrow}
+          title={categoryRow?.name ? `${categoryRow.name} packages.` : title}
+          copy={categoryRow?.description || copy}
+        />
 
         <section className="mx-auto max-w-7xl px-5 pb-20 lg:px-8">
           {!catalogLoaded ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
               <p className="text-lg font-black text-[#0f172a]">Loading live products…</p>
               <p className="mt-2 text-sm text-[#64748b]">Only database products are shown here.</p>
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">Live products could not be loaded.</p>
+              <p className="mt-2 text-sm text-[#64748b]">This is usually a temporary database connection issue.</p>
+              <button onClick={() => void refresh()} className="btn-outline mt-6 inline-flex items-center gap-2">
+                <FiRefreshCw /> RETRY
+              </button>
             </div>
           ) : unavailable ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">

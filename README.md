@@ -74,8 +74,12 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - **Visitor Logs**: every page view with user email, IP address, page URL and
   timestamp, with search, pagination, CSV export, auto-refresh and purge
 - **Users**: every Google account that has signed in, with its current role
-- Manage Accounts (add / edit / delete / enable)
+- Manage Accounts (add / edit / delete / publish or hide)
 - Manage UC packages
+- Categories workspace: create any collection, publish/hide it, and manage its
+  products in place (“Manage Products” scrolls to the keyed product editor)
+- Pages workspace: create editorial pages that render at `/pages/<slug>` and,
+  optionally, appear in the storefront navigation — never as categories
 - Manage Coupons (percent / flat, expiry, usage limit)
 - Orders list + status updates
 - Customer Proofs (publish / edit / hide / delete verified deliveries)
@@ -137,6 +141,7 @@ between the hosting dashboard and the code stays auditable:
 | `OWNER_EMAIL` | Comma-separated owner allow-list (gets the `owner` role) |
 | `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk keys — validated by `/api/auth/config-check` |
 | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` | Meta Pixel (public by design) |
+| `STORE_DEMO_CATALOG` | Local preview only: `1` serves the built-in demo catalog when DB2 is unreachable (ignored when `NODE_ENV=production`) |
 
 `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` is public by design (it ships in the browser
 bundle). Blank it out to disable Meta Pixel tracking in that environment — the
@@ -177,6 +182,7 @@ npm run db:push:db3
 | `special_products` | Supercar / X-Suit listings |
 | `coupons` | Promo coupons (validated from DB2, usage counted on checkout) |
 | `site_settings` | Public site settings (WhatsApp, UPI, logo, maintenance mode) |
+| `pages` | Editorial pages created in Admin → Pages; served at `/pages/<slug>` (never mixed into categories) |
 | `feedbacks` | Player reviews + moderation state |
 
 ### Database 3 — orders, proofs & points (`src/db/schemas/db3.ts`)
@@ -190,6 +196,23 @@ npm run db:push:db3
 | `customer_proofs` | Verified deliveries on `/proofs` — customer name, unique `order_code` (`#ORD-xxxx`), product title, amount, proof image, visibility |
 | `support_tickets` / `support_messages` | Order-based "Chat with Admin" tickets |
 | `announcements` / `user_notifications` / `notification_reads` | Broadcasts and the header bell inbox |
+
+### Catalog visibility rules
+
+- Publish state is persisted in `products.is_active`, `categories.is_active`,
+  `uc_packages.is_active` and `pages.is_active`. Admin requests may send
+  `isPublished` **or** `isActive`; both map to the same column, and
+  `isPublished` wins when both are present. A PATCH that omits both keys
+  preserves the current value (editing a draft never republishes it).
+- A row is hidden only when the flag is explicitly `false`. `NULL` (common
+  after an import that added the column without backfilling) counts as
+  published in `/api/store` via `coalesce(is_active, true)` and is repaired to
+  `true` by `ensureStoreTables()` / `sql/007_catalog_sync_repair.sql`.
+- Category and product slugs are normalised before comparison, so legacy
+  spellings such as `Account`, `Supercar`, `Xsuite`, `Super Cars` and
+  `UC-Purchase` resolve to `accounts`, `super-cars`, `x-suits` and `uc`.
+- `/api/store` is served with `Cache-Control: no-store`; a published change is
+  visible on the next request instead of after a CDN TTL.
 
 ### How the app works across three databases
 
@@ -209,7 +232,12 @@ npm run db:push:db3
   DB1 balances by the exact ledger delta.
 - `/api/health` reports each database separately (`up` / `down` / `degraded`).
 
-If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
+If DB2 is unreachable, `/api/store` returns a real `503` and each storefront
+surface shows its retry state instead of silently rendering an empty store.
+The header/footer keep the canonical category links so the catalog navigation
+does not "disappear" during an outage. For local previews without a database,
+set `STORE_DEMO_CATALOG=1` (ignored in production) to serve the built-in demo
+catalog.
 
 ---
 
@@ -223,6 +251,19 @@ If the database is offline, the storefront still shows default catalog data and 
    ```bash
    npm run db:push
    ```
+   On an **existing** database that predates the catalog sync (or after any
+   import), run the idempotent repair once as well:
+   ```bash
+   psql "$DATABASE_URL_DB2" -f sql/007_catalog_sync_repair.sql
+   ```
+   It adds the missing columns, backfills `is_active`, honours legacy
+   `is_published`/`status` values, migrates `accounts`/`special_products`
+   stock into `products`, creates the `pages` table and repairs orphaned
+   category slugs. The app also self-heals on first request through
+   `ensureStoreTables()`, so a missed psql step does not take the store down.
+   The generated `drizzle/db2/0001_*.sql` migration contains only the `pages`
+   table; a fresh database gets it from the Drizzle schema via
+   `npm run db:push:db2`, or from that SQL file in a migration-based deploy.
 6. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `NEXTAUTH_URL`, `AUTH_SECRET`, and `OWNER_EMAIL`
 7. Register `https://your-domain.example/auth/google/callback` (replace with your domain) as an Authorized redirect URI on the Google OAuth client
 8. Sign in at `/login` with the owner Google account, then open `/admin`
@@ -236,6 +277,8 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/` | Home |
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
+| `/category/<slug>` | Any admin-created category (legacy slugs are 308-redirected to the canonical URL) |
+| `/pages/<slug>` | Editorial page created in Admin → Pages |
 | `/checkout` | Buy flow + coupon (`?cart=1` = multi-item cart checkout) |
 | `/login` | Sign in with the custom Google OAuth flow |
 | `/auth/google` → `/auth/google/callback` | Google OAuth 2.0 Authorization Code + PKCE flow |

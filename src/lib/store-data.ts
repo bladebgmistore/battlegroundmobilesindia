@@ -15,6 +15,13 @@ export const accountImages = {
   account3: driveImage("1V7iphXQE3ibYMFT0DfuZCCdAz_EpZ2kG"),
 };
 
+/**
+ * Last-resort image used when an admin-created category/product/page has no
+ * artwork yet. Keeping it here means every renderer can fall back instead of
+ * drawing a broken image icon.
+ */
+export const FALLBACK_IMAGE = images.logo;
+
 // Fallback for older/cached files
 export const specialImages = {
   cars: driveImage("1Qxmkfn4MUhf-PMtWtYm6oZ7CoZ2q6uoR"),
@@ -79,6 +86,7 @@ export type AccountItem = {
   features: string[];
   badge?: string | null;
   isActive?: boolean;
+  isPublished?: boolean;
 };
 
 export type UcPackageItem = {
@@ -87,6 +95,7 @@ export type UcPackageItem = {
   ucAmount: number;
   bonusLabel?: string | null;
   isActive?: boolean;
+  isPublished?: boolean;
 };
 
 export const defaultAccounts: AccountItem[] = [
@@ -185,6 +194,7 @@ export type SpecialProductItem = {
   badge?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  isPublished?: boolean;
 };
 
 export const defaultSpecialProducts: SpecialProductItem[] = [
@@ -220,6 +230,8 @@ export type Category = {
   image: string;
   sortOrder?: number;
   isActive?: boolean;
+  /** Alias of `isActive` at the API boundary (admin publish toggle). */
+  isPublished?: boolean;
 };
 
 export const defaultCategories: Category[] = [
@@ -271,6 +283,27 @@ export type Product = {
   badge?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  /** Alias of `isActive` at the API boundary (admin publish toggle). */
+  isPublished?: boolean;
+};
+
+/**
+ * A CMS page created from the admin panel.
+ *
+ * Pages live in their own table and their own dynamic route (`/pages/<slug>`)
+ * — they are deliberately NOT categories, so creating a page can never leak
+ * into the category navigation or the product catalog.
+ */
+export type StorePage = {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  image?: string | null;
+  showInNav?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+  isPublished?: boolean;
 };
 
 export const defaultProducts: Product[] = [

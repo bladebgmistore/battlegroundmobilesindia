@@ -108,10 +108,12 @@ export function isPublicPath(pathname: string): boolean {
   const clean = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
   if (PUBLIC_PATHS.includes(clean)) return true;
 
-  // Public product/category browsing.
+  // Public product/category/page browsing.
   if (clean === "/category" || clean.startsWith("/category/")) return true;
   if (clean === "/accounts" || clean.startsWith("/accounts/")) return true;
   if (clean === "/proofs" || clean.startsWith("/proofs/")) return true;
+  // CMS pages created from the admin panel (`/pages/<slug>`).
+  if (clean === "/pages" || clean.startsWith("/pages/")) return true;
 
   // Custom Google OAuth round-trip and sign-out endpoint.
   if (clean === "/auth" || clean.startsWith("/auth/")) return true;

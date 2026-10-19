@@ -1,25 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { buildWhatsappUrl, DEFAULT_CHECKOUT_MODE, DEFAULT_UPI_ID, DEFAULT_WHATSAPP_NUMBER, type CheckoutMode } from "@/lib/store-data";
-
-type PublicSettings = Record<string, string>;
-
-let cache: PublicSettings | null = null;
-let inflight: Promise<PublicSettings> | null = null;
-
-function fetchSettings() {
-  if (!inflight) {
-    inflight = fetch("/api/store")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => (cache = (d?.settings as PublicSettings) ?? { whatsapp_enabled: "false" }))
-      .catch(() => (cache = { whatsapp_enabled: "false" }));
-  }
-  return inflight;
-}
 
 /**
  * Live admin-managed public settings.
+ *
+ * Settings arrive inside the shared `/api/store` payload (see
+ * `use-store-catalog.ts`) instead of a second fetch, so every consumer sees
+ * exactly the same catalog/settings snapshot.
  *
  * WhatsApp contact is admin-controlled: `whatsappEnabled` is true only when
  * the admin turned the channel on in Admin Dashboard → Site Controls. While
@@ -27,15 +16,7 @@ function fetchSettings() {
  * WhatsApp button, icon or link can be rendered anywhere on the site.
  */
 export function useStoreSettings() {
-  const [settings, setSettings] = useState<PublicSettings>(cache ?? { whatsapp_enabled: "false" });
-
-  useEffect(() => {
-    let alive = true;
-    fetchSettings().then((s) => {
-      if (alive) setSettings(s);
-    });
-    return () => { alive = false; };
-  }, []);
+  const { settings } = useStoreCatalog();
 
   const whatsappEnabled = settings.whatsapp_enabled === "true";
   const whatsappNumber = whatsappEnabled ? settings.whatsapp_number || DEFAULT_WHATSAPP_NUMBER : "";

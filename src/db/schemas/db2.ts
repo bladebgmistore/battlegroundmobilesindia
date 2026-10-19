@@ -7,6 +7,7 @@
  *  - accounts
  *  - ucPackages
  *  - specialProducts
+ *  - pages
  *  - coupons
  *  - siteSettings
  *  - feedbacks / feedback
@@ -69,6 +70,26 @@ export const specialProducts = pgTable("special_products", {
   features: jsonb("features").$type<string[]>().notNull().default([]),
   badge: varchar("badge", { length: 48 }),
   sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * CMS pages — rendered at `/pages/[slug]`.
+ *
+ * Kept separate from `categories` on purpose: a page is editorial content,
+ * not a product filter, so creating one can never leak into the store
+ * catalog navigation.
+ */
+export const pages = pgTable("pages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 180 }).notNull(),
+  slug: varchar("slug", { length: 120 }).notNull().unique(),
+  content: text("content").notNull().default(""),
+  image: text("image"),
+  showInNav: boolean("show_in_nav").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(100),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -23,6 +23,7 @@ import {
   type CartInput,
   type CartItem,
 } from "@/lib/cart-store";
+import { canonicalCategorySlug } from "@/lib/catalog";
 import { addToCart as pixelAddToCart } from "@/lib/fpixel";
 import { isUidRequiredProduct, mrpOf } from "@/lib/store-data";
 
@@ -73,7 +74,7 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 /** Does this line require a BGMI Player UID at checkout? */
 function lineRequiresUid(item: CartItem): boolean {
-  const slug = (item.categorySlug ?? "").toLowerCase();
+  const slug = canonicalCategorySlug(item.categorySlug ?? "");
   if (slug === "uc" || slug === "super-cars" || slug === "x-suits") return true;
   return isUidRequiredProduct(item.title);
 }
@@ -132,7 +133,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     params.set("amount", String(subtotal));
     params.set("cart", "1");
 
-    const category = items.every((item) => item.categorySlug === items[0].categorySlug) ? items[0].categorySlug : null;
+    const canonicalSlugs = items.map((item) => canonicalCategorySlug(item.categorySlug ?? ""));
+    const category =
+      canonicalSlugs.every((slug) => slug === canonicalSlugs[0]) && canonicalSlugs[0] ? canonicalSlugs[0] : null;
     if (category) params.set("category", category);
     if (requiresUid) params.set("uid", "1");
 

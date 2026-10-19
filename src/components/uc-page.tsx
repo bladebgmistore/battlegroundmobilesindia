@@ -1,43 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
-import { FiArrowLeft, FiArrowRight, FiShield } from "react-icons/fi";
-import { Category, UcPackageItem } from "@/lib/store-data";
+import { FiArrowLeft, FiArrowRight, FiRefreshCw, FiShield } from "react-icons/fi";
+import { isVisible } from "@/lib/catalog";
 import { PriceTag } from "@/components/price-tag";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { addToCart } from "@/lib/fpixel";
 import { navigateToCheckout } from "@/lib/checkout-auth";
 
 export default function UcPage() {
   const router = useRouter();
-  const [packs, setPacks] = useState<UcPackageItem[]>([]);
-  const [category, setCategory] = useState<Category | null>(null);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
   const { whatsapp, whatsappEnabled } = useStoreSettings();
+  const { ucPackages, categories, loading, error, refresh } = useStoreCatalog();
 
-  useEffect(() => {
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((response) => response.json().catch(() => null))
-      .then((data: { ucPackages?: UcPackageItem[]; categories?: Category[] } | null) => {
-        const categories = Array.isArray(data?.categories) ? data.categories : [];
-        if (categories.length && !categories.some((item) => item.slug === "uc")) {
-          setUnavailable(true);
-        }
-        setPacks(Array.isArray(data?.ucPackages) ? data.ucPackages : []);
-        setCategory(categories.find((item) => item.slug === "uc") ?? null);
-      })
-      .catch(() => {
-        setPacks([]);
-        setCategory(null);
-      })
-      .finally(() => setCatalogLoaded(true));
-  }, []);
+  const packs = ucPackages.filter(isVisible);
+  const category = categories.find((item) => item.slug === "uc") ?? null;
+  const catalogLoaded = !loading;
+  const unavailable = !error && categories.length > 0 && !category;
 
   return (
     <>
@@ -71,6 +55,14 @@ export default function UcPage() {
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center" data-aos="fade-up">
               <p className="text-lg font-black text-[#0f172a]">Loading live UC packages…</p>
               <p className="mt-2 text-sm text-[#64748b]">Only database packages are shown here.</p>
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">UC packages could not be loaded.</p>
+              <p className="mt-2 text-sm text-[#64748b]">This is usually a temporary database connection issue.</p>
+              <button onClick={() => void refresh()} className="btn-outline mt-6 inline-flex items-center gap-2">
+                <FiRefreshCw /> RETRY
+              </button>
             </div>
           ) : unavailable ? (
             <div className="rounded-2xl border border-dashed border-[#c7d2e0] bg-white/60 py-20 text-center">

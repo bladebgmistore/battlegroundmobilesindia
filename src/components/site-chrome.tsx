@@ -2,21 +2,52 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiAlertTriangle, FiArrowUpRight, FiInstagram, FiMenu, FiShield, FiX, FiYoutube } from "react-icons/fi";
 import { UserNav, UserMobileAuth } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { CartButton } from "@/components/cart-button";
+import {
+  DEFAULT_CATEGORY_NAV,
+  categoryHref,
+  categoryLabel,
+  isCategoryVisible,
+  pageHref,
+} from "@/lib/catalog";
+import type { Category, StorePage } from "@/lib/store-data";
 import { images } from "@/lib/store-data";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { useStoreSettings } from "@/lib/use-store-settings";
 
-// Category-based nav entries — only rendered when that category is active.
-const CATEGORY_NAV: { slug: string; label: string; href: string }[] = [
-  { slug: "accounts", label: "Accounts", href: "/accounts" },
-  { slug: "uc", label: "UC Purchase", href: "/uc-purchase" },
-  { slug: "super-cars", label: "Super-Car", href: "/category/super-car" },
-  { slug: "x-suits", label: "X-Suit", href: "/category/x-suit" },
-];
+type NavItem = { slug: string; label: string; href: string };
+
+/**
+ * Turn active category rows into navigation entries.
+ *
+ * If the catalog request failed (or the database is unavailable) we keep the
+ * canonical four entries instead of rendering an empty menu — a database
+ * hiccup must never make the category system disappear from the public site.
+ */
+function buildCategoryNav(categories: Category[], databaseOnline: boolean, loading: boolean): NavItem[] {
+  if (categories.length === 0 && (loading || !databaseOnline)) return DEFAULT_CATEGORY_NAV;
+  return categories
+    .filter(isCategoryVisible)
+    .map((category) => ({
+      slug: category.slug,
+      label: categoryLabel(category),
+      href: categoryHref(category.slug),
+    }));
+}
+
+function buildPageNav(pages: StorePage[]): NavItem[] {
+  return pages
+    .filter((page) => page.isActive !== false && page.isPublished !== false && page.showInNav)
+    .map((page) => ({
+      slug: page.slug,
+      label: page.title || page.slug,
+      href: pageHref(page.slug),
+    }));
+}
 
 const STATIC_NAV: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
@@ -68,37 +99,32 @@ export function GridBackdrop() {
   );
 }
 
-type Category = { slug: string; isActive?: boolean };
-
 export function SiteHeader() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
   const { maintenance, settings, whatsappEnabled } = useStoreSettings();
+  // Live catalogue navigation: admin-created categories and nav-visible pages
+  // are included automatically, in their configured sort order.
+  const { categories, pages, databaseOnline, loading: catalogLoading } = useStoreCatalog();
   const logoUrl = settings.logo_url;
 
-  // Respect admin's enabled/disabled categories: a disabled category's nav
-  // button disappears from the header (desktop + mobile) and the footer.
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { categories?: Category[] } | null) => {
-        if (!alive) return;
-        const cats = data?.categories;
-        if (cats?.length) {
-          setActiveKeys(new Set(cats.map((c) => c.slug)));
-        }
-      })
-      .catch(() => undefined);
-    return () => { alive = false; };
-  }, []);
+  const categoryNav = useMemo(
+    () => buildCategoryNav(categories, databaseOnline, catalogLoading),
+    [categories, databaseOnline, catalogLoading],
+  );
+  const pageNav = useMemo(() => buildPageNav(pages), [pages]);
 
-  const categoryNav = CATEGORY_NAV.filter((item) => activeKeys.has(item.slug));
-  const navLinks: [string, string][] = [
-    ...STATIC_NAV.map((n) => [n.label, n.href] as [string, string]),
-    ...categoryNav.map((n) => [n.label, n.href] as [string, string]),
-  ];
+  const navLinks: [string, string][] = useMemo(() => {
+    const staticLinks = STATIC_NAV.map((n) => [n.label, n.href] as [string, string]);
+    const dynamicLinks = [...categoryNav, ...pageNav].map((n) => [n.label, n.href] as [string, string]);
+    const seen = new Set(staticLinks.map(([, href]) => href));
+    const uniqueDynamic = dynamicLinks.filter(([, href]) => {
+      if (seen.has(href)) return false;
+      seen.add(href);
+      return true;
+    });
+    return [...staticLinks, ...uniqueDynamic];
+  }, [categoryNav, pageNav]);
 
   return (
     <>
@@ -179,22 +205,13 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   const { settings, whatsappEnabled } = useStoreSettings();
-  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
+  const { categories, pages, databaseOnline, loading: catalogLoading } = useStoreCatalog();
 
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { categories?: Category[] } | null) => {
-        if (!alive) return;
-        const cats = data?.categories;
-        if (cats?.length) setActiveKeys(new Set(cats.map((c) => c.slug)));
-      })
-      .catch(() => undefined);
-    return () => { alive = false; };
-  }, []);
-
-  const footerCategories = CATEGORY_NAV.filter((item) => activeKeys.has(item.slug));
+  const footerCategories = useMemo(
+    () => buildCategoryNav(categories, databaseOnline, catalogLoading),
+    [categories, databaseOnline, catalogLoading],
+  );
+  const footerPages = useMemo(() => buildPageNav(pages), [pages]);
 
   return (
     <footer className="mt-20 border-t border-[#dbe2ec] bg-white/70">
@@ -222,6 +239,9 @@ export function SiteFooter() {
           <p className="text-xs font-bold tracking-[.16em] text-[#0f4c81]">EXPLORE</p>
           <div className="mt-5 grid gap-3 text-sm text-[#64748b]">
             {footerCategories.map((item) => (
+              <Link key={item.slug} href={item.href} className="hover:text-[#0f172a]">{item.label}</Link>
+            ))}
+            {footerPages.map((item) => (
               <Link key={item.slug} href={item.href} className="hover:text-[#0f172a]">{item.label}</Link>
             ))}
             <Link href="/how-to-buy" className="hover:text-[#0f172a]">How to Buy</Link>

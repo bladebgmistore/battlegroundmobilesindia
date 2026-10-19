@@ -5,18 +5,27 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
-import { FiArrowLeft, FiCheck, FiCopy, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
+import { FiArrowLeft, FiCheck, FiCopy, FiRefreshCw, FiSearch, FiSliders, FiX, FiZoomIn } from "react-icons/fi";
 import { formatINR, Product } from "@/lib/store-data";
+import { isVisible } from "@/lib/catalog";
 import { PriceTag } from "@/components/price-tag";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { GridBackdrop, PageTitle, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { addToCart, viewContent } from "@/lib/fpixel";
 import { navigateToCheckout } from "@/lib/checkout-auth";
 
 export default function AccountsPage() {
   const router = useRouter();
-  const [items, setItems] = useState<Product[]>([]);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const { products, categories, loading, error, refresh } = useStoreCatalog();
+  const items = useMemo(
+    () => products.filter((product) => product.categorySlug === "accounts" && isVisible(product)),
+    [products],
+  );
+  const catalogLoaded = !loading;
+  // Disabled in admin → no products, no Checkout buttons. If the catalog API
+  // failed altogether, `error` is shown instead of an "unavailable" message.
+  const unavailable = !error && categories.length > 0 && !categories.some((category) => category.slug === "accounts");
   const [query, setQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(100000);
   const [selected, setSelected] = useState<Product | null>(null);
@@ -29,27 +38,6 @@ export default function AccountsPage() {
     }
   });
   const [copied, setCopied] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => r.json().catch(() => null))
-      .then((d: { products?: Product[]; categories?: { slug: string }[] } | null) => {
-        const categories = Array.isArray(d?.categories) ? d.categories : [];
-        const activeSlugs = new Set(categories.map((c) => c.slug));
-        // Disabled in admin → no products, no Checkout buttons.
-        if (categories.length && !activeSlugs.has("accounts")) {
-          setItems([]);
-          setUnavailable(true);
-          return;
-        }
-        setItems(Array.isArray(d?.products) ? d.products.filter((p) => p.categorySlug === "accounts") : []);
-      })
-      .catch(() => {
-        setItems([]);
-      })
-      .finally(() => setCatalogLoaded(true));
-  }, []);
 
   const shown = useMemo(() => {
     return items.filter((item) => {
@@ -133,6 +121,14 @@ export default function AccountsPage() {
             <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center" data-aos="fade-up">
               <p className="text-lg font-black text-[#0f172a]">Loading live account listings…</p>
               <p className="mt-2 text-sm text-[#64748b]">Only database products are shown here.</p>
+            </div>
+          ) : error ? (
+            <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center">
+              <p className="text-lg font-black text-[#0f172a]">Account listings could not be loaded.</p>
+              <p className="mt-2 text-sm text-[#64748b]">This is usually a temporary database connection issue.</p>
+              <button onClick={() => void refresh()} className="btn-outline mt-6 inline-flex items-center gap-2">
+                <FiRefreshCw /> RETRY
+              </button>
             </div>
           ) : unavailable ? (
             <div className="mt-7 rounded-2xl border border-dashed border-[#dbe2ec] bg-white/60 py-20 text-center">

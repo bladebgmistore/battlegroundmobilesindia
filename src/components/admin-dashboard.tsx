@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBell, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiMessageSquare, FiPackage, FiRadio, FiPlus, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
-import { Category, Product, formatINR, images, UcPackageItem } from "@/lib/store-data";
+import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBell, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiMessageSquare, FiPackage, FiRadio, FiPlus, FiRefreshCw, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { Category, Product, StorePage, formatINR, images, UcPackageItem } from "@/lib/store-data";
+import { canonicalCategorySlug, categoryHref, normalizeSlug, pageHref } from "@/lib/catalog";
+import { invalidateStoreCatalog } from "@/lib/use-store-catalog";
 import { ImageInput } from "@/components/image-input";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -23,10 +25,10 @@ type Order = { id: string; orderCode: string; customerName: string; customerWhat
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "pages" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 /** Shape of the admin API payloads the dashboard boot-loads. */
-type CatalogPayload = { categories: Category[]; products: Product[]; ucPackages: UcPackageItem[]; coupons: Coupon[] };
+type CatalogPayload = { categories: Category[]; products: Product[]; ucPackages: UcPackageItem[]; pages: StorePage[]; coupons: Coupon[] };
 type OrdersPayload = { orders: Order[] };
 type ManagementPayload = { messages: Message[]; settings: SettingRow[] };
 type FeedbackPayload = { counts: { pending: number } };
@@ -87,6 +89,7 @@ const MENU: MenuSection[] = [
       { view: "super-cars", label: "Super Cars", icon: FiBox, scope: "catalog" },
       { view: "x-suits", label: "X-Suits", icon: FiShield, scope: "catalog" },
       { view: "categories", label: "Categories", icon: FiFolder, scope: "catalog" },
+      { view: "pages", label: "Pages", icon: FiLayout, scope: "catalog" },
       { view: "coupons", label: "Coupons", icon: FiGift, scope: "catalog" },
     ],
   },
@@ -133,6 +136,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [packs, setPacks] = useState<UcPackageItem[]>([]);
+  const [pages, setPages] = useState<StorePage[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -212,6 +216,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       setProducts(catData?.products ?? []);
       setPacks(catData?.ucPackages ?? []);
       setCoupons(catData?.coupons ?? []);
+      setPages(catData?.pages ?? []);
       const ordData = dataOf(ord);
       setOrders(ordData?.orders ?? []);
       const mgmtData = dataOf(mgmt);
@@ -281,6 +286,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         toast(body?.error ?? "Could not save this item.");
         return false;
       }
+      invalidateStoreCatalog();
       toast("Saved successfully. Public store updated.");
       await load();
       return true;
@@ -303,6 +309,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         toast(body?.error ?? "Could not save changes.");
         return false;
       }
+      invalidateStoreCatalog();
       toast("Changes saved. Public store updated.");
       await load();
       return true;
@@ -326,6 +333,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         toast(body?.error ?? "Could not delete item.");
         return false;
       }
+      invalidateStoreCatalog();
       toast("Item deleted. Public store updated.");
       await load();
       return true;
@@ -364,7 +372,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 
   const saveSetting = async (key: string, value: unknown) => {
     const r = await fetch("/api/admin/management", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) });
-    if (r.ok) { toast("Site setting updated."); await load(); }
+    if (r.ok) { invalidateStoreCatalog(); toast("Site setting updated."); await load(); }
     else toast((await r.json().catch(() => null))?.error ?? "Could not save site setting.");
   };
 
@@ -513,8 +521,14 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       <div className="p-5 lg:p-8">
         {notice && <div className="fixed right-5 top-24 z-[60] rounded-lg border border-[#cfe3f7] bg-white px-4 py-3 text-xs font-bold text-[#0f4c81] shadow-xl">{notice}</div>}
         {databaseError && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
-            {databaseError}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+            <span>{databaseError}</span>
+            <button
+              onClick={() => { void load(); }}
+              className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[10px] font-black text-red-700"
+            >
+              <FiRefreshCw /> RETRY
+            </button>
           </div>
         )}
         {role !== "owner" && (
@@ -539,11 +553,12 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
             charts={charts}
           />
         )}
-        {view === "accounts" && <ProductsManager heading="Accounts" fixedCategorySlug="accounts" products={products.filter(p => p.categorySlug === "accounts")} categories={categories} create={create} update={update} remove={remove} />}
+        {view === "accounts" && <ProductsManager heading="Accounts" fixedCategorySlug="accounts" products={products.filter(p => canonicalCategorySlug(p.categorySlug) === "accounts")} categories={categories} create={create} update={update} remove={remove} />}
         {view === "uc" && <UcManager packs={packs} create={create} update={update} remove={remove} />}
-        {view === "super-cars" && <ProductsManager heading="Super Cars" fixedCategorySlug="super-cars" products={products.filter(p => p.categorySlug === "super-cars")} categories={categories} create={create} update={update} remove={remove} />}
-        {view === "x-suits" && <ProductsManager heading="X-Suits" fixedCategorySlug="x-suits" products={products.filter(p => p.categorySlug === "x-suits")} categories={categories} create={create} update={update} remove={remove} />}
+        {view === "super-cars" && <ProductsManager heading="Super Cars" fixedCategorySlug="super-cars" products={products.filter(p => canonicalCategorySlug(p.categorySlug) === "super-cars")} categories={categories} create={create} update={update} remove={remove} />}
+        {view === "x-suits" && <ProductsManager heading="X-Suits" fixedCategorySlug="x-suits" products={products.filter(p => canonicalCategorySlug(p.categorySlug) === "x-suits")} categories={categories} create={create} update={update} remove={remove} />}
         {view === "categories" && <CategoryWorkspace categories={categories} products={products} create={create} update={update} remove={remove} />}
+        {view === "pages" && <PagesManager pages={pages} create={create} update={update} remove={remove} />}
         {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} onCountsChange={setPendingFeedbacks} />}
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} canDelete={role === "owner"} />}
@@ -716,25 +731,41 @@ function Overview({ role, go, productsCount, packsCount, orders, unreadMessages,
 }
 
 function CategoryWorkspace({ categories, products, create, update, remove }: { categories: Category[]; products: Product[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
-  const empty = { name: "", slug: "", description: "", image: "", sortOrder: "100" };
+  const empty = { name: "", slug: "", description: "", image: "", sortOrder: "100", isPublished: true };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedSlugState, setSelectedSlugState] = useState("");
-  const selectedSlug = selectedSlugState && categories.some((c) => c.slug === selectedSlugState)
-    ? selectedSlugState
-    : (categories[0]?.slug ?? "");
-  const setSelectedSlug = setSelectedSlugState;
+  const productsPanelRef = useRef<HTMLDivElement | null>(null);
+
+  const canonicalSelectedSlug = canonicalCategorySlug(selectedSlugState);
+  const selectedCategory =
+    (canonicalSelectedSlug
+      ? categories.find((category) => canonicalCategorySlug(category.slug) === canonicalSelectedSlug)
+      : undefined) ?? categories[0];
+  const selectedSlug = selectedCategory?.slug ?? "";
+
+  /**
+   * "Manage Products" used to only mutate selection state at the bottom of a
+   * long page, so it looked completely unresponsive. It now selects the
+   * category AND scrolls the product workspace into view.
+   */
+  const manageProducts = (slug: string) => {
+    setSelectedSlugState(slug);
+    window.requestAnimationFrame(() => {
+      productsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   const submit = async () => {
-    let image = form.image.trim();
-    const driveMatch = image.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveMatch) image = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+    const slug = normalizeSlug(form.slug || form.name);
+    if (!form.name.trim() || !slug) return;
     const data = {
-      ...form,
-      image,
-      slug: form.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      name: form.name.trim(),
+      slug,
+      description: form.description,
+      image: form.image,
       sortOrder: Number(form.sortOrder),
-      isActive: true,
+      isPublished: form.isPublished,
     };
     const ok = editingId
       ? await update("category", editingId, data)
@@ -742,35 +773,44 @@ function CategoryWorkspace({ categories, products, create, update, remove }: { c
     if (ok) {
       setForm(empty);
       setEditingId(null);
+      setSelectedSlugState(slug);
     }
   };
 
   const startEdit = (item: Category) => {
     setEditingId(item.id);
-    setSelectedSlug(item.slug);
+    setSelectedSlugState(item.slug);
     setForm({
       name: item.name,
       slug: item.slug,
       description: item.description ?? "",
       image: item.image ?? "",
       sortOrder: String(item.sortOrder ?? 100),
+      isPublished: item.isPublished ?? item.isActive !== false,
     });
   };
 
-  const selectedCategory = categories.find((c) => c.slug === selectedSlug);
+  const togglePublish = async (item: Category) => {
+    const published = item.isPublished ?? item.isActive !== false;
+    await update("category", item.id, { isPublished: !published });
+  };
 
   return (
     <div className="space-y-6">
       <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]">
         <section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5">
-          <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit Category" : "Add New Category"} copy="Change the public section name, URL, image, description, and homepage order." />
+          <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit Category" : "Add New Category"} copy="Categories become public pages at /category/<slug> and appear in the store navigation automatically." />
           <div className="mt-5 grid gap-3">
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: editingId ? form.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-") })} placeholder="Category Name" className="admin-input" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: editingId ? form.slug : normalizeSlug(e.target.value) })} placeholder="Category Name" className="admin-input" />
             <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="URL Slug (example: super-cars)" className="admin-input" />
             <ImageInput value={form.image} onChange={(image) => setForm({ ...form, image })} label="CATEGORY IMAGE / BANNER" />
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Public section description" rows={3} className="admin-input resize-none py-3" style={{ height: "auto" }} />
-            <input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} type="number" placeholder="Homepage order (10, 20, 30...)" className="admin-input" />
-            <button onClick={submit} className="admin-primary">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE CATEGORY" : "CREATE CATEGORY"}</button>
+            <input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} type="number" placeholder="Catalog order (10, 20, 30...)" className="admin-input" />
+            <label className="flex items-center gap-2 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3 py-2 text-xs font-bold text-[#334155]">
+              <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[#0f4c81]" />
+              Publish this category on the storefront
+            </label>
+            <button onClick={submit} disabled={!form.name.trim()} className="admin-primary disabled:opacity-50">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE CATEGORY" : "CREATE CATEGORY"}</button>
             {editingId && <button onClick={() => { setEditingId(null); setForm(empty); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL EDITING</button>}
           </div>
         </section>
@@ -778,45 +818,62 @@ function CategoryWorkspace({ categories, products, create, update, remove }: { c
         <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
           <ListHeader title="Public Categories" count={categories.length} />
           <div className="divide-y divide-[#e5e8ef]">
-            {categories.map((c) => (
-              <div className={`flex gap-3 p-4 ${selectedSlug === c.slug ? "bg-[#f1f5fb]" : ""}`} key={c.id}>
-                <img src={c.image} alt={c.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-                <div className="min-w-0 grow">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-black text-sm text-[#0f172a]">{c.name}</p>
-                    <span className="rounded bg-[#f1f5fb] px-2 py-0.5 text-[9px] text-[#64748b]">ORDER {c.sortOrder ?? 100}</span>
-                  </div>
-                  <p className="mt-1 text-xs font-mono text-[#0f4c81]">/{c.slug}</p>
-                  <p className="mt-1 truncate text-xs text-[#64748b]">{c.description}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Action onClick={() => { setSelectedSlug(c.slug); startEdit(c); }} label="Edit" icon={FiEdit3} />
-                    <Action onClick={() => setSelectedSlug(c.slug)} label="Manage Products" icon={FiBox} />
-                    <Action onClick={() => update("category", c.id, { ...c, isActive: c.isActive === false })} label={c.isActive === false ? "Enable" : "Disable"} icon={FiSettings} />
-                    <Action onClick={() => remove("category", c.id)} label="Delete" icon={FiTrash2} danger />
+            {categories.length ? categories.map((c) => {
+              const published = c.isPublished ?? c.isActive !== false;
+              return (
+                <div className={`flex gap-3 p-4 ${canonicalCategorySlug(selectedSlug) === canonicalCategorySlug(c.slug) ? "bg-[#f1f5fb]" : ""}`} key={c.id}>
+                  <img src={c.image || images.logo} alt={c.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                  <div className="min-w-0 grow">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-black text-[#0f172a]">{c.name}</p>
+                      <span className="rounded bg-[#f1f5fb] px-2 py-0.5 text-[9px] text-[#64748b]">ORDER {c.sortOrder ?? 100}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${published ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#dbe2ec] bg-[#f8fafc] text-[#64748b]"}`}>{published ? "LIVE" : "HIDDEN"}</span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-[#0f4c81]">{categoryHref(c.slug)}</p>
+                    <p className="mt-1 truncate text-xs text-[#64748b]">{c.description}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Action onClick={() => { setSelectedSlugState(c.slug); startEdit(c); }} label="Edit" icon={FiEdit3} />
+                      <Action onClick={() => manageProducts(c.slug)} label="Manage Products" icon={FiBox} />
+                      <Action onClick={() => void togglePublish(c)} label={published ? "Unpublish" : "Publish"} icon={FiSettings} />
+                      <Action onClick={() => remove("category", c.id)} label="Delete" icon={FiTrash2} danger />
+                      <a href={categoryHref(c.slug)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-[#dbe2ec] px-2 py-1 text-[9px] font-black text-[#0f4c81]">
+                        <FiExternalLink /> VIEW
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            }) : <Empty text="No categories yet. Create one above to add a storefront collection." />}
           </div>
         </section>
       </div>
 
-      {selectedCategory && selectedCategory.slug !== "uc" && (
-        <ProductsManager
-          heading={`${selectedCategory.name} Products`}
-          fixedCategorySlug={selectedCategory.slug}
-          products={products.filter((p) => p.categorySlug === selectedCategory.slug)}
-          categories={categories}
-          create={create}
-          update={update}
-          remove={remove}
-        />
-      )}
-      {selectedCategory?.slug === "uc" && (
-        <div className="rounded-xl border border-[#cfe3f7] bg-[#f3f8fe] p-5 text-sm text-[#64748b]">
-          UC products are managed in the dedicated <strong className="text-[#0f4c81]">UC Packages</strong> tab. Category name, image, URL and description are edited above.
-        </div>
-      )}
+      <div ref={productsPanelRef} className="scroll-mt-28">
+        {selectedCategory ? (
+          selectedCategory.slug === "uc" ? (
+            <div className="rounded-xl border border-[#cfe3f7] bg-[#f3f8fe] p-5 text-sm text-[#64748b]">
+              UC products are managed in the dedicated <strong className="text-[#0f4c81]">UC Packages</strong> tab. Category name, image, URL and description are edited above.
+            </div>
+          ) : (
+            <ProductsManager
+              key={selectedCategory.slug}
+              heading={selectedCategory.name}
+              fixedCategorySlug={selectedCategory.slug}
+              products={products.filter(
+                (p) => canonicalCategorySlug(p.categorySlug) === canonicalCategorySlug(selectedCategory.slug),
+              )}
+              categories={categories}
+              create={create}
+              update={update}
+              remove={remove}
+            />
+          )
+        ) : (
+          <div className="rounded-xl border border-dashed border-[#c7d2e0] bg-white/60 p-10 text-center text-sm text-[#64748b]">
+            Create a category first, then use <strong className="text-[#0f172a]">Manage Products</strong> to publish listings into it.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -830,22 +887,25 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
     badge: "",
     features: "",
     sortOrder: "0",
+    isPublished: true,
   });
   const [form, setForm] = useState(makeEmpty);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const submit = async () => {
-    let image = form.image.trim();
-    const driveMatch = image.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveMatch) image = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+    const categorySlug = fixedCategorySlug ?? form.categorySlug;
+    if (!categorySlug || !form.title.trim()) return;
     const data = {
-      ...form,
-      image,
-      categorySlug: fixedCategorySlug ?? form.categorySlug,
+      categorySlug,
+      title: form.title.trim(),
       price: Number(form.price),
-      sortOrder: Number(form.sortOrder),
+      image: form.image,
+      badge: form.badge,
       features: form.features.split("\n").map((x) => x.trim()).filter(Boolean),
-      isActive: true,
+      sortOrder: Number(form.sortOrder),
+      // Publish state is explicit. The old code always sent `isActive: true`,
+      // which silently republished hidden products on every edit.
+      isPublished: form.isPublished,
     };
     const ok = editingId
       ? await update("product", editingId, data)
@@ -866,13 +926,19 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
       badge: item.badge ?? "",
       features: item.features.join("\n"),
       sortOrder: String(item.sortOrder ?? 0),
+      isPublished: item.isPublished ?? item.isActive !== false,
     });
+  };
+
+  const togglePublish = async (item: Product) => {
+    const published = item.isPublished ?? item.isActive !== false;
+    await update("product", item.id, { isPublished: !published });
   };
 
   return (
     <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]">
       <section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5">
-        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? `Edit ${heading} Product` : `Add ${heading} Product`} copy="Changes save to Neon and appear on the public homepage immediately." />
+        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? `Edit ${heading} Product` : `Add ${heading} Product`} copy="Published products are returned by /api/store immediately and render on the category page and homepage shelf." />
         <div className="mt-5 grid gap-3">
           {!fixedCategorySlug && (
             <select value={form.categorySlug} onChange={(e) => setForm({ ...form, categorySlug: e.target.value })} className="admin-input">
@@ -880,14 +946,21 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
               {categories.filter((c) => c.slug !== "uc").map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
             </select>
           )}
-          {fixedCategorySlug && <div className="rounded-lg border border-[#cfe3f7] bg-[#f3f8fe] px-3 py-2 text-xs font-bold text-[#0f4c81]">Category: {heading}</div>}
+          {fixedCategorySlug && <div className="rounded-lg border border-[#cfe3f7] bg-[#f3f8fe] px-3 py-2 text-xs font-bold text-[#0f4c81]">Category: {heading} · {categoryHref(fixedCategorySlug)}</div>}
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Product / Deal Title" className="admin-input" />
           <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder="Price in INR" className="admin-input" />
           <ImageInput value={form.image} onChange={(image) => setForm({ ...form, image })} label="PRODUCT IMAGE" />
           <input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="Badge Label (example: HOT DEAL)" className="admin-input" />
           <input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} type="number" placeholder="Product order" className="admin-input" />
           <textarea value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} placeholder="Features — one per line" rows={5} className="admin-input resize-none py-3" style={{ height: "auto" }} />
-          <button onClick={submit} className="admin-primary">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE PRODUCT" : "PUBLISH PRODUCT"}</button>
+          <label className="flex items-center gap-2 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3 py-2 text-xs font-bold text-[#334155]">
+            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[#0f4c81]" />
+            Publish on the live storefront
+          </label>
+          <button onClick={submit} disabled={!form.title.trim()} className="admin-primary disabled:opacity-50">
+            {editingId ? <FiEdit3 /> : <FiPlus />}
+            {editingId ? (form.isPublished ? "SAVE PRODUCT" : "SAVE AS DRAFT") : (form.isPublished ? "PUBLISH PRODUCT" : "SAVE DRAFT")}
+          </button>
           {editingId && <button onClick={() => { setEditingId(null); setForm(makeEmpty()); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL EDITING</button>}
         </div>
       </section>
@@ -895,24 +968,137 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
       <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
         <ListHeader title={`${heading} Deals`} count={products.length} />
         <div className="divide-y divide-[#e5e8ef]">
-          {products.length ? products.map((p) => (
-            <div className="flex gap-3 p-4" key={p.id}>
-              <img src={p.image} alt={p.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-              <div className="min-w-0 grow">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-black text-[#0f172a]">{p.title}</p>
-                  {p.badge && <span className="rounded bg-[#e0eefb] px-2 py-0.5 text-[9px] font-black text-[#0f4c81]">{p.badge}</span>}
-                </div>
-                <p className="mt-1 text-sm font-black text-[#0f4c81]">{formatINR(p.price)}</p>
-                <p className="mt-1 text-[10px] text-[#64748b]">{p.features.length} features · Order {p.sortOrder ?? 0} · {p.isActive === false ? "Disabled" : "Live"}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Action onClick={() => startEdit(p)} label="Edit" icon={FiEdit3} />
-                  <Action onClick={() => update("product", p.id, { ...p, isActive: p.isActive === false })} label={p.isActive === false ? "Enable" : "Disable"} icon={FiSettings} />
-                  <Action onClick={() => remove("product", p.id)} label="Delete" icon={FiTrash2} danger />
+          {products.length ? products.map((p) => {
+            const published = p.isPublished ?? p.isActive !== false;
+            return (
+              <div className={`flex gap-3 p-4 ${published ? "" : "bg-[#f8fafc]"}`} key={p.id}>
+                <img src={p.image || images.logo} alt={p.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                <div className="min-w-0 grow">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-black text-[#0f172a]">{p.title}</p>
+                    {p.badge && <span className="rounded bg-[#e0eefb] px-2 py-0.5 text-[9px] font-black text-[#0f4c81]">{p.badge}</span>}
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${published ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{published ? "LIVE" : "DRAFT"}</span>
+                  </div>
+                  <p className="mt-1 text-sm font-black text-[#0f4c81]">{formatINR(p.price)}</p>
+                  <p className="mt-1 text-[10px] text-[#64748b]">{p.features.length} features · Category {p.categorySlug} · Order {p.sortOrder ?? 0}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Action onClick={() => startEdit(p)} label="Edit" icon={FiEdit3} />
+                    <Action onClick={() => void togglePublish(p)} label={published ? "Unpublish" : "Publish"} icon={FiSettings} />
+                    <Action onClick={() => remove("product", p.id)} label="Delete" icon={FiTrash2} danger />
+                    <a href={categoryHref(p.categorySlug)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-[#dbe2ec] px-2 py-1 text-[9px] font-black text-[#0f4c81]">
+                      <FiExternalLink /> VIEW
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          )) : <Empty text={`No ${heading} products yet. Add your first deal from the form.`} />}
+            );
+          }) : <Empty text={`No ${heading} products yet. Add your first deal from the form.`} />}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/**
+ * Pages workspace.
+ *
+ * Pages are editorial content, NOT categories. They are stored in the
+ * `pages` table and served from `/pages/[slug]`; this form never asks for a
+ * category, which is what stops a new page from appearing "under categories".
+ */
+function PagesManager({ pages, create, update, remove }: { pages: StorePage[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
+  const empty = { title: "", slug: "", content: "", image: "", showInNav: true, sortOrder: "100", isPublished: true };
+  const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const submit = async () => {
+    const slug = normalizeSlug(form.slug || form.title);
+    if (!form.title.trim() || !slug) return;
+    const data = {
+      title: form.title.trim(),
+      slug,
+      content: form.content,
+      image: form.image,
+      showInNav: form.showInNav,
+      sortOrder: Number(form.sortOrder),
+      isPublished: form.isPublished,
+    };
+    const ok = editingId ? await update("page", editingId, data) : await create("page", data);
+    if (ok) {
+      setForm(empty);
+      setEditingId(null);
+    }
+  };
+
+  const startEdit = (page: StorePage) => {
+    setEditingId(page.id);
+    setForm({
+      title: page.title,
+      slug: page.slug,
+      content: page.content ?? "",
+      image: page.image ?? "",
+      showInNav: page.showInNav !== false,
+      sortOrder: String(page.sortOrder ?? 100),
+      isPublished: page.isPublished ?? page.isActive !== false,
+    });
+  };
+
+  const togglePublish = async (page: StorePage) => {
+    const published = page.isPublished ?? page.isActive !== false;
+    await update("page", page.id, { isPublished: !published });
+  };
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]">
+      <section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5">
+        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit Page" : "Create Page"} copy="Pages get their own clean route at /pages/<slug>. They never appear as a product category." />
+        <div className="mt-5 grid gap-3">
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value, slug: editingId ? form.slug : normalizeSlug(e.target.value) })} placeholder="Page title (example: Delivery Policy)" className="admin-input" />
+          <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="URL slug (example: delivery-policy)" className="admin-input" />
+          <div className="rounded-lg border border-[#cfe3f7] bg-[#f3f8fe] px-3 py-2 font-mono text-[11px] font-bold text-[#0f4c81]">/pages/{normalizeSlug(form.slug || form.title) || "page-slug"}</div>
+          <ImageInput value={form.image} onChange={(image) => setForm({ ...form, image })} label="PAGE HEADER IMAGE (OPTIONAL)" />
+          <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Page content — separate paragraphs with a blank line" rows={8} className="admin-input resize-none py-3" style={{ height: "auto" }} />
+          <input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} type="number" placeholder="Navigation order" className="admin-input" />
+          <label className="flex items-center gap-2 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3 py-2 text-xs font-bold text-[#334155]">
+            <input type="checkbox" checked={form.showInNav} onChange={(e) => setForm({ ...form, showInNav: e.target.checked })} className="accent-[#0f4c81]" />
+            Show this page in the store header and footer
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3 py-2 text-xs font-bold text-[#334155]">
+            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[#0f4c81]" />
+            Publish this page
+          </label>
+          <button onClick={submit} disabled={!form.title.trim()} className="admin-primary disabled:opacity-50">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE PAGE" : "CREATE PAGE"}</button>
+          {editingId && <button onClick={() => { setEditingId(null); setForm(empty); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL EDITING</button>}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
+        <ListHeader title="Website Pages" count={pages.length} />
+        <div className="divide-y divide-[#e5e8ef]">
+          {pages.length ? pages.map((page) => {
+            const published = page.isPublished ?? page.isActive !== false;
+            return (
+              <div className={`flex gap-3 p-4 ${published ? "" : "bg-[#f8fafc]"}`} key={page.id}>
+                <div className="min-w-0 grow">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-black text-[#0f172a]">{page.title}</p>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${published ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{published ? "LIVE" : "DRAFT"}</span>
+                    {page.showInNav && <span className="rounded-full border border-[#cfe3f7] bg-[#f3f8fe] px-2 py-0.5 text-[9px] font-black text-[#0f4c81]">IN NAV</span>}
+                  </div>
+                  <p className="mt-1 font-mono text-xs text-[#0f4c81]">{pageHref(page.slug)}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-[#64748b]">{page.content || "No content yet."}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Action onClick={() => startEdit(page)} label="Edit" icon={FiEdit3} />
+                    <Action onClick={() => void togglePublish(page)} label={published ? "Unpublish" : "Publish"} icon={FiSettings} />
+                    <Action onClick={() => remove("page", page.id)} label="Delete" icon={FiTrash2} danger />
+                    <a href={pageHref(page.slug)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-[#dbe2ec] px-2 py-1 text-[9px] font-black text-[#0f4c81]">
+                      <FiExternalLink /> VIEW
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          }) : <Empty text="No custom pages yet. Create a page to give it its own /pages/<slug> route." />}
         </div>
       </section>
     </div>
@@ -920,15 +1106,58 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
 }
 
 function UcManager({ packs, create, update, remove }: { packs: UcPackageItem[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {
-  const empty = { price: "", ucAmount: "", bonusLabel: "" };
+  const empty = { price: "", ucAmount: "", bonusLabel: "", isPublished: true };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
+
   const submit = async () => {
-    const data = { ...form, price: Number(form.price), ucAmount: Number(form.ucAmount), isActive: true };
+    const data = { ...form, price: Number(form.price), ucAmount: Number(form.ucAmount), isPublished: form.isPublished };
     const ok = editingId ? await update("uc", editingId, data) : await create("uc", data);
     if (ok) { setForm(empty); setEditingId(null); }
   };
-  return <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]"><section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5"><PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit UC package" : "Add UC package"} copy="A package becomes visible in the UC store immediately." /><div className="mt-5 grid gap-3"><input value={form.ucAmount} onChange={(e) => setForm({ ...form, ucAmount: e.target.value })} type="number" placeholder="UC quantity" className="admin-input" /><input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder="Price in INR" className="admin-input" /><input value={form.bonusLabel} onChange={(e) => setForm({ ...form, bonusLabel: e.target.value })} placeholder="Badge label (e.g. BEST VALUE)" className="admin-input" /><button onClick={submit} className="admin-primary">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE CHANGES" : "ADD UC PACKAGE"}</button>{editingId && <button onClick={() => { setEditingId(null); setForm(empty); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL EDITING</button>}</div></section><section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white"><ListHeader title="UC packages" count={packs.length} /><div className="divide-y divide-[#e5e8ef]">{packs.length ? packs.map((p) => <div className="flex flex-wrap items-center justify-between gap-3 p-4" key={p.id}><div><p className="text-sm font-black text-[#0f172a]">{p.ucAmount.toLocaleString("en-IN")} UC</p><p className="mt-1 text-xs font-bold text-[#0f4c81]">{formatINR(p.price)} · {p.bonusLabel ?? "STANDARD"}</p></div><div className="flex gap-2"><Action onClick={() => { setEditingId(p.id); setForm({ price: String(p.price), ucAmount: String(p.ucAmount), bonusLabel: p.bonusLabel ?? "" }); }} label="Edit" icon={FiEdit3} /><Action onClick={() => update("uc", p.id, { price: p.price, ucAmount: p.ucAmount, bonusLabel: p.bonusLabel, isActive: p.isActive === false })} label={p.isActive === false ? "Enable" : "Disable"} icon={FiSettings} /><Action onClick={() => remove("uc", p.id)} label="Delete" icon={FiTrash2} danger /></div></div>) : <Empty text="No UC packages have been added yet." />}</div></section></div>;
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[.75fr_1.25fr]">
+      <section className="h-fit rounded-xl border border-[#e5e8ef] bg-white p-5">
+        <PanelTitle icon={editingId ? FiEdit3 : FiPlus} title={editingId ? "Edit UC package" : "Add UC package"} copy="A published package becomes visible in the UC store immediately." />
+        <div className="mt-5 grid gap-3">
+          <input value={form.ucAmount} onChange={(e) => setForm({ ...form, ucAmount: e.target.value })} type="number" placeholder="UC quantity" className="admin-input" />
+          <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} type="number" placeholder="Price in INR" className="admin-input" />
+          <input value={form.bonusLabel} onChange={(e) => setForm({ ...form, bonusLabel: e.target.value })} placeholder="Badge label (e.g. BEST VALUE)" className="admin-input" />
+          <label className="flex items-center gap-2 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] px-3 py-2 text-xs font-bold text-[#334155]">
+            <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-[#0f4c81]" />
+            Publish on the live storefront
+          </label>
+          <button onClick={submit} className="admin-primary">{editingId ? <FiEdit3 /> : <FiPlus />} {editingId ? "SAVE CHANGES" : "ADD UC PACKAGE"}</button>
+          {editingId && <button onClick={() => { setEditingId(null); setForm(empty); }} className="text-[10px] font-black tracking-[.12em] text-[#64748b] hover:text-[#0f172a]">CANCEL EDITING</button>}
+        </div>
+      </section>
+      <section className="overflow-hidden rounded-xl border border-[#e5e8ef] bg-white">
+        <ListHeader title="UC packages" count={packs.length} />
+        <div className="divide-y divide-[#e5e8ef]">
+          {packs.length ? packs.map((p) => {
+            const published = p.isPublished ?? p.isActive !== false;
+            return (
+              <div className={`flex flex-wrap items-center justify-between gap-3 p-4 ${published ? "" : "bg-[#f8fafc]"}`} key={p.id}>
+                <div>
+                  <p className="text-sm font-black text-[#0f172a]">{p.ucAmount.toLocaleString("en-IN")} UC</p>
+                  <p className="mt-1 text-xs font-bold text-[#0f4c81]">{formatINR(p.price)} · {p.bonusLabel ?? "STANDARD"} · {published ? "LIVE" : "DRAFT"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Action onClick={() => {
+                    setEditingId(p.id);
+                    setForm({ price: String(p.price), ucAmount: String(p.ucAmount), bonusLabel: p.bonusLabel ?? "", isPublished: published });
+                  }} label="Edit" icon={FiEdit3} />
+                  <Action onClick={() => void update("uc", p.id, { isPublished: !published })} label={published ? "Unpublish" : "Publish"} icon={FiSettings} />
+                  <Action onClick={() => remove("uc", p.id)} label="Delete" icon={FiTrash2} danger />
+                </div>
+              </div>
+            );
+          }) : <Empty text="No UC packages have been added yet." />}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function CouponManager({ coupons, create, update, remove }: { coupons: Coupon[]; create: CatalogMutation; update: CatalogUpdate; remove: CatalogDelete }) {

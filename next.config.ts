@@ -11,9 +11,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Short CDN cache + stale-while-revalidate for the public catalog API.
+        /**
+         * The public catalog is admin-editable and must never be served stale
+         * by a CDN. A previous `s-maxage=30` rule (plus 120s of
+         * stale-while-revalidate) kept newly published products and
+         * re-enabled categories invisible long after the database write.
+         */
         source: "/api/store",
-        headers: [{ key: "Cache-Control", value: "public, s-maxage=30, stale-while-revalidate=120" }],
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, max-age=0" },
+          { key: "CDN-Cache-Control", value: "no-store" },
+          { key: "Vercel-CDN-Cache-Control", value: "no-store" },
+        ],
       },
     ];
   },

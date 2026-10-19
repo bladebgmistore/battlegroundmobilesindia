@@ -7,7 +7,9 @@ import { useForm } from "react-hook-form";
 import { FaWhatsapp } from "react-icons/fa";
 import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield, FiShoppingBag } from "react-icons/fi";
 import { DISCOUNT_PERCENT, formatINR, mrpOf, savingsOf } from "@/lib/store-data";
+import { canonicalCategorySlug } from "@/lib/catalog";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { useCart } from "@/components/cart-provider";
 import { initiateCheckout, viewContent } from "@/lib/fpixel";
@@ -34,30 +36,21 @@ export default function CheckoutPage() {
   // mid-checkout) — flips the page back to the sign-in gate.
   const [authRequired, setAuthRequired] = useState(false);
   // If the product's category was disabled in admin, block checkout entirely
-  // so no Checkout button can route to a usable form.
-  const [categoryBlocked, setCategoryBlocked] = useState(false);
-  const [categoryChecked, setCategoryChecked] = useState(false);
+  // so no Checkout button can route to a usable form. The check is derived
+  // from the shared catalog snapshot and only blocks when we actually have a
+  // category list — a failed `/api/store` request must not lock checkout.
+  const { categories, loading: catalogLoading } = useStoreCatalog();
+  const categoryBlocked =
+    Boolean(categorySlug) &&
+    !catalogLoading &&
+    categories.length > 0 &&
+    !categories.some((category) => canonicalCategorySlug(category.slug) === canonicalCategorySlug(categorySlug));
 
   // Cart checkout (`?cart=1`, produced by the slide-over drawer): the same page
   // and the same order API, but the line items are listed from the cart and the
   // cart is emptied once the order has been registered.
   const cartCheckout = params.get("cart") === "1";
   const { items: cartItems, isReady: cartReady, clear: clearCart } = useCart();
-
-  useEffect(() => {
-    if (!categorySlug) {
-      setCategoryChecked(true);
-      return;
-    }
-    fetch("/api/store")
-      .then((r) => r.json())
-      .then((d: { categories?: { slug: string }[] } | null) => {
-        const activeSlugs = new Set((d?.categories ?? []).map((c) => c.slug));
-        if (d?.categories) setCategoryBlocked(!activeSlugs.has(categorySlug));
-      })
-      .catch(() => undefined)
-      .finally(() => setCategoryChecked(true));
-  }, [categorySlug]);
 
   // Prefill name/WhatsApp if the customer is signed in (order is linked to the
   // account server-side via the session cookie).

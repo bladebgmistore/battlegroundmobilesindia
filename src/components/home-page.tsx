@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { FaBolt, FaWhatsapp } from "react-icons/fa";
-import { FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiChevronRight, FiLock, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
-import { faqs, Product, Category, UcPackageItem } from "@/lib/store-data";
+import { FiArrowRight, FiCheck, FiCheckCircle, FiChevronDown, FiChevronRight, FiLock, FiRefreshCw, FiShield, FiTrendingUp, FiUsers } from "react-icons/fi";
+import { faqs, Product, Category } from "@/lib/store-data";
+import { categoryHref, categoryLabel, isVisible } from "@/lib/catalog";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { PriceTag } from "@/components/price-tag";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { useStoreCatalog } from "@/lib/use-store-catalog";
 import { useStoreSettings } from "@/lib/use-store-settings";
 import { FeedbackSection } from "@/components/feedback-section";
 import { addToCart } from "@/lib/fpixel";
@@ -57,11 +59,14 @@ function CategoryShelf({ category, products }: { category: Category; products: P
             <p className="text-[10px] font-bold tracking-[.2em] text-[#0f4c81]">{category.name.toUpperCase()} STORE</p>
             <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-[-.045em] text-[#0f172a] sm:text-4xl">{category.name}</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-[#64748b]">{category.description}</p>
-            {category.slug === "accounts" && (
-              <Link href="/accounts" className="mt-5 inline-flex items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]">
-                VIEW ALL ACCOUNTS <FiArrowRight />
-              </Link>
-            )}
+            {/* Every category has a clean public route — including categories
+                created after this build shipped. */}
+            <Link
+              href={categoryHref(category.slug)}
+              className="mt-5 inline-flex items-center gap-2 text-xs font-bold tracking-[.1em] text-[#0f4c81]"
+            >
+              VIEW ALL {categoryLabel(category).toUpperCase()} <FiArrowRight />
+            </Link>
           </div>
         </div>
 
@@ -118,28 +123,21 @@ function CategoryShelf({ category, products }: { category: Category; products: P
 }
 
 export default function HomePage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [productList, setProductList] = useState<Product[]>([]);
-  const [ucList, setUcList] = useState<UcPackageItem[]>([]);
-  const [storeLoaded, setStoreLoaded] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const { whatsapp: whatsappUrl, whatsappEnabled, settings } = useStoreSettings();
+  const {
+    categories: rawCategories,
+    products: rawProducts,
+    ucPackages: rawUcPackages,
+    loading,
+    error,
+    refresh,
+  } = useStoreCatalog();
 
-  useEffect(() => {
-    fetch(`/api/store?t=${Date.now()}`, { cache: "no-store" })
-      .then((r) => r.json().catch(() => null))
-      .then((data: { categories?: Category[]; products?: Product[]; ucPackages?: UcPackageItem[] } | null) => {
-        setCategories(Array.isArray(data?.categories) ? data.categories : []);
-        setProductList(Array.isArray(data?.products) ? data.products : []);
-        setUcList(Array.isArray(data?.ucPackages) ? data.ucPackages : []);
-      })
-      .catch(() => {
-        setCategories([]);
-        setProductList([]);
-        setUcList([]);
-      })
-      .finally(() => setStoreLoaded(true));
-  }, []);
+  const categories = useMemo(() => rawCategories.filter(isVisible), [rawCategories]);
+  const productList = useMemo(() => rawProducts.filter(isVisible), [rawProducts]);
+  const ucList = useMemo(() => rawUcPackages.filter(isVisible), [rawUcPackages]);
+  const storeLoaded = !loading;
 
   const accountCategory = categories.find((category) => category.slug === "accounts");
   const ucCategory = categories.find((category) => category.slug === "uc");
@@ -153,10 +151,16 @@ export default function HomePage() {
    */
   const heroLinks = useMemo(() => {
     const links: { slug: string; label: string; href: string }[] = [];
-    if (accountCategory) links.push({ slug: "accounts", label: "EXPLORE ACCOUNTS", href: "/accounts" });
-    if (ucCategory) links.push({ slug: "uc", label: "EXPLORE UC", href: "/uc-purchase" });
+    if (accountCategory) links.push({ slug: "accounts", label: "EXPLORE ACCOUNTS", href: categoryHref("accounts") });
+    if (ucCategory) links.push({ slug: "uc", label: "EXPLORE UC", href: categoryHref("uc") });
     for (const category of otherCategories) {
-      links.push({ slug: category.slug, label: (category.name || category.slug).toUpperCase(), href: `#${category.slug}` });
+      links.push({
+        slug: category.slug,
+        label: (categoryLabel(category) || category.slug).toUpperCase(),
+        // A real route, never a `#fragment`: new categories must be linkable
+        // and shareable from the moment they are created.
+        href: categoryHref(category.slug),
+      });
     }
     return links.slice(0, 4);
   }, [accountCategory, ucCategory, otherCategories]);
@@ -245,11 +249,80 @@ export default function HomePage() {
           </section>
         )}
 
-        {storeLoaded && categories.length === 0 && (
+        {storeLoaded && error && (
+          <section className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+            <div className="premium-card p-8 text-center" data-aos="fade-up">
+              <p className="text-sm font-black text-[#0f172a]">The live catalog could not be loaded.</p>
+              <p className="mt-2 text-xs text-[#64748b]">
+                This is usually a temporary database connection issue. Categories and published products will return as
+                soon as the catalog API responds.
+              </p>
+              <button onClick={() => void refresh()} className="btn-outline mt-5 inline-flex items-center gap-2">
+                <FiRefreshCw /> RETRY
+              </button>
+            </div>
+          </section>
+        )}
+
+        {storeLoaded && !error && categories.length === 0 && (
           <section className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
             <div className="premium-card p-8 text-center" data-aos="fade-up">
               <p className="text-sm font-black text-[#0f172a]">No live catalog data found.</p>
               <p className="mt-2 text-xs text-[#64748b]">Add active categories and products in the admin panel to show them here.</p>
+            </div>
+          </section>
+        )}
+
+        {/* Catalog index — every active category, including ones created from
+            the admin panel after this build. This is what keeps the catalog
+            navigation and the homepage in sync. */}
+        {categories.length > 0 && (
+          <section className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold tracking-[.2em] text-[#0f4c81]">SHOP BY CATALOG</p>
+                <h2 className="mt-3 text-3xl font-black tracking-[-.045em] text-[#0f172a]">Every collection, one route.</h2>
+              </div>
+              <p className="max-w-sm text-xs leading-5 text-[#64748b]">
+                New categories created in the admin panel appear here automatically with their own public page.
+              </p>
+            </div>
+            <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {categories.map((category, index) => {
+                const count = productList.filter((product) => product.categorySlug === category.slug).length;
+                return (
+                  <Link
+                    key={category.id}
+                    href={categoryHref(category.slug)}
+                    data-aos="fade-up"
+                    data-aos-delay={Math.min(index * 60, 240)}
+                    className="group relative flex min-h-[190px] flex-col justify-end overflow-hidden rounded-2xl border border-[#dbe2ec] bg-[#eef1f6] p-5"
+                  >
+                    {category.image ? (
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="absolute inset-0 h-full w-full object-cover opacity-45 transition duration-700 group-hover:scale-105 group-hover:opacity-55"
+                      />
+                    ) : (
+                      <span className="absolute inset-0 bg-gradient-to-br from-[#e0f2fe] via-white to-[#eef1f6]" />
+                    )}
+                    <span className="absolute inset-0 bg-gradient-to-t from-white via-white/70 to-transparent" />
+                    <span className="relative">
+                      <span className="text-[9px] font-black tracking-[.18em] text-[#0f4c81]">
+                        {count} {count === 1 ? "LISTING" : "LISTINGS"}
+                      </span>
+                      <span className="mt-1 block text-lg font-black leading-tight text-[#0f172a]">{categoryLabel(category)}</span>
+                      <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-[#64748b]">
+                        {category.description || "Open the collection to see every published listing."}
+                      </span>
+                      <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[.14em] text-[#0f4c81]">
+                        OPEN CATEGORY <FiArrowRight />
+                      </span>
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}

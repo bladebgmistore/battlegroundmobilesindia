@@ -2,8 +2,10 @@
  * Google OAuth 2.0 (Authorization Code + PKCE) helpers.
  *
  * Pure `fetch` + Web Crypto, so it runs on both the Node and Edge runtimes.
- * Credentials come from env vars — never hardcode them in a client bundle.
+ * Credentials are resolved centrally in `@/lib/env` — never hardcode them in a
+ * client bundle.
  */
+import { getGoogleOAuthConfig, getGoogleRedirectUri } from "@/lib/env";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -18,27 +20,24 @@ export type GoogleProfile = {
 };
 
 export function getGoogleClientId(): string {
-  return process.env.GOOGLE_CLIENT_ID ?? "";
+  return getGoogleOAuthConfig().clientId;
 }
 
 export function getGoogleClientSecret(): string {
-  return process.env.GOOGLE_CLIENT_SECRET ?? "";
+  return getGoogleOAuthConfig().clientSecret;
 }
 
 export function isGoogleConfigured(): boolean {
-  return Boolean(getGoogleClientId() && getGoogleClientSecret());
+  return getGoogleOAuthConfig().isConfigured;
 }
 
 /**
  * The redirect URI must match the one registered in Google Cloud Console.
- * Set GOOGLE_REDIRECT_URI in production; we fall back to the request origin
- * so local dev / preview deploys keep working.
+ * Resolution order: `GOOGLE_REDIRECT_URI` → `NEXTAUTH_URL` + callback path →
+ * the request origin (so local dev / preview deploys keep working).
  */
-export function getRedirectUri(requestUrl: string): string {
-  const configured = process.env.GOOGLE_REDIRECT_URI;
-  if (configured) return configured;
-  const origin = new URL(requestUrl).origin;
-  return `${origin}/auth/google/callback`;
+export function getRedirectUri(requestUrl?: string): string {
+  return getGoogleRedirectUri(requestUrl);
 }
 
 function randomUrlSafe(byteLength = 32): string {

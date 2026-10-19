@@ -1,9 +1,18 @@
 /**
  * Central authentication configuration.
  *
- * Edge-safe: this file only reads process.env and exports constants because it
- * is also imported by `src/proxy.ts`.
+ * Edge-safe: this file only reads process.env (via `@/lib/env`) and exports
+ * constants because it is also imported by `src/proxy.ts`.
+ *
+ * Environment variables consumed here (see `.env.example` for the full list):
+ *   - `AUTH_SECRET` / `NEXTAUTH_SECRET` — session cookie signing key
+ *   - `OWNER_EMAIL` — owner Google account allow-list
+ * Clerk (`CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) and the
+ * Google OAuth keys (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+ * `GOOGLE_REDIRECT_URI`) are resolved in `@/lib/env` /
+ * `@/lib/google-oauth`.
  */
+import { getAuthSecret as resolveAuthSecret, getOwnerEmails } from "@/lib/env";
 
 /** Name of the signed, HTTP-only session cookie. */
 export const SESSION_COOKIE = "bgmi_session";
@@ -41,11 +50,8 @@ export {
   roleHasScope,
 };
 
-/** Owner Google accounts — comma-separated email allow-list. */
-export const OWNER_EMAILS: string[] = (process.env.OWNER_EMAIL ?? "manavjeph800@gmail.com")
-  .split(",")
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+/** Owner Google accounts — comma-separated email allow-list (`OWNER_EMAIL`). */
+export const OWNER_EMAILS: string[] = getOwnerEmails();
 
 export function isOwnerEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -56,14 +62,12 @@ export function roleForEmail(email: string | null | undefined): string {
   return isOwnerEmail(email) ? ROLE_OWNER : ROLE_CUSTOMER;
 }
 
-/** HMAC key used to sign application session cookies. */
+/**
+ * HMAC key used to sign application session cookies.
+ * `AUTH_SECRET` (canonical) → `NEXTAUTH_SECRET` → dev-only fallback.
+ */
 export function getAuthSecret(): string {
-  return (
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.GOOGLE_CLIENT_SECRET ||
-    "bgmi-dev-only-insecure-secret-change-me"
-  );
+  return resolveAuthSecret();
 }
 
 /** Pages that can be browsed without signing in. */

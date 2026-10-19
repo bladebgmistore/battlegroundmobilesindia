@@ -1,44 +1,80 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  getClerkConfig,
+  getDatabaseUrl,
+  getDirectDatabaseUrl,
+  getGoogleOAuthConfig,
+  getGoogleRedirectUri,
+  getNeonProjectId,
+  getNextAuthUrl,
+  getOwnerEmails,
+  isAuthSecretConfigured,
+  isOwnerEmailConfigured,
+} from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Public Google OAuth configuration diagnostic. Never exposes the client secret. */
+/**
+ * Public configuration diagnostic for the deployed environment.
+ *
+ * Reports which of the variables Vercel is expected to provide are present
+ * (see `.env.example`). It never returns any secret value — only booleans and
+ * a masked client-id preview.
+ */
 export async function GET(request: NextRequest) {
-  const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? "";
-  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
-  const ownerEmail = process.env.OWNER_EMAIL ?? "";
-  const databaseUrl = process.env.DATABASE_URL ?? "";
+  const google = getGoogleOAuthConfig();
+  const clerk = getClerkConfig();
+  const authSecretConfigured = isAuthSecretConfigured();
+  const ownerEmails = getOwnerEmails();
+  const databaseUrl = getDatabaseUrl() ?? "";
+  const directDatabaseUrl = getDirectDatabaseUrl() ?? "";
+  const nextAuthUrl = getNextAuthUrl();
   const origin = request.nextUrl.origin;
-  const effectiveRedirectUri = redirectUri || `${origin}/auth/google/callback`;
+  const effectiveRedirectUri = getGoogleRedirectUri(request.url);
 
+  // Anything in this list blocks sign-in or persistence.
   const missing: string[] = [];
-  if (!clientId) missing.push("GOOGLE_CLIENT_ID");
-  if (!clientSecret) missing.push("GOOGLE_CLIENT_SECRET");
-  if (!authSecret) missing.push("AUTH_SECRET");
-  if (!databaseUrl) missing.push("DATABASE_URL");
+  if (!google.clientId) missing.push("GOOGLE_CLIENT_ID");
+  if (!google.clientSecret) missing.push("GOOGLE_CLIENT_SECRET");
+  if (!authSecretConfigured) missing.push("AUTH_SECRET");
+  if (!databaseUrl) missing.push("BGMISTORE_DATABASE_URL");
+  if (!isOwnerEmailConfigured()) missing.push("OWNER_EMAIL");
 
   return NextResponse.json(
     {
       ready: missing.length === 0,
       missing,
       checks: {
-        GOOGLE_CLIENT_ID: Boolean(clientId),
-        GOOGLE_CLIENT_SECRET: Boolean(clientSecret),
-        GOOGLE_REDIRECT_URI: Boolean(redirectUri),
-        AUTH_SECRET: Boolean(authSecret),
-        OWNER_EMAIL: Boolean(ownerEmail),
-        DATABASE_URL: Boolean(databaseUrl),
+        // Database — BGMISTORE_* keys (Vercel Postgres / Neon integration).
+        BGMISTORE_DATABASE_URL: Boolean(databaseUrl),
+        BGMISTORE_DATABASE_URL_UNPOOLED: Boolean(directDatabaseUrl),
+        BGMISTORE_NEON_PROJECT_ID: Boolean(getNeonProjectId()),
+        // Google OAuth 2.0.
+        GOOGLE_CLIENT_ID: Boolean(google.clientId),
+        GOOGLE_CLIENT_SECRET: Boolean(google.clientSecret),
+        GOOGLE_REDIRECT_URI: Boolean(google.redirectUri),
+        // Session / site URL.
+        AUTH_SECRET: authSecretConfigured,
+        NEXTAUTH_URL: Boolean(nextAuthUrl),
+        OWNER_EMAIL: isOwnerEmailConfigured(),
+        // Clerk (reported for parity — the app signs users in with its own
+        // Google OAuth flow, so these keys are optional).
+        CLERK_SECRET_KEY: Boolean(clerk.secretKey),
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: Boolean(clerk.publishableKey),
       },
-      clientIdPreview: clientId ? `${clientId.slice(0, 12)}…${clientId.slice(-24)}` : null,
-      ownerEmail: ownerEmail || "manavjeph800@gmail.com (default)",
+      clerkConfigured: clerk.isConfigured,
+      googleConfigured: google.isConfigured,
+      databaseConfigured: Boolean(databaseUrl),
+      migrationsReady: Boolean(directDatabaseUrl),
+      clientIdPreview: google.clientId ? `${google.clientId.slice(0, 12)}…${google.clientId.slice(-24)}` : null,
+      ownerEmail: ownerEmails[0] ?? null,
       requestOrigin: origin,
+      siteUrl: nextAuthUrl ?? null,
       effectiveRedirectUri,
       hint:
         missing.length === 0
-          ? "Google OAuth is ready. Ensure effectiveRedirectUri exactly matches an Authorized redirect URI on the Google OAuth client."
+          ? "Configuration looks complete. Ensure effectiveRedirectUri exactly matches an Authorized redirect URI on the Google OAuth client."
           : `Add these environment variables in your hosting dashboard and redeploy: ${missing.join(", ")}`,
     },
     { headers: { "Cache-Control": "no-store" } },

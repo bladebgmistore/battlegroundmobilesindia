@@ -108,21 +108,39 @@ Open `http://localhost:3000`
 Copy `.env.example` → `.env.local` and fill it in:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
+BGMISTORE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
+BGMISTORE_DATABASE_URL_UNPOOLED=postgresql://postgres:postgres@127.0.0.1:5432/app_db
 GOOGLE_CLIENT_ID=your-google-oauth-client-id
 GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 GOOGLE_REDIRECT_URI=https://your-domain.example/auth/google/callback
+NEXTAUTH_URL=https://your-domain.example
 AUTH_SECRET=$(openssl rand -base64 32)
 OWNER_EMAIL=manavjeph800@gmail.com
 NEXT_PUBLIC_FACEBOOK_PIXEL_ID=4056208531176598
 ```
+
+Every variable is resolved in one place — `src/lib/env.ts` — so the mapping
+between the hosting dashboard and the code stays auditable:
+
+| Variable | Used for |
+|---|---|
+| `BGMISTORE_DATABASE_URL` | Pooled connection used by the running app |
+| `BGMISTORE_DATABASE_URL_UNPOOLED` | Direct connection used by `drizzle-kit` migrations/DDL |
+| `BGMISTORE_POSTGRES_URL`, `BGMISTORE_POSTGRES_PRISMA_URL`, `BGMISTORE_POSTGRES_URL_NON_POOLING`, `BGMISTORE_POSTGRES_*`, `BGMISTORE_PG*`, `BGMISTORE_PGHOST_UNPOOLED`, `BGMISTORE_NEON_PROJECT_ID` | Vercel/Neon fallbacks and discrete credentials — used when the two keys above are absent |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth 2.0 (Authorization Code + PKCE) |
+| `NEXTAUTH_URL` | Canonical site URL; OAuth redirect base when `GOOGLE_REDIRECT_URI` is omitted |
+| `AUTH_SECRET` (alias `NEXTAUTH_SECRET`) | HMAC key that signs the `bgmi_session` cookie |
+| `OWNER_EMAIL` | Comma-separated owner allow-list (gets the `owner` role) |
+| `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk keys — validated by `/api/auth/config-check` |
+| `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` | Meta Pixel (public by design) |
 
 `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` is public by design (it ships in the browser
 bundle). Blank it out to disable Meta Pixel tracking in that environment — the
 `<MetaPixel />` component then renders nothing. Full walkthrough:
 [META_PIXEL_SETUP.md](./META_PIXEL_SETUP.md).
 
-For production on Netlify / Vercel, add `DATABASE_URL` in the host environment settings, then run:
+For production on Netlify / Vercel, add `BGMISTORE_DATABASE_URL` (and
+`BGMISTORE_DATABASE_URL_UNPOOLED` for migrations) in the host environment settings, then run:
 
 ```bash
 npx drizzle-kit push
@@ -159,13 +177,13 @@ If the database is offline, the storefront still shows default catalog data and 
 
 1. Connect the Git repo
 2. Build command: `npm run build` (already in `netlify.toml`)
-3. Add env var: `DATABASE_URL`
+3. Add env vars: `BGMISTORE_DATABASE_URL` (pooled) + `BGMISTORE_DATABASE_URL_UNPOOLED` (direct, for migrations)
 4. Deploy
 5. After first deploy, push schema once:
    ```bash
    npx drizzle-kit push
    ```
-6. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `AUTH_SECRET`, `OWNER_EMAIL`, and `DATABASE_URL`
+6. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `NEXTAUTH_URL`, `AUTH_SECRET`, and `OWNER_EMAIL`
 7. Register `https://your-domain.example/auth/google/callback` (replace with your domain) as an Authorized redirect URI on the Google OAuth client
 8. Sign in at `/login` with the owner Google account, then open `/admin`
 

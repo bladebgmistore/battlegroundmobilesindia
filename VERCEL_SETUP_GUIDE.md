@@ -7,7 +7,7 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 
 ## Option A — GitHub se deploy (recommended, 2 minute)
 
-1. **PR merge karo**: is branch ka PR (`arena/01a0708a-battlegroundmobilesindia` → `main`) GitHub pe merge kar do, taaki `main` par latest code (Buy-Now-free CTAs + light theme + login-only checkout) aa jaye.
+1. **PR merge karo**: is branch ka PR GitHub pe merge kar do, taaki `main` par latest code aa jaye.
 
 2. **Vercel pe import karo**:
    - [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → `bladebgmistore/battlegroundmobilesindia` select karo
@@ -19,20 +19,34 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 
    | Key | Required | Value |
    |---|---|---|
-   | `DATABASE_URL` | ✅ Yes (production ke liye) | Neon/Postgres connection string (`postgresql://...sslmode=require`) — same jo abhi Netlify pe use ho raha hai |
+   | `BGMISTORE_DATABASE_URL` | ✅ Yes | Neon/Postgres **pooled** connection string (`postgresql://...sslmode=require`) — app yahi use karta hai |
+   | `BGMISTORE_DATABASE_URL_UNPOOLED` | ✅ Yes (migrations) | Neon/Postgres **direct** (non-pooled) connection string — `npx drizzle-kit push` ke liye zaroori (PgBouncer DDL nahi chalata) |
    | `AUTH_SECRET` | ✅ Yes | `openssl rand -base64 32` se banao (session cookie sign hoti hai) |
+   | `NEXTAUTH_URL` | ✅ Yes | `https://battlegroundmobilesindia.shop` (canonical site URL, trailing slash nahi) |
    | `OWNER_EMAIL` | ✅ Yes | `manavjeph800@gmail.com` — sirf isi account ko `/admin` milega |
    | `GOOGLE_CLIENT_ID` | ✅ Yes | `822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com` |
    | `GOOGLE_CLIENT_SECRET` | ✅ Yes | Google Cloud Console wala OAuth client secret |
    | `GOOGLE_REDIRECT_URI` | ✅ Yes | `https://battlegroundmobilesindia.shop/auth/google/callback` |
    | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` | Optional | `4056208531176598` (Meta Pixel — details: `META_PIXEL_SETUP.md`. Khali chhodo to tracking band) |
+   | `CLERK_SECRET_KEY` | Optional | Clerk Dashboard → API keys (server-only) |
+   | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Optional | Clerk publishable key (browser bundle mein jaati hai) |
    | `SMTP_HOST` | Optional | `smtp.gmail.com` (admin OTP email ke liye) |
    | `SMTP_PORT` | Optional | `465` |
    | `SMTP_USER` | Optional | aapki email |
    | `SMTP_PASS` | Optional | Gmail App Password (16-char) |
    | `OTP_FROM` | Optional | `Battleground India Store <you@gmail.com>` |
 
-   > ⚠️ `DATABASE_URL` ke bina site chalti hai lekin **demo fallback mode** mein — orders/users persist nahi honge. Production mein hamesha set karo.
+   > ⚠️ `BGMISTORE_DATABASE_URL` ke bina site chalti hai lekin **demo fallback mode**
+   > mein — orders/users persist nahi honge. Production mein hamesha set karo.
+
+   **Baaki `BGMISTORE_*` keys (fallback):** Vercel ka Postgres/Neon integration ye sab
+   bhi inject karta hai. Inme se koi bhi set ho to woh automatically use hota hai
+   (order niche diya hai) — matlab aap manually kuch add na karna pade:
+   `BGMISTORE_POSTGRES_PRISMA_URL` → `BGMISTORE_POSTGRES_URL` → `BGMISTORE_POSTGRES_URL_NON_POOLING`,
+   aur agar sirf tukde (`BGMISTORE_POSTGRES_USER` / `_PASSWORD` / `_HOST` / `_DATABASE`,
+   `BGMISTORE_PGUSER` / `_PGPASSWORD` / `_PGDATABASE` / `_PGHOST` / `_PGHOST_UNPOOLED`)
+   milen to app khud connection string bana leti hai. Poora mapping:
+   **`src/lib/env.ts`**.
 
 5. **Deploy** dabao — 2-3 min mein live: `https://<project-name>.vercel.app`
 
@@ -48,10 +62,12 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 npm install -g vercel
 vercel login                 # browser se login
 vercel link                  # project link karo
-vercel env add DATABASE_URL         # production DB string paste karo
+vercel env add BGMISTORE_DATABASE_URL            # pooled production DB string
+vercel env add BGMISTORE_DATABASE_URL_UNPOOLED   # direct DB string (migrations)
 vercel env add GOOGLE_CLIENT_ID
 vercel env add GOOGLE_CLIENT_SECRET
 vercel env add GOOGLE_REDIRECT_URI
+vercel env add NEXTAUTH_URL
 vercel env add AUTH_SECRET
 vercel env add OWNER_EMAIL
 vercel --prod                # production deploy
@@ -73,6 +89,31 @@ vercel --prod                # production deploy
 ## Post-deploy checklist
 
 - [ ] `/api/health` 200 de raha hai
+- [ ] `/api/auth/config-check` kholein — `ready: true` hona chahiye; `missing` list khaali honi chahiye
 - [ ] Guest cart → Google sign-in → checkout/order flow test karo (login checkout ke liye **compulsory** hai); verify the OAuth redirect URI in Google Cloud Console
 - [ ] Admin panel (`/admin`) login + catalog save test karo
 - [ ] Payment QR aapke real UPI ID se generate ho raha hai (admin → Payment & Checkout Control)
+- [ ] Naya order aane par Telegram alert aa raha hai (agar `TELEGRAM_BOT_TOKEN` set hai)
+
+---
+
+## Environment variable mapping
+
+Saari env vars ek hi jagah resolve hoti hain — **`src/lib/env.ts`**:
+
+| Group | Variables |
+|---|---|
+| Database (pooled, app) | `BGMISTORE_DATABASE_URL` → `BGMISTORE_POSTGRES_PRISMA_URL` → `BGMISTORE_POSTGRES_URL` |
+| Database (direct, migrations) | `BGMISTORE_DATABASE_URL_UNPOOLED` → `BGMISTORE_POSTGRES_URL_NON_POOLING` |
+| Database (discrete credentials) | `BGMISTORE_POSTGRES_USER` / `_PASSWORD` / `_HOST` / `_DATABASE`, `BGMISTORE_PGUSER` / `_PGPASSWORD` / `_PGDATABASE` / `_PGHOST` / `_PGHOST_UNPOOLED` |
+| Database (diagnostics) | `BGMISTORE_NEON_PROJECT_ID` |
+| Session | `AUTH_SECRET` (alias `NEXTAUTH_SECRET`) |
+| Site URL | `NEXTAUTH_URL` |
+| Google OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` |
+| Clerk | `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` |
+| Roles | `OWNER_EMAIL` |
+| Meta Pixel | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` |
+| Optional | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `OTP_FROM`, `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, `BGMI_UID_API_URL`, `BGMI_UID_API_KEY`, `STORE_DEMO_CATALOG` |
+
+`BGMISTORE_DATABASE_URL` ke bina bhi build clean pass hoti hai (database client
+lazy hai) — site sirf demo data dikhati hai.

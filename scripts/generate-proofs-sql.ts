@@ -27,7 +27,7 @@ const sql = `-- ================================================================
 --  pre-loaded proofs (exact titles & prices from the business brief — the
 --  single source of truth is src/lib/proof-seed.ts, which this file mirrors).
 --
---  Run with:   psql "$DATABASE_URL" -f sql/005_customer_proofs.sql
+--  Run with:   psql "$BGMISTORE_DATABASE_URL_UNPOOLED" -f sql/005_customer_proofs.sql
 --  (The app applies the same statements automatically at runtime — see
 --   src/lib/proof-tables.ts, src/lib/proofs.ts)
 -- ============================================================================

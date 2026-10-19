@@ -23,15 +23,19 @@ You can get a free, secure PostgreSQL database from **Neon** or **Supabase** in 
 
 ---
 
-### Step 2: Add `DATABASE_URL` to Netlify
+### Step 2: Add `BGMISTORE_DATABASE_URL` to Netlify
 
 Now, supply this connection string to Netlify so your site can read and write live data.
 
 1. Go to your **Netlify Dashboard** (where you deployed your website).
 2. Click on your site, then go to **Site configuration → Environment variables**.
 3. Click **Add a variable** and enter:
-   - **Key:** `DATABASE_URL`
+   - **Key:** `BGMISTORE_DATABASE_URL`
    - **Value:** Paste your connection string from Step 1.
+
+   > Migrations (`npx drizzle-kit push`) need a **direct** connection, so also add:
+   > - **Key:** `BGMISTORE_DATABASE_URL_UNPOOLED`
+   > - **Value:** the *non-pooled* connection string from Step 1 (Neon shows both).
 4. Set the scopes to **All scopes** (Builds, Functions, Prerender) and click **Save**.
 5. Trigger a new deploy (**Deploys → Trigger deploy → Deploy site**) so Netlify rebuilds the application with the live database connected.
 

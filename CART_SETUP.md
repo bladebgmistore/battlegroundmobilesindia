@@ -115,7 +115,7 @@ column — the individual lines stay visible to the customer on the checkout pag
 | Cart is per-browser | it is **not** tied to the account; signing in/out keeps it |
 | Clear a cart manually | `localStorage.removeItem("bgmi-cart-v1")`, or the drawer's *Clear cart* |
 
-**Preview helper (optional):** with no `DATABASE_URL` the catalog is empty, so
+**Preview helper (optional):** with no `BGMISTORE_DATABASE_URL` the catalog is empty, so
 the storefront has nothing to add to the cart. To demo the cart against the
 built-in sample catalog, set `STORE_DEMO_CATALOG=1` (only honoured when
 `NODE_ENV !== "production"` and only when the database read has failed — see

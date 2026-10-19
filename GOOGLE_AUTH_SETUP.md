@@ -44,20 +44,27 @@ hosting environment:
 GOOGLE_CLIENT_ID=your-google-oauth-client-id
 GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
+NEXTAUTH_URL=https://battlegroundmobilesindia.shop
 AUTH_SECRET=replace-with-a-long-random-string
-DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 OWNER_EMAIL=manavjeph800@gmail.com
+BGMISTORE_DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+BGMISTORE_DATABASE_URL_UNPOOLED=postgresql://user:password@host/dbname?sslmode=require
 ```
 
 Generate a unique `AUTH_SECRET` with `openssl rand -base64 32`. Keep it stable
 between deployments; changing it signs out existing sessions. `GOOGLE_REDIRECT_URI`
-must match an Authorized redirect URI exactly. When it is omitted, local and
-preview environments use the request origin plus `/auth/google/callback`.
+must match an Authorized redirect URI exactly. When it is omitted the redirect
+base falls back to `NEXTAUTH_URL`, then to the request origin plus
+`/auth/google/callback`, so local and preview environments keep working.
+
+All of these are read through `src/lib/env.ts` — the single place where
+environment variable names are mapped to configuration.
 
 ## Deployment checklist
 
 - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
-  `AUTH_SECRET`, `DATABASE_URL`, and `OWNER_EMAIL` in the hosting dashboard.
+  `NEXTAUTH_URL`, `AUTH_SECRET`, `OWNER_EMAIL`, `BGMISTORE_DATABASE_URL` and
+  `BGMISTORE_DATABASE_URL_UNPOOLED` in the hosting dashboard.
 - Confirm the registered redirect URI matches `/api/auth/config-check`'s
   `effectiveRedirectUri` value.
 - Open `/login` and complete a Google sign-in.
@@ -75,4 +82,6 @@ and database configuration exists. It never returns the Google client secret.
   expire after 30 days.
 - Return paths are restricted to same-origin relative URLs to prevent open
   redirects.
-- Keep `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, and `DATABASE_URL` server-only.
+- Keep `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `CLERK_SECRET_KEY` and the
+  `BGMISTORE_*` database keys server-only. Only `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+  and `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` are meant for the browser bundle.

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin catalog read failed:", error);
-    return jsonError("Database connection failed. Check DATABASE_URL on Netlify.", 503);
+    return jsonError("Database connection failed. Set BGMISTORE_DATABASE_URL (and BGMISTORE_DATABASE_URL_UNPOOLED for migrations) in your environment.", 503);
   }
 }
 

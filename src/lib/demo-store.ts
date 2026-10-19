@@ -3,10 +3,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 /**
  * Tiny file-backed demo store.
  *
- * Used ONLY when there is no DATABASE_URL (e.g. the local preview) so that
+ * Used ONLY when no BGMISTORE_DATABASE_URL is set (e.g. the local preview) so that
  * customer accounts, sessions, password-reset OTPs and orders survive a
- * dev-server restart. In production (DATABASE_URL set) the Postgres database
- * is always used and this store is never consulted for real data.
+ * dev-server restart. In production (BGMISTORE_DATABASE_URL set) the Postgres
+ * database is always used and this store is never consulted for real data.
  *
  * The file lives in the OS temp dir so it is never committed to git.
  */

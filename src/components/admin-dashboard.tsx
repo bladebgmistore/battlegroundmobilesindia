@@ -25,6 +25,43 @@ type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
 type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
+/** Shape of the admin API payloads the dashboard boot-loads. */
+type CatalogPayload = { categories: Category[]; products: Product[]; ucPackages: UcPackageItem[]; coupons: Coupon[] };
+type OrdersPayload = { orders: Order[] };
+type ManagementPayload = { messages: Message[]; settings: SettingRow[] };
+type FeedbackPayload = { counts: { pending: number } };
+type RedemptionsPayload = { counts: { pending: { count: number } } };
+
+/**
+ * Result of a dashboard API read: either the parsed payload, or the failure
+ * reason (HTTP status + server error text) so the UI can explain itself.
+ */
+type LoadResult<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string };
+
+/** Unwrap a `LoadResult`, or `null` when that dataset was skipped or failed. */
+function dataOf<T>(result: "skip" | LoadResult<T>): T | null {
+  return result === "skip" ? null : result.ok ? result.data : null;
+}
+
+/**
+ * Human-readable reason the control centre could not load its catalog.
+ *
+ * Each status maps to a different root cause — a 401 means the signed session
+ * expired, a 503 means the database is unreachable — and telling them apart is
+ * the whole point: previously every failure printed the same "check
+ * BGMISTORE_DATABASE_URL" banner.
+ */
+function describeLoadFailure(result: "skip" | LoadResult<unknown>): string {
+  if (result === "skip" || result.ok) return "";
+  if (result.status === 401) return "Your session has expired — sign in again to open the control centre.";
+  if (result.status === 403) return "Your role no longer has access to this area. Ask an owner to restore it from Team & Roles.";
+  if (result.status === 503) {
+    return "Database connection failed. Set BGMISTORE_DATABASE_URL (pooled) and BGMISTORE_DATABASE_URL_UNPOOLED (direct) in your environment, then redeploy — /api/auth/config-check lists exactly which variables are missing.";
+  }
+  if (result.status === 0) return "Could not reach the server. Check your connection and reload.";
+  return result.error || `The control centre could not be loaded (HTTP ${result.status}).`;
+}
+
 type CatalogMutation = (entity: string, data: unknown) => Promise<boolean>;
 type CatalogUpdate = (entity: string, id: string, data: unknown) => Promise<boolean>;
 type CatalogDelete = (entity: string, id: string) => Promise<boolean>;
@@ -134,13 +171,24 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   const activeSection = visibleMenu.find((section) => section.items.some((item) => item.view === activeItem?.view));
 
   const load = async () => {
-    const safeJson = async (url: string) => {
+    /**
+     * Fetch JSON while keeping the failure reason.
+     *
+     * The old helper returned `null` for every non-OK response, so a 401
+     * (expired session) and a 503 (database down) were indistinguishable and
+     * both surfaced as a "check BGMISTORE_DATABASE_URL" banner — which sent
+     * people hunting for a database problem that did not exist.
+     */
+    const safeJson = async <T,>(url: string): Promise<LoadResult<T>> => {
       try {
         const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
-        if (!response.ok) return null;
-        return await response.json();
+        const payload = (await response.json().catch(() => null)) as (T & { error?: string }) | null;
+        if (!response.ok || !payload) {
+          return { ok: false, status: response.status, error: payload?.error ?? "" };
+        }
+        return { ok: true, status: response.status, data: payload };
       } catch {
-        return null;
+        return { ok: false, status: 0, error: "" };
       }
     };
 
@@ -149,25 +197,30 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
       // example, never hit the catalog or orders endpoints.
       const can = (scope: AdminScope) => roleHasScope(role, scope);
       const [cat, ord, mgmt, fb, red] = await Promise.all([
-        can("catalog") ? safeJson("/api/admin/catalog") : Promise.resolve("skip"),
-        can("orders") ? safeJson("/api/orders") : Promise.resolve("skip"),
-        can("messages") ? safeJson("/api/admin/management") : Promise.resolve("skip"),
-        can("feedbacks") ? safeJson("/api/admin/feedbacks") : Promise.resolve("skip"),
-        can("referrals") ? safeJson("/api/admin/redemptions?status=pending") : Promise.resolve("skip"),
-      ]);
+        can("catalog") ? safeJson<CatalogPayload>("/api/admin/catalog") : "skip",
+        can("orders") ? safeJson<OrdersPayload>("/api/orders") : "skip",
+        can("messages") ? safeJson<ManagementPayload>("/api/admin/management") : "skip",
+        can("feedbacks") ? safeJson<FeedbackPayload>("/api/admin/feedbacks") : "skip",
+        can("referrals") ? safeJson<RedemptionsPayload>("/api/admin/redemptions?status=pending") : "skip",
+      ] as const);
 
-      setDatabaseError(cat === null ? "Neon catalog could not be loaded. Verify BGMISTORE_DATABASE_URL in your environment variables." : "");
-      setCategories(cat && cat !== "skip" ? cat.categories ?? [] : []);
-      setProducts(cat && cat !== "skip" ? cat.products ?? [] : []);
-      setPacks(cat && cat !== "skip" ? cat.ucPackages ?? [] : []);
-      setCoupons(cat && cat !== "skip" ? cat.coupons ?? [] : []);
-      setOrders(ord && ord !== "skip" ? ord.orders ?? [] : []);
-      setMessages(mgmt && mgmt !== "skip" ? mgmt.messages ?? [] : []);
-      setSettings(mgmt && mgmt !== "skip" ? mgmt.settings ?? [] : []);
+      // The catalog is the load-bearing read: if it fails the whole control
+      // centre is unusable, so its failure reason is what gets surfaced.
+      setDatabaseError(describeLoadFailure(cat));
+      const catData = dataOf(cat);
+      setCategories(catData?.categories ?? []);
+      setProducts(catData?.products ?? []);
+      setPacks(catData?.ucPackages ?? []);
+      setCoupons(catData?.coupons ?? []);
+      const ordData = dataOf(ord);
+      setOrders(ordData?.orders ?? []);
+      const mgmtData = dataOf(mgmt);
+      setMessages(mgmtData?.messages ?? []);
+      setSettings(mgmtData?.settings ?? []);
       // Pending review badge in the sidebar.
-      setPendingFeedbacks(Number(fb && fb !== "skip" ? fb?.counts?.pending ?? 0 : 0));
+      setPendingFeedbacks(Number(dataOf(fb)?.counts?.pending ?? 0));
       // Points → UC requests waiting to be fulfilled.
-      setPendingRedemptions(Number(red && red !== "skip" ? red?.counts?.pending?.count ?? 0 : 0));
+      setPendingRedemptions(Number(dataOf(red)?.counts?.pending?.count ?? 0));
     } finally {
       setLoading(false);
     }

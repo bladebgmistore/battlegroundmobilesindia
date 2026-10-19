@@ -191,6 +191,24 @@ npm run db:push:db3
 | `support_tickets` / `support_messages` | Order-based "Chat with Admin" tickets |
 | `announcements` / `user_notifications` / `notification_reads` | Broadcasts and the header bell inbox |
 
+### How the app works across three databases
+
+- Each database has its own Drizzle schema and its own lazily-created client
+  (`db1`, `db2`, `db3` in `src/db/index.ts`). No query ever opens a second
+  connection implicitly.
+- There are **no cross-database JOINs** (Postgres cannot join across separate
+  Neon databases). Where a screen needs data from two databases — e.g. the
+  referral ledger (DB3) plus user names/balances (DB1) — the rows are fetched
+  from each database and merged in application code, with batched `IN (…)`
+  lookups instead of a JOIN.
+- A single SQL transaction cannot span the three databases. Multi-database
+  flows are ordered and compensated: e.g. redeeming points debits
+  `users.points_balance` in DB1 first, writes the redemption in DB3 second, and
+  refunds the debit if the second step fails. Referral commissions are
+  reconciled by `syncReferralCommissions()`, which is idempotent and adjusts
+  DB1 balances by the exact ledger delta.
+- `/api/health` reports each database separately (`up` / `down` / `degraded`).
+
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
 
 ---

@@ -1,5 +1,5 @@
 /**
- * Generates sql/005_customer_proofs.sql — the canonical migration for the
+ * LEGACY: Generates sql/legacy-single-db/005_customer_proofs.sql — the old single-database migration for the
  * Customer Proofs feature — with the pre-loaded seed rows taken verbatim
  * from src/lib/proof-seed.ts (single source of truth for titles & prices).
  *
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { PROOF_SEED, proofImageFor } from "../src/lib/proof-seed";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const outDir = join(root, "sql", "legacy-single-db");
 
 const esc = (value: string) => value.replace(/'/g, "''");
 
@@ -27,7 +28,7 @@ const sql = `-- ================================================================
 --  pre-loaded proofs (exact titles & prices from the business brief — the
 --  single source of truth is src/lib/proof-seed.ts, which this file mirrors).
 --
---  Run with:   psql "$BGMISTORE_DATABASE_URL_UNPOOLED" -f sql/005_customer_proofs.sql
+--  Run with:   psql "$DATABASE_URL_DB3" -f sql/005_customer_proofs.sql
 --  (The app applies the same statements automatically at runtime — see
 --   src/lib/proof-tables.ts, src/lib/proofs.ts)
 -- ============================================================================
@@ -90,5 +91,5 @@ ON CONFLICT (setting_key) DO NOTHING;
 -- ─────────────────────────────────────────────────────────────────────────────
 `;
 
-writeFileSync(join(root, "sql", "005_customer_proofs.sql"), sql);
+writeFileSync(join(outDir, "005_customer_proofs.sql"), sql);
 console.log(`wrote sql/005_customer_proofs.sql (${PROOF_SEED.length} seeded proofs)`);

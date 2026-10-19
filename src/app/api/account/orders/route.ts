@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/user-store";
 import { ensureOrderColumns } from "@/lib/order-columns";
@@ -14,8 +14,7 @@ export async function GET(request: NextRequest) {
 
   try {
     await ensureOrderColumns();
-    const rows = await db
-      .select()
+    const rows = await db3.select()
       .from(orders)
       .where(eq(orders.userId, user.id))
       .orderBy(desc(orders.createdAt))

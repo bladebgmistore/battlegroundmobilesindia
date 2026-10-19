@@ -1,27 +1,28 @@
-import { db } from "@/db";
+import { db2, db3 } from "@/db";
 import { customerMessages, siteSettings } from "@/db/schema";
 import { requireAdminScope } from "@/lib/admin-auth";
+import { ensureStoreTables } from "@/lib/store-tables";
+import { ensureCustomerMessageTables } from "@/lib/message-tables";
 import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  // Every staff role can read the inbox + settings (the dashboard boot-loads both).
   if (!(await requireAdminScope(request, "messages"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   try {
+    await Promise.all([ensureStoreTables(), ensureCustomerMessageTables()]);
     const [messages, settings] = await Promise.all([
-      db.select().from(customerMessages).orderBy(desc(customerMessages.createdAt)).limit(100),
-      db.select().from(siteSettings),
+      db3.select().from(customerMessages).orderBy(desc(customerMessages.createdAt)).limit(100),
+      db2.select().from(siteSettings),
     ]);
     return Response.json({ messages, settings, databaseOnline: true });
   } catch (error) {
     console.error("Admin management read failed:", error);
     return Response.json(
-      { error: "Database connection failed. Set BGMISTORE_DATABASE_URL (and BGMISTORE_DATABASE_URL_UNPOOLED for migrations) in your environment." },
+      { error: "Database connection failed. Ensure DATABASE_URL_DB2 and DATABASE_URL_DB3 are configured." },
       { status: 503 },
     );
   }
@@ -30,36 +31,26 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { key, value, messageId, markRead } = await request.json();
-
     if (messageId) {
-      // Inbox actions — every staff role.
+      await ensureCustomerMessageTables();
       if (!(await requireAdminScope(request, "messages"))) {
         return Response.json({ error: "Unauthorized" }, { status: 401 });
       }
-      await db
-        .update(customerMessages)
-        .set({ isRead: Boolean(markRead) })
-        .where(eq(customerMessages.id, String(messageId)));
+      await db3.update(customerMessages).set({ isRead: Boolean(markRead) }).where(eq(customerMessages.id, String(messageId)));
       return Response.json({ ok: true });
     }
-
     if (!key) {
       return Response.json({ error: "Missing setting key." }, { status: 400 });
     }
-
-    // Site settings — owner / admin only.
     if (!(await requireAdminScope(request, "site"))) {
       return Response.json({ error: "Site settings are owner/admin only." }, { status: 403 });
     }
-
-    await db
-      .insert(siteSettings)
+    await db2.insert(siteSettings)
       .values({ settingKey: String(key), value })
       .onConflictDoUpdate({
         target: siteSettings.settingKey,
         set: { value, updatedAt: new Date() },
       });
-
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Admin management update failed:", error);

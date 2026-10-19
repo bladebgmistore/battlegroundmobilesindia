@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1 } from "@/db";
 import { siteLogs } from "@/db/schema";
 import { and, desc, ilike, sql, type SQL } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
@@ -47,7 +47,7 @@ export async function recordVisit(input: RecordVisitInput): Promise<boolean> {
   if (!ready) return false;
 
   try {
-    await db.insert(siteLogs).values({
+    await db1.insert(siteLogs).values({
       userId: input.userId && /^[0-9a-f-]{36}$/i.test(input.userId) ? input.userId : null,
       userEmail: trim(input.userEmail, 180),
       userName: trim(input.userName, 120),
@@ -85,16 +85,14 @@ export async function listSiteLogs(query: LogQuery = {}): Promise<{ logs: SiteLo
   const where = filters.length ? and(...filters) : undefined;
 
   try {
-    const logs = (await db
-      .select()
+    const logs = (await db1.select()
       .from(siteLogs)
       .where(where)
       .orderBy(desc(siteLogs.createdAt))
       .limit(limit)
       .offset(offset)) as SiteLogRow[];
 
-    const [{ value }] = await db
-      .select({ value: sql<number>`count(*)::int` })
+    const [{ value }] = await db1.select({ value: sql<number>`count(*)::int` })
       .from(siteLogs)
       .where(where);
 
@@ -116,15 +114,13 @@ export async function getLogStats(): Promise<{
 
   try {
     const [[totals], top] = await Promise.all([
-      db
-        .select({
+      db1.select({
           total: sql<number>`count(*)::int`,
           today: sql<number>`count(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int`,
           uniqueVisitors: sql<number>`count(DISTINCT user_email)::int`,
         })
         .from(siteLogs),
-      db
-        .select({ pageUrl: siteLogs.pageUrl, views: sql<number>`count(*)::int` })
+      db1.select({ pageUrl: siteLogs.pageUrl, views: sql<number>`count(*)::int` })
         .from(siteLogs)
         .groupBy(siteLogs.pageUrl)
         .orderBy(sql`count(*) DESC`)
@@ -149,11 +145,10 @@ export async function purgeLogsOlderThan(days: number): Promise<number> {
   const safeDays = Math.max(0, Math.floor(days));
   try {
     if (safeDays === 0) {
-      const result = await db.delete(siteLogs);
+      const result = await db1.delete(siteLogs);
       return (result as unknown as { rowCount?: number }).rowCount ?? 0;
     }
-    const result = await db
-      .delete(siteLogs)
+    const result = await db1.delete(siteLogs)
       .where(sql`${siteLogs.createdAt} < now() - make_interval(days => ${safeDays})`);
     return (result as unknown as { rowCount?: number }).rowCount ?? 0;
   } catch {

@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { orders } from "@/db/schema";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     try {
       await ensureOrderColumns();
-      const [existing] = await db.select({ id: orders.id, buyerIp: orders.buyerIp, status: orders.status })
+      const [existing] = await db3.select({ id: orders.id, buyerIp: orders.buyerIp, status: orders.status })
         .from(orders)
         .where(eq(orders.orderCode, orderCode))
         .limit(1);
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         patch.buyerCountry = geo.country;
       }
 
-      await db.update(orders).set(patch).where(eq(orders.id, existing.id));
+      await db3.update(orders).set(patch).where(eq(orders.id, existing.id));
       return Response.json({ ok: true, saved: true });
     } catch {
       // Database offline — record the change on the demo order instead.

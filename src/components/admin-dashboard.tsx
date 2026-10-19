@@ -49,14 +49,14 @@ function dataOf<T>(result: "skip" | LoadResult<T>): T | null {
  * Each status maps to a different root cause — a 401 means the signed session
  * expired, a 503 means the database is unreachable — and telling them apart is
  * the whole point: previously every failure printed the same "check
- * BGMISTORE_DATABASE_URL" banner.
+ * DATABASE_URL_DB*" banner.
  */
 function describeLoadFailure(result: "skip" | LoadResult<unknown>): string {
   if (result === "skip" || result.ok) return "";
   if (result.status === 401) return "Your session has expired — sign in again to open the control centre.";
   if (result.status === 403) return "Your role no longer has access to this area. Ask an owner to restore it from Team & Roles.";
   if (result.status === 503) {
-    return "Database connection failed. Set BGMISTORE_DATABASE_URL (pooled) and BGMISTORE_DATABASE_URL_UNPOOLED (direct) in your environment, then redeploy — /api/auth/config-check lists exactly which variables are missing.";
+    return "Database connection failed. Ensure DATABASE_URL_DB1, DATABASE_URL_DB2 and DATABASE_URL_DB3 are configured (see .env.example), then redeploy — /api/auth/config-check lists exactly which variables are missing.";
   }
   if (result.status === 0) return "Could not reach the server. Check your connection and reload.";
   return result.error || `The control centre could not be loaded (HTTP ${result.status}).`;
@@ -176,7 +176,7 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
      *
      * The old helper returned `null` for every non-OK response, so a 401
      * (expired session) and a 503 (database down) were indistinguishable and
-     * both surfaced as a "check BGMISTORE_DATABASE_URL" banner — which sent
+     * both surfaced as a "check DATABASE_URL_DB*" banner — which sent
      * people hunting for a database problem that did not exist.
      */
     const safeJson = async <T,>(url: string): Promise<LoadResult<T>> => {

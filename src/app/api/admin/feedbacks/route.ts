@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { feedbacks } from "@/db/schema";
 import { requireAdminScope } from "@/lib/admin-auth";
 import { ensureFeedbackTables } from "@/lib/feedback-tables";
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   await ensureFeedbackTables();
   try {
-    const rows = await db.select().from(feedbacks).orderBy(desc(feedbacks.createdAt)).limit(200);
+    const rows = await db2.select().from(feedbacks).orderBy(desc(feedbacks.createdAt)).limit(200);
     const counts = {
       pending: rows.filter((row) => row.status === "pending").length,
       approved: rows.filter((row) => row.status === "approved").length,
@@ -38,8 +38,7 @@ export async function POST(request: NextRequest) {
     const rating = Math.max(1, Math.min(5, Number(body.rating ?? 5)));
     const avatar = convertGoogleDriveUrl(String(body.avatar ?? "")) || null;
     if (!name || !review) return Response.json({ error: "Name and review are required." }, { status: 400 });
-    const [created] = await db
-      .insert(feedbacks)
+    const [created] = await db2.insert(feedbacks)
       .values({ name, review, rating, avatar, isActive: true, status: "approved", moderatedAt: new Date() })
       .returning();
     return Response.json({ item: created }, { status: 201 });
@@ -67,8 +66,7 @@ export async function PATCH(request: NextRequest) {
       // Accepting a review also makes sure it is visible on the site.
       if (status === "approved") data.isActive = true;
     }
-    const [updated] = await db
-      .update(feedbacks)
+    const [updated] = await db2.update(feedbacks)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(feedbacks.id, String(id)))
       .returning();
@@ -80,10 +78,11 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!(await requireAdminScope(request, "feedbacks"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureFeedbackTables();
   try {
     const { id } = await request.json();
     if (!id) return Response.json({ error: "Missing id." }, { status: 400 });
-    await db.delete(feedbacks).where(eq(feedbacks.id, String(id)));
+    await db2.delete(feedbacks).where(eq(feedbacks.id, String(id)));
     return Response.json({ ok: true });
   } catch {
     return Response.json({ error: "Could not delete feedback." }, { status: 500 });

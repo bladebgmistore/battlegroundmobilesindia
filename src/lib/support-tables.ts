@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { sql } from "drizzle-orm";
 
 /**
@@ -52,7 +52,7 @@ export function ensureSupportTables(): Promise<boolean> {
   g.__bgmiSupportTablesReady = (async () => {
     try {
       for (const statement of STATEMENTS) {
-        await db.execute(sql.raw(statement));
+        await db3.execute(sql.raw(statement));
       }
     } catch {
       // Database unreachable or lacking privileges — retry on the next request.

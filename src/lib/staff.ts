@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1 } from "@/db";
 import { staffMembers } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { isOwnerEmail } from "@/lib/auth-config";
@@ -44,7 +44,7 @@ export function ensureStaffTables(): Promise<boolean> {
   g.__bgmiStaffTablesReady = (async () => {
     try {
       for (const statement of STATEMENTS) {
-        await db.execute(sql.raw(statement));
+        await db1.execute(sql.raw(statement));
       }
       return true;
     } catch {
@@ -83,8 +83,7 @@ export async function resolveLoginRole(email: string): Promise<string> {
     const ready = await ensureStaffTables();
     if (!ready) return ROLE_CUSTOMER;
     const normalized = normalizeEmail(email);
-    const [row] = await db
-      .select({ role: staffMembers.role, isActive: staffMembers.isActive })
+    const [row] = await db1.select({ role: staffMembers.role, isActive: staffMembers.isActive })
       .from(staffMembers)
       .where(eq(staffMembers.email, normalized))
       .limit(1);
@@ -111,8 +110,7 @@ export async function effectiveRoleForEmail(email: string, sessionRole: string):
     const ready = await ensureStaffTables();
     if (!ready) return sessionRole; // offline: trust the signed cookie
     const normalized = normalizeEmail(email);
-    const [row] = await db
-      .select({ role: staffMembers.role, isActive: staffMembers.isActive })
+    const [row] = await db1.select({ role: staffMembers.role, isActive: staffMembers.isActive })
       .from(staffMembers)
       .where(eq(staffMembers.email, normalized))
       .limit(1);
@@ -128,7 +126,7 @@ export async function listStaff(): Promise<StaffMember[]> {
   const ready = await ensureStaffTables();
   if (!ready) return [];
   try {
-    return await db.select().from(staffMembers).orderBy(desc(staffMembers.createdAt)).limit(200);
+    return await db1.select().from(staffMembers).orderBy(desc(staffMembers.createdAt)).limit(200);
   } catch {
     return [];
   }
@@ -160,8 +158,7 @@ export async function upsertStaffMember(input: {
   if (!ready) return { error: "Database unavailable. Please try again." };
 
   try {
-    const [row] = await db
-      .insert(staffMembers)
+    const [row] = await db1.insert(staffMembers)
       .values({
         email,
         name,
@@ -192,11 +189,10 @@ export async function updateStaffMember(
   }
 
   try {
-    const [existing] = await db.select().from(staffMembers).where(eq(staffMembers.id, id)).limit(1);
+    const [existing] = await db1.select().from(staffMembers).where(eq(staffMembers.id, id)).limit(1);
     if (!existing) return { error: "Team member not found." };
 
-    const [row] = await db
-      .update(staffMembers)
+    const [row] = await db1.update(staffMembers)
       .set({
         ...(patch.role !== undefined ? { role: patch.role as StaffRole } : {}),
         ...(patch.isActive !== undefined ? { isActive: Boolean(patch.isActive) } : {}),
@@ -216,7 +212,7 @@ export async function deleteStaffMember(id: string): Promise<{ ok: boolean; erro
   const ready = await ensureStaffTables();
   if (!ready) return { ok: false, error: "Database unavailable. Please try again." };
   try {
-    await db.delete(staffMembers).where(eq(staffMembers.id, id));
+    await db1.delete(staffMembers).where(eq(staffMembers.id, id));
     return { ok: true };
   } catch {
     return { ok: false, error: "Could not remove the team member." };

@@ -47,8 +47,9 @@ GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
 NEXTAUTH_URL=https://battlegroundmobilesindia.shop
 AUTH_SECRET=replace-with-a-long-random-string
 OWNER_EMAIL=manavjeph800@gmail.com
-BGMISTORE_DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
-BGMISTORE_DATABASE_URL_UNPOOLED=postgresql://user:password@host/dbname?sslmode=require
+DATABASE_URL_DB1=postgresql://user:password@ep-db1-pooler.region.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL_DB2=postgresql://user:password@ep-db2-pooler.region.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL_DB3=postgresql://user:password@ep-db3-pooler.region.aws.neon.tech/neondb?sslmode=require
 ```
 
 Generate a unique `AUTH_SECRET` with `openssl rand -base64 32`. Keep it stable
@@ -63,8 +64,8 @@ environment variable names are mapped to configuration.
 ## Deployment checklist
 
 - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
-  `NEXTAUTH_URL`, `AUTH_SECRET`, `OWNER_EMAIL`, `BGMISTORE_DATABASE_URL` and
-  `BGMISTORE_DATABASE_URL_UNPOOLED` in the hosting dashboard.
+  `NEXTAUTH_URL`, `AUTH_SECRET`, `OWNER_EMAIL`, `DATABASE_URL_DB1`,
+  `DATABASE_URL_DB2` and `DATABASE_URL_DB3` in the hosting dashboard.
 - Confirm the registered redirect URI matches `/api/auth/config-check`'s
   `effectiveRedirectUri` value.
 - Open `/login` and complete a Google sign-in.

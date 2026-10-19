@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1 } from "@/db";
 import { sql } from "drizzle-orm";
 
 /**
@@ -75,14 +75,14 @@ export function ensureAuthTables(): Promise<boolean> {
     const [createUsers, ...rest] = STATEMENTS;
     try {
       // If this fails the database is unreachable — retry on the next request.
-      await db.execute(sql.raw(createUsers));
+      await db1.execute(sql.raw(createUsers));
     } catch {
       g.__bgmiAuthTablesReady = undefined;
       return false;
     }
     for (const statement of rest) {
       try {
-        await db.execute(sql.raw(statement));
+        await db1.execute(sql.raw(statement));
       } catch {
         // Best effort: an ALTER/INDEX may already be satisfied, or a legacy
         // row may block a unique index. Never block the request for it.

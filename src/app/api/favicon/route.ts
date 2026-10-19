@@ -1,6 +1,7 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { siteSettings } from "@/db/schema";
 import { images } from "@/lib/store-data";
+import { ensureStoreTables } from "@/lib/store-tables";
 import { inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -35,8 +36,8 @@ export async function GET() {
   let faviconUrl = "";
   let logoUrl = "";
   try {
-    const rows = await db
-      .select()
+    await ensureStoreTables();
+    const rows = await db2.select()
       .from(siteSettings)
       .where(inArray(siteSettings.settingKey, ["favicon_url", "logo_url"]));
     for (const row of rows) {

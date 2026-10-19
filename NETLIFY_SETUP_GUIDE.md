@@ -23,19 +23,16 @@ You can get a free, secure PostgreSQL database from **Neon** or **Supabase** in 
 
 ---
 
-### Step 2: Add `BGMISTORE_DATABASE_URL` to Netlify
+### Step 2: Add the 3 database keys to Netlify
 
 Now, supply this connection string to Netlify so your site can read and write live data.
 
 1. Go to your **Netlify Dashboard** (where you deployed your website).
 2. Click on your site, then go to **Site configuration → Environment variables**.
-3. Click **Add a variable** and enter:
-   - **Key:** `BGMISTORE_DATABASE_URL`
-   - **Value:** Paste your connection string from Step 1.
-
-   > Migrations (`npx drizzle-kit push`) need a **direct** connection, so also add:
-   > - **Key:** `BGMISTORE_DATABASE_URL_UNPOOLED`
-   > - **Value:** the *non-pooled* connection string from Step 1 (Neon shows both).
+3. Click **Add a variable** three times and enter one key per database:
+   - **Key:** `DATABASE_URL_DB1` — **Value:** DB1 connection string (users, auth, profiles, roles)
+   - **Key:** `DATABASE_URL_DB2` — **Value:** DB2 connection string (inventory, products, categories, pricing)
+   - **Key:** `DATABASE_URL_DB3` — **Value:** DB3 connection string (orders, payments, proofs, referral points)
 4. Set the scopes to **All scopes** (Builds, Functions, Prerender) and click **Save**.
 5. Trigger a new deploy (**Deploys → Trigger deploy → Deploy site**) so Netlify rebuilds the application with the live database connected.
 
@@ -43,25 +40,20 @@ Now, supply this connection string to Netlify so your site can read and write li
 
 ### Step 3: Push your Database Schema
 
-You must run a one-time command to automatically create the required tables in your database.
+You must run a one-time command to automatically create the required tables in **all three** databases.
 
 Open your local terminal (or the sandbox terminal) in the project folder and run:
 
 ```bash
-npx drizzle-kit push
+npm run db:push
 ```
 
-Drizzle will automatically connect to your database, create the following tables, and seed the default owner account:
-- `accounts` (Premium game accounts)
-- `uc_packages` (UC Top-up options)
-- `coupons` (Checkout promo codes)
-- `orders` (Checkout requests)
-- `customer_messages` (Support Inbox)
-- `site_settings` (Dynamic WhatsApp number, Logo override, and Maintenance toggle)
-- `admins` (Database-backed administrators)
-- `admin_sessions` (Active login sessions)
-- `users` (Google accounts — name, email, google_id, avatar, role)
-- `site_logs` (Visitor tracking — user email, IP address, page URL, timestamp)
+This pushes each schema to its own database:
+- **DB1:** `users`, `staff_members`, `site_logs` (+ legacy auth tables)
+- **DB2:** `categories`, `products`, `accounts`, `uc_packages`, `special_products`, `coupons`, `site_settings`, `feedbacks`
+- **DB3:** `orders`, `customer_messages`, `customer_proofs`, `referral_commissions`, `reward_items`, `point_redemptions`, `support_tickets`, `support_messages`, `user_notifications`, `notification_reads`, `announcements`
+
+Optionally run `npm run db:init` to seed the starter catalog and site settings.
 
 ---
 

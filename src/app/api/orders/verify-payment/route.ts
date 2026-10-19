@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { orders } from "@/db/schema";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoUpdateOrder, demoReplicateOrder, demoSaveOrder } from "@/lib/demo-orders";
@@ -55,8 +55,7 @@ export async function POST(request: NextRequest) {
 
     try {
       await ensureOrderColumns();
-      const [existing] = await db
-        .select()
+      const [existing] = await db3.select()
         .from(orders)
         .where(eq(orders.orderCode, orderCode))
         .limit(1);
@@ -65,13 +64,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, saved: false, message: "Order not found; payment recorded locally." });
       }
 
-      await db.update(orders).set(patch).where(eq(orders.id, existing.id));
+      await db3.update(orders).set(patch).where(eq(orders.id, existing.id));
 
       // Account order paid → create a fresh OTP order row for the admin to set
       // the OTP on, which the buyer then sees in their order section.
       if (createdOtpOrder && existing.categorySlug === "accounts") {
         const otpCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
-        await db.insert(orders).values({
+        await db3.insert(orders).values({
           userId: existing.userId,
           categorySlug: "accounts",
           customerName: existing.customerName,

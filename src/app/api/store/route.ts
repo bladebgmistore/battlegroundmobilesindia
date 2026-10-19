@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { categories, products, siteSettings, ucPackages } from "@/db/schema";
 import {
   DEFAULT_CHECKOUT_MODE,
@@ -9,6 +9,7 @@ import {
   defaultUcPackages,
 } from "@/lib/store-data";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
+import { ensureStoreTables } from "@/lib/store-tables";
 import { asc, eq, inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -36,24 +37,21 @@ const noStoreHeaders = {
 
 export async function GET() {
   try {
+    await ensureStoreTables();
     const [categoryRows, productRows, ucRows, settingRows] = await Promise.all([
-      db
-        .select()
+      db2.select()
         .from(categories)
         .where(eq(categories.isActive, true))
         .orderBy(asc(categories.sortOrder), asc(categories.name)),
-      db
-        .select()
+      db2.select()
         .from(products)
         .where(eq(products.isActive, true))
         .orderBy(asc(products.categorySlug), asc(products.sortOrder), asc(products.createdAt)),
-      db
-        .select()
+      db2.select()
         .from(ucPackages)
         .where(eq(ucPackages.isActive, true))
         .orderBy(asc(ucPackages.price)),
-      db
-        .select()
+      db2.select()
         .from(siteSettings)
         .where(inArray(siteSettings.settingKey, PUBLIC_SETTING_KEYS)),
     ]);

@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1, db3 } from "@/db";
 import { orders, supportMessages, supportTickets, userNotifications, users } from "@/db/schema";
 import { ensureSupportTables } from "@/lib/support-tables";
 import { ensureNotificationTables } from "@/lib/notification-tables";
@@ -37,15 +37,13 @@ export type TicketOrder = {
 export async function createOrGetTicketForOrder(order: TicketOrder, user: { id: string; name: string; email: string | null }) {
   await ensureSupportTables();
 
-  const [existing] = await db
-    .select()
+  const [existing] = await db3.select()
     .from(supportTickets)
     .where(eq(supportTickets.orderId, order.id))
     .limit(1);
   if (existing) return existing;
 
-  const [created] = await db
-    .insert(supportTickets)
+  const [created] = await db3.insert(supportTickets)
     .values({
       orderId: order.id,
       orderCode: order.orderCode,
@@ -71,8 +69,7 @@ export async function createOrGetTicketForOrder(order: TicketOrder, user: { id: 
   }
 
   // Lost a race with a concurrent create — return the winner.
-  const [winner] = await db
-    .select()
+  const [winner] = await db3.select()
     .from(supportTickets)
     .where(eq(supportTickets.orderId, order.id))
     .limit(1);
@@ -82,8 +79,7 @@ export async function createOrGetTicketForOrder(order: TicketOrder, user: { id: 
 /** All tickets of one user (newest activity first). */
 export async function listTicketsForUser(userId: string): Promise<SupportTicketRow[]> {
   await ensureSupportTables();
-  return db
-    .select()
+  return db3.select()
     .from(supportTickets)
     .where(eq(supportTickets.userId, userId))
     .orderBy(desc(supportTickets.lastMessageAt), desc(supportTickets.createdAt))
@@ -93,8 +89,7 @@ export async function listTicketsForUser(userId: string): Promise<SupportTicketR
 /** Ticket lookup scoped to the owning user (null when not found / not theirs). */
 export async function getTicketForUser(ticketId: string, userId: string) {
   await ensureSupportTables();
-  const [ticket] = await db
-    .select()
+  const [ticket] = await db3.select()
     .from(supportTickets)
     .where(and(eq(supportTickets.id, ticketId), eq(supportTickets.userId, userId)))
     .limit(1);
@@ -104,8 +99,7 @@ export async function getTicketForUser(ticketId: string, userId: string) {
 /** Ticket lookup scoped by order id + owner. */
 export async function getTicketByOrderForUser(orderId: string, userId: string) {
   await ensureSupportTables();
-  const [ticket] = await db
-    .select()
+  const [ticket] = await db3.select()
     .from(supportTickets)
     .where(and(eq(supportTickets.orderId, orderId), eq(supportTickets.userId, userId)))
     .limit(1);
@@ -115,8 +109,7 @@ export async function getTicketByOrderForUser(orderId: string, userId: string) {
 /** Ticket lookup for staff (any ticket). */
 export async function getTicketForAdmin(ticketId: string) {
   await ensureSupportTables();
-  const [ticket] = await db
-    .select()
+  const [ticket] = await db3.select()
     .from(supportTickets)
     .where(eq(supportTickets.id, ticketId))
     .limit(1);
@@ -126,8 +119,7 @@ export async function getTicketForAdmin(ticketId: string) {
 /** All open tickets for the admin desk, with unread (user → admin) counts. */
 export async function listTicketsForAdmin(): Promise<TicketWithMeta[]> {
   await ensureSupportTables();
-  const tickets = await db
-    .select()
+  const tickets = await db3.select()
     .from(supportTickets)
     .orderBy(desc(supportTickets.lastMessageAt), desc(supportTickets.createdAt))
     .limit(200);
@@ -137,16 +129,14 @@ export async function listTicketsForAdmin(): Promise<TicketWithMeta[]> {
   const ticketIds = tickets.map((t) => t.id);
 
   // Unread = messages sent by the customer that staff have not opened yet.
-  const unreadRows = await db
-    .select({ ticketId: supportMessages.ticketId, value: count() })
+  const unreadRows = await db3.select({ ticketId: supportMessages.ticketId, value: count() })
     .from(supportMessages)
     .where(and(inArray(supportMessages.ticketId, ticketIds), eq(supportMessages.sender, "user"), eq(supportMessages.isRead, false)))
     .groupBy(supportMessages.ticketId);
   const unreadMap = new Map(unreadRows.map((r) => [r.ticketId, Number(r.value)]));
 
   // Latest message preview per ticket.
-  const lastRows = await db
-    .select({
+  const lastRows = await db3.select({
       ticketId: supportMessages.ticketId,
       message: supportMessages.message,
       attachmentName: supportMessages.attachmentName,
@@ -176,8 +166,7 @@ export async function listTicketsForAdmin(): Promise<TicketWithMeta[]> {
 /** Total unread user→admin messages across all open tickets (sidebar badge). */
 export async function countUnreadForAdmin(): Promise<number> {
   await ensureSupportTables();
-  const [{ value }] = await db
-    .select({ value: count() })
+  const [{ value }] = await db3.select({ value: count() })
     .from(supportMessages)
     .innerJoin(supportTickets, eq(supportMessages.ticketId, supportTickets.id))
     .where(and(eq(supportMessages.sender, "user"), eq(supportMessages.isRead, false), eq(supportTickets.status, "open")));
@@ -186,8 +175,7 @@ export async function countUnreadForAdmin(): Promise<number> {
 
 export async function listMessages(ticketId: string): Promise<SupportMessageRow[]> {
   await ensureSupportTables();
-  return db
-    .select()
+  return db3.select()
     .from(supportMessages)
     .where(eq(supportMessages.ticketId, ticketId))
     .orderBy(asc(supportMessages.createdAt), asc(supportMessages.id))
@@ -211,16 +199,14 @@ export async function addMessage(
   },
 ): Promise<SupportMessageRow | null> {
   await ensureSupportTables();
-  const [ticket] = await db
-    .select()
+  const [ticket] = await db3.select()
     .from(supportTickets)
     .where(eq(supportTickets.id, ticketId))
     .limit(1);
   if (!ticket) return null;
 
   const now = new Date();
-  const [created] = await db
-    .insert(supportMessages)
+  const [created] = await db3.insert(supportMessages)
     .values({
       ticketId,
       sender,
@@ -234,8 +220,7 @@ export async function addMessage(
     })
     .returning();
 
-  await db
-    .update(supportTickets)
+  await db3.update(supportTickets)
     .set({ lastMessageAt: now, updatedAt: now })
     .where(eq(supportTickets.id, ticketId));
 
@@ -262,8 +247,7 @@ export async function addMessage(
 /** The buyer opened the chat → their incoming admin messages count as read. */
 export async function markTicketReadByUser(ticketId: string): Promise<void> {
   await ensureSupportTables();
-  await db
-    .update(supportMessages)
+  await db3.update(supportMessages)
     .set({ isRead: true })
     .where(and(eq(supportMessages.ticketId, ticketId), eq(supportMessages.sender, "admin"), eq(supportMessages.isRead, false)));
 }
@@ -271,8 +255,7 @@ export async function markTicketReadByUser(ticketId: string): Promise<void> {
 /** A staff member opened the ticket → customer messages count as read. */
 export async function markTicketReadByAdmin(ticketId: string): Promise<void> {
   await ensureSupportTables();
-  await db
-    .update(supportMessages)
+  await db3.update(supportMessages)
     .set({ isRead: true })
     .where(and(eq(supportMessages.ticketId, ticketId), eq(supportMessages.sender, "user"), eq(supportMessages.isRead, false)));
 }
@@ -283,22 +266,20 @@ export async function markTicketReadByAdmin(ticketId: string): Promise<void> {
  */
 export async function resolveTicket(ticketId: string): Promise<boolean> {
   await ensureSupportTables();
-  const [ticket] = await db
-    .select({ id: supportTickets.id })
+  const [ticket] = await db3.select({ id: supportTickets.id })
     .from(supportTickets)
     .where(eq(supportTickets.id, ticketId))
     .limit(1);
   if (!ticket) return false;
 
-  await db.delete(supportMessages).where(eq(supportMessages.ticketId, ticketId));
-  await db.delete(supportTickets).where(eq(supportTickets.id, ticketId));
+  await db3.delete(supportMessages).where(eq(supportMessages.ticketId, ticketId));
+  await db3.delete(supportTickets).where(eq(supportTickets.id, ticketId));
   return true;
 }
 
 /** Snapshot of an order used to open a ticket (scoped to the owner). */
 export async function getOrderForTicket(orderId: string, userId: string): Promise<TicketOrder | null> {
-  const [order] = await db
-    .select({
+  const [order] = await db3.select({
       id: orders.id,
       orderCode: orders.orderCode,
       userId: orders.userId,
@@ -314,8 +295,7 @@ export async function getOrderForTicket(orderId: string, userId: string): Promis
 
 /** Fresh order snapshot for the chat header (status may have changed). */
 export async function getOrderSnapshot(orderId: string) {
-  const [order] = await db
-    .select({
+  const [order] = await db3.select({
       id: orders.id,
       orderCode: orders.orderCode,
       productName: orders.productName,
@@ -331,8 +311,7 @@ export async function getOrderSnapshot(orderId: string) {
 
 /** Resolve a user id → display record (name / email) for ticket creation. */
 export async function getUserIdentity(userId: string) {
-  const [row] = await db
-    .select({ id: users.id, name: users.name, email: users.email })
+  const [row] = await db1.select({ id: users.id, name: users.name, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -342,8 +321,7 @@ export async function getUserIdentity(userId: string) {
 /** Count open tickets (used by the admin overview). */
 export async function countOpenTickets(): Promise<number> {
   await ensureSupportTables();
-  const [{ value }] = await db
-    .select({ value: count() })
+  const [{ value }] = await db3.select({ value: count() })
     .from(supportTickets)
     .where(eq(supportTickets.status, "open"));
   return Number(value ?? 0);
@@ -352,8 +330,7 @@ export async function countOpenTickets(): Promise<number> {
 /** Notification rows for a ticket (used to mark support alerts as read). */
 export async function notificationIdsForTicket(ticketId: string): Promise<string[]> {
   await ensureNotificationTables();
-  const rows = await db
-    .select({ id: userNotifications.id })
+  const rows = await db3.select({ id: userNotifications.id })
     .from(userNotifications)
     .where(eq(userNotifications.ticketId, ticketId));
   return rows.map((r) => r.id);

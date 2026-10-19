@@ -1,21 +1,15 @@
 /**
  * Single source of truth for every environment variable this project reads.
  *
- * The store is deployed on Vercel with a Neon/Vercel-Postgres database whose
- * integration keys are all prefixed `BGMISTORE_*`, plus Clerk / Google auth
- * keys. Resolving every variable in ONE module means:
+ * This project uses THREE separate Neon PostgreSQL databases:
  *
- *   - there is exactly one file to audit when the hosting dashboard changes;
- *   - renaming a key (e.g. `DATABASE_URL` → `BGMISTORE_DATABASE_URL`) is a
- *     one-line edit instead of a repo-wide search;
- *   - the fallback chains (pooled vs. direct, URL vs. discrete credentials)
- *     are documented and testable in one place.
+ *   DB1 (DATABASE_URL_DB1) — User Accounts, Authentication, Profiles, Roles
+ *   DB2 (DATABASE_URL_DB2) — Store Inventory, Products, Categories, Pricing
+ *   DB3 (DATABASE_URL_DB3) — Orders, Transactions, Proofs, Referral Points
  *
- * Edge-safe by design: this file only touches `process.env`, so it can be
- * imported from the proxy (Edge runtime), route handlers (Node runtime),
- * server components and the Drizzle CLI config alike.
- *
- * Required variables are documented in `.env.example`.
+ * Every variable is documented in `.env.example`. There is intentionally no
+ * single `DATABASE_URL` fallback: a missing key fails loudly for that database
+ * instead of silently pointing all three clients at one database.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -31,129 +25,69 @@ function firstEnv(keys: readonly string[]): string | undefined {
   return undefined;
 }
 
-/**
- * Assemble a PostgreSQL connection string from the discrete credentials a
- * Vercel/Neon integration also injects (`*_POSTGRES_USER`, `*_PGHOST`, …).
- * Only used when no full `*_URL` variable is present.
- */
-function buildUrlFromParts(parts: {
-  user?: string;
-  password?: string;
-  host?: string;
-  database?: string;
-}): string | undefined {
-  if (!parts.host || !parts.database) return undefined;
-
-  const user = encodeURIComponent(parts.user || "postgres");
-  const password = parts.password ? `:${encodeURIComponent(parts.password)}` : "";
-  const database = encodeURIComponent(parts.database);
-  // Local sockets must stay plain; every remote host needs TLS.
-  const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)(:\d+)?$/i.test(parts.host);
-  const query = isLocal ? "" : "?sslmode=require";
-  return `postgresql://${user}${password}@${parts.host}/${database}${query}`;
-}
-
 /* -------------------------------------------------------------------------- */
-/*  1. Database — BGMISTORE_* keys                                            */
+/*  1. Database — 3 separate Neon PostgreSQL databases                        */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Ordered candidates for the POOLED connection string used by the running app.
- *
- * Vercel/Neon inject several aliases for the same database; the first one that
- * is set wins. `BGMISTORE_DATABASE_URL` is the canonical key.
- */
-const POOLED_URL_KEYS = [
-  "BGMISTORE_DATABASE_URL",
-  "BGMISTORE_POSTGRES_PRISMA_URL",
-  "BGMISTORE_POSTGRES_URL",
-  // ── legacy names, kept only as fallbacks so older environments keep
-  //    working while the BGMISTORE_* keys roll out ──
-  "DATABASE_URL",
-  "POSTGRES_URL",
-  "POSTGRES_PRISMA_URL",
-] as const;
+const DB1_URL_KEYS = ["DATABASE_URL_DB1"] as const;
+const DB2_URL_KEYS = ["DATABASE_URL_DB2"] as const;
+const DB3_URL_KEYS = ["DATABASE_URL_DB3"] as const;
 
-/**
- * Ordered candidates for the DIRECT (non-pooled) connection string.
- *
- * Migrations and DDL (`npx drizzle-kit push`) MUST use a direct connection:
- * PgBouncer in transaction mode cannot run `CREATE TABLE` / `ALTER TABLE`.
- */
-const DIRECT_URL_KEYS = [
-  "BGMISTORE_DATABASE_URL_UNPOOLED",
-  "BGMISTORE_POSTGRES_URL_NON_POOLING",
-  // ── legacy names ──
-  "DATABASE_URL_UNPOOLED",
-  "POSTGRES_URL_NON_POOLING",
-] as const;
-
-/** Discrete pooled credentials (`BGMISTORE_POSTGRES_*` / `BGMISTORE_PG*`). */
-const POOLED_PART_KEYS = {
-  user: ["BGMISTORE_POSTGRES_USER", "BGMISTORE_PGUSER"],
-  password: ["BGMISTORE_POSTGRES_PASSWORD", "BGMISTORE_PGPASSWORD"],
-  host: ["BGMISTORE_POSTGRES_HOST", "BGMISTORE_PGHOST"],
-  database: ["BGMISTORE_POSTGRES_DATABASE", "BGMISTORE_PGDATABASE"],
-} as const;
-
-/** Neon additionally exposes the unpooled endpoint as a host-only variable. */
-const DIRECT_HOST_KEYS = ["BGMISTORE_PGHOST_UNPOOLED", "PGHOST_UNPOOLED"] as const;
-
-/** Shown whenever the database is required but nothing is configured. */
+/** Shown whenever a database is required but its key is missing. */
 export const DATABASE_CONFIG_HINT =
-  "Database is not configured. Set BGMISTORE_DATABASE_URL (pooled, used by the app) " +
-  "and BGMISTORE_DATABASE_URL_UNPOOLED (direct, used by migrations) in your environment.";
+  "Database is not configured. Set DATABASE_URL_DB1, DATABASE_URL_DB2 and DATABASE_URL_DB3 in your environment (see .env.example).";
 
-/**
- * Pooled connection string for the application runtime, or `undefined` when
- * nothing is configured (the storefront then serves its built-in demo data).
- */
-export function getDatabaseUrl(): string | undefined {
-  return firstEnv(POOLED_URL_KEYS) ?? buildUrlFromParts({
-    user: firstEnv(POOLED_PART_KEYS.user),
-    password: firstEnv(POOLED_PART_KEYS.password),
-    host: firstEnv(POOLED_PART_KEYS.host),
-    database: firstEnv(POOLED_PART_KEYS.database),
-  });
+/** DB1 — users, authentication, profiles, roles. */
+export function getDatabaseUrlDb1(): string | undefined {
+  return firstEnv(DB1_URL_KEYS);
 }
 
-/**
- * Direct (non-pooled) connection string for migrations and DDL.
- * Falls back to the discrete unpooled host, then to the pooled host.
- */
-export function getDirectDatabaseUrl(): string | undefined {
-  return (
-    firstEnv(DIRECT_URL_KEYS) ??
-    buildUrlFromParts({
-      user: firstEnv(POOLED_PART_KEYS.user),
-      password: firstEnv(POOLED_PART_KEYS.password),
-      host: firstEnv(DIRECT_HOST_KEYS) ?? firstEnv(POOLED_PART_KEYS.host),
-      database: firstEnv(POOLED_PART_KEYS.database),
-    })
-  );
+/** DB2 — store inventory, products, categories, items, pricing. */
+export function getDatabaseUrlDb2(): string | undefined {
+  return firstEnv(DB2_URL_KEYS);
 }
 
-/**
- * Connection string Drizzle CLI commands (`push`, `migrate`, `studio`) use:
- * the direct endpoint whenever one is available, else the pooled one.
- */
-export function getMigrationDatabaseUrl(): string | undefined {
-  return getDirectDatabaseUrl() ?? getDatabaseUrl();
+/** DB3 — orders, transactions, payment logs, proofs, referral points. */
+export function getDatabaseUrlDb3(): string | undefined {
+  return firstEnv(DB3_URL_KEYS);
 }
 
-/** Pooled connection string, throwing a descriptive error when unset. */
-export function requireDatabaseUrl(): string {
-  const url = getDatabaseUrl();
-  if (!url) throw new Error(DATABASE_CONFIG_HINT);
+export function requireDatabaseUrlDb1(): string {
+  const url = getDatabaseUrlDb1();
+  if (!url) throw new Error(`${DATABASE_CONFIG_HINT} Missing DATABASE_URL_DB1.`);
   return url;
 }
 
-/** `true` when the app has a usable database connection string. */
-export function isDatabaseConfigured(): boolean {
-  return Boolean(getDatabaseUrl());
+export function requireDatabaseUrlDb2(): string {
+  const url = getDatabaseUrlDb2();
+  if (!url) throw new Error(`${DATABASE_CONFIG_HINT} Missing DATABASE_URL_DB2.`);
+  return url;
 }
 
-/** Neon project id (`BGMISTORE_NEON_PROJECT_ID`) — diagnostics only. */
+export function requireDatabaseUrlDb3(): string {
+  const url = getDatabaseUrlDb3();
+  if (!url) throw new Error(`${DATABASE_CONFIG_HINT} Missing DATABASE_URL_DB3.`);
+  return url;
+}
+
+/** `true` only when all three databases are configured. */
+export function isDatabaseConfigured(): boolean {
+  return Boolean(getDatabaseUrlDb1() && getDatabaseUrlDb2() && getDatabaseUrlDb3());
+}
+
+export function isDatabaseDb1Configured(): boolean {
+  return Boolean(getDatabaseUrlDb1());
+}
+
+export function isDatabaseDb2Configured(): boolean {
+  return Boolean(getDatabaseUrlDb2());
+}
+
+export function isDatabaseDb3Configured(): boolean {
+  return Boolean(getDatabaseUrlDb3());
+}
+
+/** Neon project id — diagnostics only. */
 export function getNeonProjectId(): string | undefined {
   return firstEnv(["BGMISTORE_NEON_PROJECT_ID"]);
 }
@@ -180,10 +114,6 @@ export function isAbsoluteHttpUrl(value: string): boolean {
 /**
  * Session signing key. `AUTH_SECRET` is the canonical name on Vercel;
  * `NEXTAUTH_SECRET` is accepted because several tooling presets still emit it.
- *
- * NOTE: the previous fallback to `GOOGLE_CLIENT_SECRET` was removed — an OAuth
- * secret is not a signing key, and silently reusing it made session rotation
- * impossible. Generate one with `openssl rand -base64 32`.
  */
 const AUTH_SECRET_KEYS = ["AUTH_SECRET", "NEXTAUTH_SECRET"] as const;
 
@@ -274,13 +204,8 @@ export type ClerkConfig = {
 };
 
 /**
- * Clerk credentials.
- *
- * The store's own sign-in is the custom Google OAuth + PKCE flow implemented in
- * `src/lib/google-oauth.ts` (sessions are HMAC-signed cookies, see
- * `src/lib/auth-session.ts`), so the Clerk keys are read here purely for
- * configuration validation — `/api/auth/config-check` reports whether they are
- * present so a half-configured Clerk app is caught before it ships.
+ * Clerk credentials — read purely for configuration validation.
+ * The store's own sign-in is the custom Google OAuth + PKCE flow.
  */
 export function getClerkConfig(): ClerkConfig {
   const secretKey = firstEnv(["CLERK_SECRET_KEY"]) ?? "";
@@ -317,12 +242,8 @@ export function getGoogleOAuthConfig(): GoogleOAuthConfig {
  * Resolution order:
  *   1. `GOOGLE_REDIRECT_URI` — must match an Authorized redirect URI exactly.
  *   2. `NEXTAUTH_URL` + `/auth/google/callback`, but only when `NEXTAUTH_URL`
- *      points at the host that is actually serving the request. Honouring it
- *      blindly would send a *preview* deployment's browser to the production
- *      callback, where the OAuth `state`/PKCE cookie does not exist and the
- *      sign-in would fail.
- *   3. The incoming request's origin — keeps local dev and Vercel preview
- *      deploys working without any extra configuration.
+ *      points at the host that is actually serving the request.
+ *   3. The incoming request's origin — keeps local dev and previews working.
  *   4. The canonical production callback (only when no request URL is known).
  */
 export function getGoogleRedirectUri(requestUrl?: string): string {

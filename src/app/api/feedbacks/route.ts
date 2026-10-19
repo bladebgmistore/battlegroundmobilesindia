@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { feedbacks } from "@/db/schema";
 import { getSessionFromRequest } from "@/lib/auth";
 import { ensureFeedbackTables } from "@/lib/feedback-tables";
@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 
 /** Only reviews the admin has ACCEPTED are visible on the website. */
 export async function GET() {
+  await ensureFeedbackTables();
   try {
-    const rows = await db
-      .select()
+    const rows = await db2.select()
       .from(feedbacks)
       .where(and(eq(feedbacks.isActive, true), eq(feedbacks.status, "approved")))
       .orderBy(desc(feedbacks.createdAt))
@@ -22,8 +22,7 @@ export async function GET() {
   } catch {
     // Legacy database without the `status` column — fall back to is_active.
     try {
-      const rows = await db
-        .select()
+      const rows = await db2.select()
         .from(feedbacks)
         .where(eq(feedbacks.isActive, true))
         .orderBy(desc(feedbacks.createdAt))
@@ -74,8 +73,7 @@ export async function POST(request: NextRequest) {
   try {
     // Light anti-spam: max 3 submissions per user per day.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recent = await db
-      .select({ id: feedbacks.id })
+    const recent = await db2.select({ id: feedbacks.id })
       .from(feedbacks)
       .where(and(eq(feedbacks.submittedByEmail, session.email), gte(feedbacks.createdAt, since)))
       .limit(3);
@@ -86,8 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [created] = await db
-      .insert(feedbacks)
+    const [created] = await db2.insert(feedbacks)
       .values({
         name,
         review,

@@ -1,6 +1,6 @@
-import { db } from "@/db";
+import { db1, db3 } from "@/db";
 import { pointRedemptions, rewardItems, users } from "@/db/schema";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { ensureReferralTables } from "@/lib/referral-tables";
 import { isUuid } from "@/lib/referrals";
 import { rowsOf } from "@/lib/sql-rows";
@@ -8,12 +8,15 @@ import { rowsOf } from "@/lib/sql-rows";
 /**
  * Points Store — reward catalogue, redemptions and their admin workflow.
  *
- * Money-safety rules
- *  - Points are debited with a conditional UPDATE (`points_balance >= cost`) and
- *    the request row is inserted in the SAME statement, so a redemption either
- *    happens completely or not at all — no transaction needed (Neon HTTP has none).
- *  - Rejecting a pending request refunds the points in one statement, guarded by
- *    `status = 'pending'`, so a double-click can never refund twice.
+ * Money-safety rules across the 3 databases:
+ *  - The spendable balance is `users.points_balance` in DB1; the catalogue and
+ *    the redemption ledger are in DB3. A single SQL transaction cannot span two
+ *    Neon databases, so redemption is two ordered steps: the conditional debit
+ *    in DB1 (`points_balance >= cost`) always runs first, then the DB3 request
+ *    row is inserted. If that insert fails the debit is refunded immediately.
+ *  - Rejecting a pending request updates the DB3 row guarded by
+ *    `status = 'pending'` (so a double-click can never refund twice) and only
+ *    then credits the points back in DB1.
  */
 
 export const UC_UID_PATTERN = /^\d{8,12}$/;
@@ -46,16 +49,16 @@ export type Redemption = {
 
 type RedemptionRow = {
   id: string;
-  reward_title: string;
-  uc_amount: number;
-  points_cost: number;
-  player_uid: string;
-  player_name: string | null;
+  rewardTitle: string;
+  ucAmount: number;
+  pointsCost: number;
+  playerUid: string;
+  playerName: string | null;
   status: string;
-  admin_note: string | null;
-  processed_by: string | null;
-  processed_at: unknown;
-  created_at: unknown;
+  adminNote: string | null;
+  processedBy: string | null;
+  processedAt: unknown;
+  createdAt: unknown;
 };
 
 const iso = (value: unknown): string | null => {
@@ -78,16 +81,16 @@ const toRewardItem = (row: typeof rewardItems.$inferSelect): RewardItem => ({
 
 const toRedemption = (row: RedemptionRow): Redemption => ({
   id: String(row.id),
-  rewardTitle: row.reward_title,
-  ucAmount: Number(row.uc_amount) || 0,
-  pointsCost: Number(row.points_cost) || 0,
-  playerUid: row.player_uid,
-  playerName: row.player_name,
+  rewardTitle: row.rewardTitle,
+  ucAmount: Number(row.ucAmount) || 0,
+  pointsCost: Number(row.pointsCost) || 0,
+  playerUid: row.playerUid,
+  playerName: row.playerName,
   status: row.status,
-  adminNote: row.admin_note,
-  processedBy: row.processed_by,
-  processedAt: iso(row.processed_at),
-  createdAt: iso(row.created_at),
+  adminNote: row.adminNote,
+  processedBy: row.processedBy,
+  processedAt: iso(row.processedAt),
+  createdAt: iso(row.createdAt),
 });
 
 /** Validate admin input for create (all fields) or patch (only supplied fields). */
@@ -137,8 +140,7 @@ export function parseRewardInput(
 export async function listRewardItems({ activeOnly }: { activeOnly: boolean }): Promise<RewardItem[] | null> {
   const ready = await ensureReferralTables();
   if (!ready) return null;
-  const rows = await db
-    .select()
+  const rows = await db3.select()
     .from(rewardItems)
     .where(activeOnly ? eq(rewardItems.isActive, true) : undefined)
     .orderBy(asc(rewardItems.sortOrder), asc(rewardItems.pointsCost));
@@ -150,8 +152,7 @@ export async function createRewardItem(
 ): Promise<RewardItem | null> {
   const ready = await ensureReferralTables();
   if (!ready) return null;
-  const [row] = await db
-    .insert(rewardItems)
+  const [row] = await db3.insert(rewardItems)
     .values({
       title: input.title ?? "",
       ucAmount: input.ucAmount ?? 0,
@@ -171,8 +172,7 @@ export async function updateRewardItem(
   const ready = await ensureReferralTables();
   if (!ready) return null;
   if (!isUuid(id)) return "not_found";
-  const [row] = await db
-    .update(rewardItems)
+  const [row] = await db3.update(rewardItems)
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(rewardItems.id, id))
     .returning();
@@ -183,7 +183,7 @@ export async function deleteRewardItem(id: string): Promise<boolean | null> {
   const ready = await ensureReferralTables();
   if (!ready) return null;
   if (!isUuid(id)) return false;
-  const deleted = await db.delete(rewardItems).where(eq(rewardItems.id, id)).returning({ id: rewardItems.id });
+  const deleted = await db3.delete(rewardItems).where(eq(rewardItems.id, id)).returning({ id: rewardItems.id });
   return deleted.length > 0;
 }
 
@@ -192,8 +192,8 @@ export type RedeemResult =
   | { ok: false; status: number; error: string };
 
 /**
- * Spend points on a reward. One statement debits the balance and creates the
- * `pending` request, so the points and the request can never get out of sync.
+ * Spend points on a reward. The balance (DB1) is debited first, then the
+ * `pending` request is written to DB3 (with a compensating refund on failure).
  */
 export async function redeemReward(input: {
   userId: string;
@@ -208,60 +208,71 @@ export async function redeemReward(input: {
   }
   if (!isUuid(input.itemId)) return { ok: false, status: 404, error: "This reward is not available." };
 
-  const [item] = await db
-    .select()
+  const [item] = await db3.select()
     .from(rewardItems)
     .where(and(eq(rewardItems.id, input.itemId), eq(rewardItems.isActive, true)))
     .limit(1);
   if (!item) return { ok: false, status: 404, error: "This reward is not available right now." };
 
-  const created = rowsOf<RedemptionRow>(
-    await db.execute(sql`
-      WITH debit AS (
-        UPDATE users
-        SET points_balance = points_balance - ${item.pointsCost}::int, updated_at = now()
-        WHERE id = ${input.userId}::uuid AND points_balance >= ${item.pointsCost}::int
-        RETURNING id
-      ),
-      inserted AS (
-        INSERT INTO point_redemptions
-          (user_id, reward_id, reward_title, uc_amount, points_cost, player_uid, player_name, status)
-        SELECT debit.id,
-               ${item.id}::uuid,
-               ${item.title}::varchar,
-               ${item.ucAmount}::int,
-               ${item.pointsCost}::int,
-               ${input.playerUid}::varchar,
-               ${input.playerName}::varchar,
-               'pending'
-        FROM debit
-        RETURNING id, reward_title, uc_amount, points_cost, player_uid, player_name, status,
-                  admin_note, processed_by, processed_at, created_at
-      )
-      SELECT * FROM inserted
-    `),
-  );
-
-  const row = created[0];
-  if (row) {
+  // ── Step 1: debit the balance in DB1 (users) ────────────────────────────
+  // The points ledger and the reward catalogue live in DB3, while the
+  // spendable balance is a user-profile column in DB1. A single Postgres
+  // transaction cannot span two databases, so the debit is the authoritative
+  // step: the redemption row is only created once the debit succeeded, and a
+  // failed insert refunds the balance below.
+  const debited = await db1
+    .update(users)
+    .set({
+      pointsBalance: sql`${users.pointsBalance} - ${item.pointsCost}::int`,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, input.userId), gte(users.pointsBalance, item.pointsCost)))
+    .returning({ id: users.id });
+  if (!debited.length) {
     const balance = await getPointsBalance(input.userId);
-    return { ok: true, redemption: toRedemption(row), balance: balance ?? 0 };
+    if (balance === null) return { ok: false, status: 404, error: "Account not found. Please sign in again." };
+    const missing = Math.max(0, item.pointsCost - balance);
+    return {
+      ok: false,
+      status: 400,
+      error: `Not enough points. You need ${missing.toLocaleString("en-IN")} more points for this reward.`,
+    };
   }
 
-  // Nothing was debited: either the account is unknown or the balance is too low.
-  const balance = await getPointsBalance(input.userId);
-  if (balance === null) return { ok: false, status: 404, error: "Account not found. Please sign in again." };
-  const missing = Math.max(0, item.pointsCost - balance);
-  return {
-    ok: false,
-    status: 400,
-    error: `Not enough points. You need ${missing.toLocaleString("en-IN")} more points for this reward.`,
-  };
+  // ── Step 2: create the pending redemption in DB3 ────────────────────────
+  try {
+    const [row] = await db3.insert(pointRedemptions)
+      .values({
+        userId: input.userId,
+        rewardId: item.id,
+        rewardTitle: item.title,
+        ucAmount: item.ucAmount,
+        pointsCost: item.pointsCost,
+        playerUid: input.playerUid,
+        playerName: input.playerName,
+        status: "pending",
+      })
+      .returning();
+
+    if (!row) throw new Error("Redemption insert returned no row");
+    const balance = await getPointsBalance(input.userId);
+    return { ok: true, redemption: toRedemption(row), balance: balance ?? 0 };
+  } catch (error) {
+    // Compensating refund — never leave a customer's points debited without a request.
+    await db1.execute(sql`
+        UPDATE users
+        SET points_balance = points_balance + ${item.pointsCost}::int, updated_at = now()
+        WHERE id = ${input.userId}::uuid
+      `)
+      .catch(() => undefined);
+    console.error("Redemption insert failed; points refunded:", error);
+    return { ok: false, status: 500, error: "Could not complete this redemption. Please try again." };
+  }
 }
 
 export async function getPointsBalance(userId: string): Promise<number | null> {
   if (!isUuid(userId)) return null;
-  const [row] = await db.select({ balance: users.pointsBalance }).from(users).where(eq(users.id, userId)).limit(1);
+  const [row] = await db1.select({ balance: users.pointsBalance }).from(users).where(eq(users.id, userId)).limit(1);
   return row ? row.balance : null;
 }
 
@@ -269,26 +280,13 @@ export async function getPointsBalance(userId: string): Promise<number | null> {
 export async function listRedemptionsForUser(userId: string): Promise<Redemption[]> {
   const ready = await ensureReferralTables();
   if (!ready || !isUuid(userId)) return [];
-  const rows = await db
-    .select()
+  const rows = await db3.select()
     .from(pointRedemptions)
     .where(eq(pointRedemptions.userId, userId))
     .orderBy(desc(pointRedemptions.createdAt))
     .limit(100);
   return rows.map((row) =>
-    toRedemption({
-      id: row.id,
-      reward_title: row.rewardTitle,
-      uc_amount: row.ucAmount,
-      points_cost: row.pointsCost,
-      player_uid: row.playerUid,
-      player_name: row.playerName,
-      status: row.status,
-      admin_note: row.adminNote,
-      processed_by: row.processedBy,
-      processed_at: row.processedAt,
-      created_at: row.createdAt,
-    }),
+    toRedemption(row),
   );
 }
 
@@ -309,20 +307,22 @@ export async function listRedemptionsForAdmin(status: string | null): Promise<{
   if (!ready) return null;
 
   const filter = status && ["pending", "completed", "rejected"].includes(status) ? status : null;
-  const rows = await db
-    .select({
-      redemption: pointRedemptions,
-      userName: users.name,
-      userEmail: users.email,
-    })
+  const rows = await db3.select()
     .from(pointRedemptions)
-    .leftJoin(users, eq(users.id, pointRedemptions.userId))
     .where(filter ? eq(pointRedemptions.status, filter) : undefined)
     .orderBy(desc(pointRedemptions.createdAt))
     .limit(300);
 
+  // Users live in DB1 — resolve the buyer names with one batched lookup
+  // instead of a cross-database JOIN (impossible across separate Neon DBs).
+  const userIds = [...new Set(rows.map((row) => row.userId).filter(isUuid))];
+  const userRows = userIds.length
+    ? await db1.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, userIds))
+    : [];
+  const userMap = new Map(userRows.map((row) => [row.id, row]));
+
   const countRows = rowsOf<{ status: string; count: number; points: number }>(
-    await db.execute(sql`
+    await db3.execute(sql`
       SELECT status, COUNT(*)::int AS count, COALESCE(SUM(points_cost), 0)::int AS points
       FROM point_redemptions
       GROUP BY status
@@ -340,24 +340,15 @@ export async function listRedemptionsForAdmin(status: string | null): Promise<{
   }
 
   return {
-    redemptions: rows.map(({ redemption, userName, userEmail }) => ({
-      ...toRedemption({
-        id: redemption.id,
-        reward_title: redemption.rewardTitle,
-        uc_amount: redemption.ucAmount,
-        points_cost: redemption.pointsCost,
-        player_uid: redemption.playerUid,
-        player_name: redemption.playerName,
-        status: redemption.status,
-        admin_note: redemption.adminNote,
-        processed_by: redemption.processedBy,
-        processed_at: redemption.processedAt,
-        created_at: redemption.createdAt,
-      }),
-      userId: redemption.userId,
-      userName: userName ?? "",
-      userEmail: userEmail ?? "",
-    })),
+    redemptions: rows.map((row) => {
+      const user = userMap.get(row.userId);
+      return {
+        ...toRedemption(row),
+        userId: row.userId,
+        userName: user?.name ?? "",
+        userEmail: user?.email ?? "",
+      };
+    }),
     counts,
   };
 }
@@ -371,14 +362,13 @@ export async function completeRedemption(
   if (!ready) return { ok: false, status: 503, error: "Database unavailable. Please try again." };
   if (!isUuid(id)) return { ok: false, status: 404, error: "Redemption not found." };
 
-  const updated = await db
-    .update(pointRedemptions)
+  const updated = await db3.update(pointRedemptions)
     .set({ status: "completed", processedBy: adminEmail.slice(0, 180), processedAt: new Date() })
     .where(and(eq(pointRedemptions.id, id), eq(pointRedemptions.status, "pending")))
     .returning({ id: pointRedemptions.id });
   if (updated.length) return { ok: true };
 
-  const [exists] = await db.select({ status: pointRedemptions.status }).from(pointRedemptions).where(eq(pointRedemptions.id, id)).limit(1);
+  const [exists] = await db3.select({ status: pointRedemptions.status }).from(pointRedemptions).where(eq(pointRedemptions.id, id)).limit(1);
   if (!exists) return { ok: false, status: 404, error: "Redemption not found." };
   return { ok: false, status: 409, error: `This request is already ${exists.status}.` };
 }
@@ -393,34 +383,36 @@ export async function rejectRedemption(
   if (!ready) return { ok: false, status: 503, error: "Database unavailable. Please try again." };
   if (!isUuid(id)) return { ok: false, status: 404, error: "Redemption not found." };
 
-  const [result] = rowsOf<{ rejected_count: number; refunded_count: number }>(
-    await db.execute(sql`
-      WITH rejected AS (
-        UPDATE point_redemptions
-        SET status = 'rejected',
-            processed_by = ${adminEmail.slice(0, 180)}::varchar,
-            processed_at = now(),
-            admin_note = ${note}::varchar
-        WHERE id = ${id}::uuid AND status = 'pending'
-        RETURNING user_id, points_cost
-      ),
-      refund AS (
-        UPDATE users u
-        SET points_balance = u.points_balance + rejected.points_cost, updated_at = now()
-        FROM rejected
-        WHERE u.id = rejected.user_id
-        RETURNING u.id
-      )
-      SELECT (SELECT COUNT(*)::int FROM rejected) AS rejected_count,
-             (SELECT COUNT(*)::int FROM refund) AS refunded_count
-    `),
-  );
+  // DB3: flip the request to rejected exactly once (only while `pending`).
+  const rejectedRows = await db3.update(pointRedemptions)
+    .set({
+      status: "rejected",
+      processedBy: adminEmail.slice(0, 180),
+      processedAt: new Date(),
+      adminNote: note,
+    })
+    .where(and(eq(pointRedemptions.id, id), eq(pointRedemptions.status, "pending")))
+    .returning({ userId: pointRedemptions.userId, pointsCost: pointRedemptions.pointsCost });
 
-  if (Number(result?.rejected_count) > 0) {
-    return { ok: true, refunded: Number(result?.refunded_count) || 0 };
+  if (rejectedRows.length) {
+    // DB1: refund the points to the buyer's profile. If this fails the admin
+    // can retry — the redemption is already rejected, so no double refund.
+    let refunded = 0;
+    for (const row of rejectedRows) {
+      const refundedRows = await db1
+        .update(users)
+        .set({
+          pointsBalance: sql`${users.pointsBalance} + ${row.pointsCost}::int`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, row.userId))
+        .returning({ id: users.id });
+      refunded += refundedRows.length;
+    }
+    return { ok: true, refunded };
   }
 
-  const [exists] = await db.select({ status: pointRedemptions.status }).from(pointRedemptions).where(eq(pointRedemptions.id, id)).limit(1);
+  const [exists] = await db3.select({ status: pointRedemptions.status }).from(pointRedemptions).where(eq(pointRedemptions.id, id)).limit(1);
   if (!exists) return { ok: false, status: 404, error: "Redemption not found." };
   return { ok: false, status: 409, error: `This request is already ${exists.status}.` };
 }

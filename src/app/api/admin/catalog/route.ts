@@ -1,7 +1,8 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { categories, coupons, products, ucPackages } from "@/db/schema";
 import { requireAdminScope } from "@/lib/admin-auth";
 import { convertGoogleDriveUrl } from "@/lib/image-utils";
+import { ensureStoreTables } from "@/lib/store-tables";
 import { asc, desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -24,13 +25,14 @@ const normalizeSlug = (value: unknown) =>
 
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return jsonError("Unauthorized", 401);
+  await ensureStoreTables();
 
   try {
     const [categoryRows, productRows, packageRows, couponRows] = await Promise.all([
-      db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
-      db.select().from(products).orderBy(asc(products.categorySlug), asc(products.sortOrder), asc(products.createdAt)),
-      db.select().from(ucPackages).orderBy(asc(ucPackages.price)),
-      db.select().from(coupons).orderBy(desc(coupons.createdAt)),
+      db2.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+      db2.select().from(products).orderBy(asc(products.categorySlug), asc(products.sortOrder), asc(products.createdAt)),
+      db2.select().from(ucPackages).orderBy(asc(ucPackages.price)),
+      db2.select().from(coupons).orderBy(desc(coupons.createdAt)),
     ]);
 
     return Response.json({
@@ -42,12 +44,13 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin catalog read failed:", error);
-    return jsonError("Database connection failed. Set BGMISTORE_DATABASE_URL (and BGMISTORE_DATABASE_URL_UNPOOLED for migrations) in your environment.", 503);
+    return jsonError("Database connection failed. Ensure DATABASE_URL_DB1, DATABASE_URL_DB2 and DATABASE_URL_DB3 are configured (see .env.example).", 503);
   }
 }
 
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin(request))) return jsonError("Unauthorized", 401);
+  await ensureStoreTables();
 
   try {
     const body = await request.json();
@@ -65,15 +68,13 @@ export async function POST(request: NextRequest) {
         return jsonError("Category name, URL slug, and image URL are required.");
       }
 
-      const [duplicate] = await db
-        .select({ id: categories.id })
+      const [duplicate] = await db2.select({ id: categories.id })
         .from(categories)
         .where(eq(categories.slug, slug))
         .limit(1);
       if (duplicate) return jsonError("A category with this URL slug already exists.", 409);
 
-      const [item] = await db
-        .insert(categories)
+      const [item] = await db2.insert(categories)
         .values({ name, slug, description, image, sortOrder, isActive: true })
         .returning();
       return Response.json({ item }, { status: 201 });
@@ -93,15 +94,13 @@ export async function POST(request: NextRequest) {
         return jsonError("Category, title, valid price, and image URL are required.");
       }
 
-      const [category] = await db
-        .select({ id: categories.id })
+      const [category] = await db2.select({ id: categories.id })
         .from(categories)
         .where(eq(categories.slug, categorySlug))
         .limit(1);
       if (!category) return jsonError("Selected category does not exist.", 404);
 
-      const [item] = await db
-        .insert(products)
+      const [item] = await db2.insert(products)
         .values({
           categorySlug,
           title,
@@ -123,8 +122,7 @@ export async function POST(request: NextRequest) {
         return jsonError("Valid price and UC amount are required.");
       }
 
-      const [item] = await db
-        .insert(ucPackages)
+      const [item] = await db2.insert(ucPackages)
         .values({
           price,
           ucAmount,
@@ -142,8 +140,7 @@ export async function POST(request: NextRequest) {
         return jsonError("Coupon code and a valid discount are required.");
       }
 
-      const [item] = await db
-        .insert(coupons)
+      const [item] = await db2.insert(coupons)
         .values({
           code,
           discountType: data.discountType === "flat" ? "flat" : "percent",
@@ -163,7 +160,7 @@ export async function POST(request: NextRequest) {
       const avatar = String(data.avatar ?? "").trim() || null;
       if (!name || !review) return jsonError("Name and review are required.");
       const { feedbacks } = await import("@/db/schema");
-      const [item] = await db.insert(feedbacks).values({ name, review, rating, avatar, isActive: true }).returning();
+      const [item] = await db2.insert(feedbacks).values({ name, review, rating, avatar, isActive: true }).returning();
       return Response.json({ item }, { status: 201 });
     }
 
@@ -179,14 +176,14 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   if (!(await requireAdmin(request))) return jsonError("Unauthorized", 401);
+  await ensureStoreTables();
 
   try {
     const { entity, id, data } = await request.json();
     if (!id) return jsonError("Missing item id.");
 
     if (entity === "category") {
-      const [current] = await db
-        .select({ slug: categories.slug })
+      const [current] = await db2.select({ slug: categories.slug })
         .from(categories)
         .where(eq(categories.id, String(id)))
         .limit(1);
@@ -199,8 +196,7 @@ export async function PATCH(request: NextRequest) {
         return jsonError("Category name, URL slug, and image URL are required.");
       }
 
-      const [item] = await db
-        .update(categories)
+      const [item] = await db2.update(categories)
         .set({
           name,
           slug: nextSlug,
@@ -214,8 +210,7 @@ export async function PATCH(request: NextRequest) {
         .returning();
 
       if (current.slug !== nextSlug) {
-        await db
-          .update(products)
+        await db2.update(products)
           .set({ categorySlug: nextSlug, updatedAt: new Date() })
           .where(eq(products.categorySlug, current.slug));
       }
@@ -232,8 +227,7 @@ export async function PATCH(request: NextRequest) {
         return jsonError("Category, title, valid price, and image URL are required.");
       }
 
-      const [item] = await db
-        .update(products)
+      const [item] = await db2.update(products)
         .set({
           categorySlug,
           title,
@@ -253,8 +247,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (entity === "uc") {
-      const [item] = await db
-        .update(ucPackages)
+      const [item] = await db2.update(ucPackages)
         .set({
           price: Number(data.price),
           ucAmount: Number(data.ucAmount),
@@ -267,8 +260,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (entity === "coupon") {
-      const [item] = await db
-        .update(coupons)
+      const [item] = await db2.update(coupons)
         .set({
           discountType: data.discountType === "flat" ? "flat" : "percent",
           discountValue: Number(data.discountValue),
@@ -283,8 +275,7 @@ export async function PATCH(request: NextRequest) {
 
     if (entity === "feedback") {
       const { feedbacks } = await import("@/db/schema");
-      const [item] = await db
-        .update(feedbacks)
+      const [item] = await db2.update(feedbacks)
         .set({
           name: data.name,
           review: data.review,
@@ -307,30 +298,30 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!(await requireAdmin(request))) return jsonError("Unauthorized", 401);
+  await ensureStoreTables();
 
   try {
     const { entity, id } = await request.json();
     if (!id) return jsonError("Missing item id.");
 
     if (entity === "category") {
-      const [current] = await db
-        .select({ slug: categories.slug })
+      const [current] = await db2.select({ slug: categories.slug })
         .from(categories)
         .where(eq(categories.id, String(id)))
         .limit(1);
       if (!current) return jsonError("Category not found.", 404);
 
-      await db.delete(products).where(eq(products.categorySlug, current.slug));
-      await db.delete(categories).where(eq(categories.id, String(id)));
+      await db2.delete(products).where(eq(products.categorySlug, current.slug));
+      await db2.delete(categories).where(eq(categories.id, String(id)));
     } else if (entity === "product") {
-      await db.delete(products).where(eq(products.id, String(id)));
+      await db2.delete(products).where(eq(products.id, String(id)));
     } else if (entity === "uc") {
-      await db.delete(ucPackages).where(eq(ucPackages.id, String(id)));
+      await db2.delete(ucPackages).where(eq(ucPackages.id, String(id)));
     } else if (entity === "coupon") {
-      await db.delete(coupons).where(eq(coupons.id, String(id)));
+      await db2.delete(coupons).where(eq(coupons.id, String(id)));
     } else if (entity === "feedback") {
       const { feedbacks } = await import("@/db/schema");
-      await db.delete(feedbacks).where(eq(feedbacks.id, String(id)));
+      await db2.delete(feedbacks).where(eq(feedbacks.id, String(id)));
     } else {
       return jsonError("Unknown catalog entity.");
     }

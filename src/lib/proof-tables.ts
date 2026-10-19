@@ -1,26 +1,13 @@
-import { db } from "@/db";
+import { db2, db3 } from "@/db";
 import { customerProofs, siteSettings } from "@/db/schema";
 import { count, eq, sql } from "drizzle-orm";
 import { PROOF_SEED, proofImageFor } from "@/lib/proof-seed";
 
 /**
- * Idempotent, zero-downtime bootstrap for the Customer Proofs table.
- *
- * Same pattern as `ensureReferralTables()`: every proofs route calls this
- * before touching the table, so a fresh or existing database is upgraded in
- * place. Nothing is ever dropped. The canonical SQL lives in
- * `sql/005_customer_proofs.sql`.
- *
- * On first run the 26 pre-loaded proofs (exact titles & prices from the
- * business brief — see `src/lib/proof-seed.ts`) are inserted. A marker row in
- * site_settings records that the seed ran, so an admin who later deletes
- * every proof is never overridden.
+ * Bootstrap for Customer Proofs (DB3) + seed marker in site_settings (DB2)
  */
 type G = typeof globalThis & { __bgmiProofTablesReady?: Promise<boolean> };
-
-/** site_settings marker: the pre-loaded proofs are seeded exactly once. */
 const SEED_MARKER = "customer_proofs_seeded";
-
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS customer_proofs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,18 +26,12 @@ const STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS customer_proofs_public_idx ON customer_proofs (is_active, delivered_at DESC, created_at DESC)`,
 ];
 
-/** Seed the pre-loaded proofs once. Non-fatal: a failure only delays the seed to the next cold start. */
 async function seedDefaultProofsOnce(): Promise<void> {
-  const [marker] = await db
-    .select({ key: siteSettings.settingKey })
-    .from(siteSettings)
-    .where(eq(siteSettings.settingKey, SEED_MARKER))
-    .limit(1);
+  const [marker] = await db2.select({ key: siteSettings.settingKey }).from(siteSettings).where(eq(siteSettings.settingKey, SEED_MARKER)).limit(1);
   if (marker) return;
-
-  const [{ value: existing }] = await db.select({ value: count() }).from(customerProofs);
+  const [{ value: existing }] = await db3.select({ value: count() }).from(customerProofs);
   if (Number(existing) === 0) {
-    await db.insert(customerProofs).values(
+    await db3.insert(customerProofs).values(
       PROOF_SEED.map((seed) => ({
         customerName: seed.customerName,
         orderCode: seed.orderCode,
@@ -63,34 +44,23 @@ async function seedDefaultProofsOnce(): Promise<void> {
       })),
     );
   }
-  await db
-    .insert(siteSettings)
-    .values({ settingKey: SEED_MARKER, value: true })
-    .onConflictDoNothing();
+  await db2.insert(siteSettings).values({ settingKey: SEED_MARKER, value: true }).onConflictDoNothing();
 }
 
 export function ensureProofTables(): Promise<boolean> {
   const g = globalThis as G;
   if (g.__bgmiProofTablesReady) return g.__bgmiProofTablesReady;
-
   g.__bgmiProofTablesReady = (async () => {
     try {
       for (const statement of STATEMENTS) {
-        await db.execute(sql.raw(statement));
+        await db3.execute(sql.raw(statement));
       }
     } catch {
-      // Database unreachable or lacking privileges — retry on the next request.
       g.__bgmiProofTablesReady = undefined;
       return false;
     }
-
-    try {
-      await seedDefaultProofsOnce();
-    } catch {
-      // Non-fatal — the table is ready; the pre-loaded proofs are simply not seeded yet.
-    }
+    try { await seedDefaultProofsOnce(); } catch {}
     return true;
   })();
-
   return g.__bgmiProofTablesReady;
 }

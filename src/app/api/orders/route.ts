@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db2, db3 } from "@/db";
 import { coupons, orders } from "@/db/schema";
 import { isOwner, requireAdminScope } from "@/lib/admin-auth";
 import { getCurrentUser } from "@/lib/user-store";
@@ -34,11 +34,6 @@ export async function POST(request: NextRequest) {
     if (!productName || !Number.isFinite(originalAmount) || originalAmount <= 0) {
       return Response.json({ error: "Invalid order details" }, { status: 400 });
     }
-
-    // Link the order to a logged-in customer so they can see it in their account.
-    // Login is REQUIRED — guests cannot place orders, and every order is tied
-    // to the signed-in buyer's account. Checked before coupons so unauthenticated
-    // requests can't burn coupon usage either.
     let userId: string;
     try {
       const current = await getCurrentUser(request);
@@ -55,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     if (couponCode) {
       try {
-        const [coupon] = await db.select().from(coupons).where(eq(coupons.code, couponCode)).limit(1);
+        const [coupon] = await db2.select().from(coupons).where(eq(coupons.code, couponCode)).limit(1);
         if (!coupon || !coupon.isActive) {
           return Response.json({ error: "Invalid or disabled coupon." }, { status: 400 });
         }
@@ -68,65 +63,30 @@ export async function POST(request: NextRequest) {
         const calculated = computeCoupon(originalAmount, coupon);
         discountAmount = calculated.discountAmount;
         finalAmount = calculated.finalAmount;
-        await db.update(coupons).set({ usageCount: coupon.usageCount + 1 }).where(eq(coupons.id, coupon.id));
+        await db2.update(coupons).set({ usageCount: coupon.usageCount + 1 }).where(eq(coupons.id, coupon.id));
       } catch {
         return Response.json({ error: "Could not validate coupon right now." }, { status: 503 });
       }
     }
 
-    // Automatic buyer IP + location trace — fully server-side, never blocks.
     const geo = await resolveBuyerLocation(request);
-
     const orderCode = `BG-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
     try {
       await ensureOrderColumns();
-      await db.insert(orders).values({
-        userId,
-        categorySlug,
-        customerName,
-        customerWhatsapp,
-        playerUid,
-        playerName,
-        productName,
-        originalAmount,
-        discountAmount,
-        couponCode,
-        amount: finalAmount,
-        orderCode,
-        buyerIp: geo.ip,
-        buyerCity: geo.city,
-        buyerRegion: geo.region,
-        buyerCountry: geo.country,
+      await db3.insert(orders).values({
+        userId, categorySlug, customerName, customerWhatsapp, playerUid, playerName, productName,
+        originalAmount, discountAmount, couponCode, amount: finalAmount, orderCode,
+        buyerIp: geo.ip, buyerCity: geo.city, buyerRegion: geo.region, buyerCountry: geo.country,
       });
-      // Instant Telegram alert to the admin's phone — fire-and-forget, sent
-      // after this response so checkout is never blocked or slowed down.
       notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: true }, { status: 201 });
     } catch {
-      // DB offline — persist to the demo store so the order is still visible
-      // to the buyer in the preview. WhatsApp/payment handoff still works.
       demoSaveOrder({
         id: `demo_${Date.now().toString(36)}_${Math.floor(100 + Math.random() * 900)}`,
-        orderCode,
-        userId,
-        categorySlug,
-        customerName,
-        customerWhatsapp,
-        playerUid,
-        playerName,
-        productName,
-        originalAmount,
-        discountAmount,
-        couponCode,
-        amount: finalAmount,
-        status: "awaiting_contact",
-        buyerIp: geo.ip,
-        buyerCity: geo.city,
-        buyerRegion: geo.region,
-        buyerCountry: geo.country,
-        createdAt: new Date(),
+        orderCode, userId, categorySlug, customerName, customerWhatsapp, playerUid, playerName, productName,
+        originalAmount, discountAmount, couponCode, amount: finalAmount, status: "awaiting_contact",
+        buyerIp: geo.ip, buyerCity: geo.city, buyerRegion: geo.region, buyerCountry: geo.country, createdAt: new Date(),
       });
-      // Same admin alert for the demo fallback so the order still pings Telegram.
       notifyAdminNewOrder({ orderCode, productName, amount: finalAmount, customerName });
       return Response.json({ orderCode, finalAmount, discountAmount, couponCode, playerUid, saved: false, demo: true }, { status: 201 });
     }
@@ -139,7 +99,7 @@ export async function GET(request: NextRequest) {
   if (!(await requireAdminScope(request, "orders"))) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
     await ensureOrderColumns();
-    const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
+    const rows = await db3.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
     return Response.json({ orders: rows });
   } catch {
     return Response.json({ orders: demoListAllOrders(), databaseOffline: true });
@@ -155,56 +115,36 @@ export async function PATCH(request: NextRequest) {
     if (!id || (status && !allowed.includes(String(status)))) {
       return Response.json({ error: "Invalid order status." }, { status: 400 });
     }
-
-    // Allow the admin to attach the account credentials that get revealed to
-    // the buyer once the order is delivered.
     const patch: Partial<typeof orders.$inferInsert> = {};
     if (status) patch.status = String(status);
     if (body.accountLoginType !== undefined) patch.accountLoginType = String(body.accountLoginType ?? "").trim().slice(0, 48) || null;
     if (body.accountEmail !== undefined) patch.accountEmail = String(body.accountEmail ?? "").trim().slice(0, 180) || null;
     if (body.accountPassword !== undefined) patch.accountPassword = String(body.accountPassword ?? "").trim() || null;
     if (body.otpCode !== undefined) patch.otpCode = String(body.otpCode ?? "").trim().slice(0, 24) || null;
-
     if (!Object.keys(patch).length) {
       return Response.json({ error: "Nothing to update." }, { status: 400 });
     }
-
     try {
       await ensureOrderColumns();
-      // Capture the previous status so a real change can notify the buyer
-      // (header bell: "Order Completed / Cancelled / …").
       let previousStatus: string | null = null;
       if (status) {
-        const [current] = await db
-          .select({ status: orders.status })
-          .from(orders)
-          .where(eq(orders.id, String(id)))
-          .limit(1);
+        const [current] = await db3.select({ status: orders.status }).from(orders).where(eq(orders.id, String(id))).limit(1);
         previousStatus = current?.status ?? null;
       }
-      await db.update(orders).set(patch).where(eq(orders.id, String(id)));
-      // Refer & Earn: confirming a purchase credits the referrer's points; cancelling reverses them.
+      await db3.update(orders).set(patch).where(eq(orders.id, String(id)));
       if (status) {
-        await syncReferralCommissions({ orderId: String(id) }).catch((error) =>
-          console.error("Referral commission sync failed:", error),
-        );
+        await syncReferralCommissions({ orderId: String(id) }).catch((error) => console.error("Referral commission sync failed:", error));
       }
-      // Notification bell: automated order status update for the buyer.
       if (status && previousStatus && previousStatus !== String(status)) {
         const order = await getOrderForNotification(String(id));
         if (order) {
-          await notifyOrderStatusChange(order).catch((error) =>
-            console.error("Order status notification failed:", error),
-          );
+          await notifyOrderStatusChange(order).catch((error) => console.error("Order status notification failed:", error));
         }
       }
       return Response.json({ ok: true });
     } catch {
-      // DB offline — update the demo order by orderCode/id if it exists.
       const patched = demoUpdateOrder(String(id), patch);
       if (!patched) {
-        // Admin UI always sends the actual order id; the demo store keys by
-        // orderCode. Try listing orders to find a matching demo record.
         const match = demoListAllOrders().find((o) => o.id === id);
         if (match) demoUpdateOrder(match.orderCode, patch);
       }
@@ -215,10 +155,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-/**
- * Order deletion is OWNER-only — admins and managers can view orders and
- * update statuses / credentials, but they cannot erase order history.
- */
 export async function DELETE(request: NextRequest) {
   const identity = await requireAdminScope(request, "orders");
   if (!identity) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -230,12 +166,10 @@ export async function DELETE(request: NextRequest) {
     const selectedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : id ? [String(id)] : [];
     if (!selectedIds.length) return Response.json({ error: "Select at least one order." }, { status: 400 });
     try {
-      if (selectedIds.length === 1) await db.delete(orders).where(eq(orders.id, selectedIds[0]));
-      else await db.delete(orders).where(inArray(orders.id, selectedIds));
-      // Deleted orders no longer count, so their referral commission is reversed.
+      if (selectedIds.length === 1) await db3.delete(orders).where(eq(orders.id, selectedIds[0]));
+      else await db3.delete(orders).where(inArray(orders.id, selectedIds));
       await syncReferralCommissions().catch((error) => console.error("Referral commission sync failed:", error));
     } catch {
-      // DB offline — delete matching demo orders (keyed by orderCode or id).
       demoListAllOrders()
         .filter((o) => selectedIds.includes(o.id) || selectedIds.includes(o.orderCode))
         .forEach((o) => demoDeleteOrders([o.orderCode]));

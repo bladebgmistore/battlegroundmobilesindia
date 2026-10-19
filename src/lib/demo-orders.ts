@@ -5,8 +5,8 @@ import { demoGet, demoSet, demoValues, demoDelete } from "@/lib/demo-store";
  *
  * Mirrors the `orders` table but lives in the file-backed demo store so the
  * full purchase → deliver → reveal-credentials → OTP/charge flow can be
- * demonstrated in the preview where BGMISTORE_DATABASE_URL is absent. Every order is
- * keyed by its orderCode. In production (BGMISTORE_DATABASE_URL set) the database is
+ * demonstrated in the preview where the DATABASE_URL_DB* keys are absent. Every order is
+ * keyed by its orderCode. In production (DATABASE_URL_DB* keys set) the database is
  * always used instead.
  */
 

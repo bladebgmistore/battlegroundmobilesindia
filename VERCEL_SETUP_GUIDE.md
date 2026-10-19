@@ -19,8 +19,9 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 
    | Key | Required | Value |
    |---|---|---|
-   | `BGMISTORE_DATABASE_URL` | ✅ Yes | Neon/Postgres **pooled** connection string (`postgresql://...sslmode=require`) — app yahi use karta hai |
-   | `BGMISTORE_DATABASE_URL_UNPOOLED` | ✅ Yes (migrations) | Neon/Postgres **direct** (non-pooled) connection string — `npx drizzle-kit push` ke liye zaroori (PgBouncer DDL nahi chalata) |
+   | `DATABASE_URL_DB1` | ✅ Yes | **DB1** — users, authentication, profiles, roles/permissions (Neon pooled string) |
+   | `DATABASE_URL_DB2` | ✅ Yes | **DB2** — inventory, products, categories, items, pricing (Neon pooled string) |
+   | `DATABASE_URL_DB3` | ✅ Yes | **DB3** — orders, transactions, payment logs, delivery proofs, referral points (Neon pooled string) |
    | `AUTH_SECRET` | ✅ Yes | `openssl rand -base64 32` se banao (session cookie sign hoti hai) |
    | `NEXTAUTH_URL` | ✅ Yes | `https://battlegroundmobilesindia.shop` (canonical site URL, trailing slash nahi) |
    | `OWNER_EMAIL` | ✅ Yes | `manavjeph800@gmail.com` — sirf isi account ko `/admin` milega |
@@ -36,17 +37,10 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
    | `SMTP_PASS` | Optional | Gmail App Password (16-char) |
    | `OTP_FROM` | Optional | `Battleground India Store <you@gmail.com>` |
 
-   > ⚠️ `BGMISTORE_DATABASE_URL` ke bina site chalti hai lekin **demo fallback mode**
-   > mein — orders/users persist nahi honge. Production mein hamesha set karo.
-
-   **Baaki `BGMISTORE_*` keys (fallback):** Vercel ka Postgres/Neon integration ye sab
-   bhi inject karta hai. Inme se koi bhi set ho to woh automatically use hota hai
-   (order niche diya hai) — matlab aap manually kuch add na karna pade:
-   `BGMISTORE_POSTGRES_PRISMA_URL` → `BGMISTORE_POSTGRES_URL` → `BGMISTORE_POSTGRES_URL_NON_POOLING`,
-   aur agar sirf tukde (`BGMISTORE_POSTGRES_USER` / `_PASSWORD` / `_HOST` / `_DATABASE`,
-   `BGMISTORE_PGUSER` / `_PGPASSWORD` / `_PGDATABASE` / `_PGHOST` / `_PGHOST_UNPOOLED`)
-   milen to app khud connection string bana leti hai. Poora mapping:
-   **`src/lib/env.ts`**.
+   > ⚠️ Teenon database keys ke bina site chalegi lekin **demo fallback mode**
+   > mein — orders/users persist nahi honge. Production mein hamesha teenon set karo.
+   > Har database alag Neon project/endpoint hona chahiye; app unhe kabhi mix nahi karti.
+   > Poora mapping: **`src/lib/env.ts`**.
 
 5. **Deploy** dabao — 2-3 min mein live: `https://<project-name>.vercel.app`
 
@@ -62,8 +56,9 @@ Neeche 2 tarike hain. **Option A (GitHub integration) recommended** — har push
 npm install -g vercel
 vercel login                 # browser se login
 vercel link                  # project link karo
-vercel env add BGMISTORE_DATABASE_URL            # pooled production DB string
-vercel env add BGMISTORE_DATABASE_URL_UNPOOLED   # direct DB string (migrations)
+vercel env add DATABASE_URL_DB1   # users / auth / profiles / roles
+vercel env add DATABASE_URL_DB2   # inventory / products / categories / pricing
+vercel env add DATABASE_URL_DB3   # orders / payments / proofs / referral points
 vercel env add GOOGLE_CLIENT_ID
 vercel env add GOOGLE_CLIENT_SECRET
 vercel env add GOOGLE_REDIRECT_URI
@@ -103,9 +98,9 @@ Saari env vars ek hi jagah resolve hoti hain — **`src/lib/env.ts`**:
 
 | Group | Variables |
 |---|---|
-| Database (pooled, app) | `BGMISTORE_DATABASE_URL` → `BGMISTORE_POSTGRES_PRISMA_URL` → `BGMISTORE_POSTGRES_URL` |
-| Database (direct, migrations) | `BGMISTORE_DATABASE_URL_UNPOOLED` → `BGMISTORE_POSTGRES_URL_NON_POOLING` |
-| Database (discrete credentials) | `BGMISTORE_POSTGRES_USER` / `_PASSWORD` / `_HOST` / `_DATABASE`, `BGMISTORE_PGUSER` / `_PGPASSWORD` / `_PGDATABASE` / `_PGHOST` / `_PGHOST_UNPOOLED` |
+| Database 1 (users/auth) | `DATABASE_URL_DB1` |
+| Database 2 (inventory/pricing) | `DATABASE_URL_DB2` |
+| Database 3 (orders/proofs/points) | `DATABASE_URL_DB3` |
 | Database (diagnostics) | `BGMISTORE_NEON_PROJECT_ID` |
 | Session | `AUTH_SECRET` (alias `NEXTAUTH_SECRET`) |
 | Site URL | `NEXTAUTH_URL` |
@@ -115,5 +110,5 @@ Saari env vars ek hi jagah resolve hoti hain — **`src/lib/env.ts`**:
 | Meta Pixel | `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` |
 | Optional | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `OTP_FROM`, `TELEGRAM_BOT_TOKEN`, `ADMIN_CHAT_ID`, `BGMI_UID_API_URL`, `BGMI_UID_API_KEY`, `STORE_DEMO_CATALOG` |
 
-`BGMISTORE_DATABASE_URL` ke bina bhi build clean pass hoti hai (database client
+Teenon database keys ke bina bhi build clean pass hoti hai (database client
 lazy hai) — site sirf demo data dikhati hai.

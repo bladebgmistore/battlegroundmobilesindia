@@ -1,6 +1,7 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { siteSettings } from "@/db/schema";
 import { buildWhatsappUrl, DEFAULT_WHATSAPP_NUMBER } from "@/lib/store-data";
+import { ensureStoreTables } from "@/lib/store-tables";
 import { inArray } from "drizzle-orm";
 
 const PUBLIC_SETTING_KEYS = [
@@ -40,8 +41,8 @@ export async function getPublicSettings(): Promise<PublicSettings> {
   const values: Record<string, string> = {};
 
   try {
-    const rows = await db
-      .select()
+    await ensureStoreTables();
+    const rows = await db2.select()
       .from(siteSettings)
       .where(inArray(siteSettings.settingKey, PUBLIC_SETTING_KEYS));
     for (const row of rows) values[row.settingKey] = String(row.value ?? "");

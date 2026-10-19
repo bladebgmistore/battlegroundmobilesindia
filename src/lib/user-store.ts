@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1 } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
@@ -48,7 +48,7 @@ export async function getCurrentUser(request: NextRequest): Promise<UserRecord |
   if (!ready) return fallback;
 
   try {
-    const [row] = await db.select().from(users).where(eq(users.email, session.email)).limit(1);
+    const [row] = await db1.select().from(users).where(eq(users.email, session.email)).limit(1);
     if (!row) return fallback;
     if (!row.isActive) return null;
     return {
@@ -92,8 +92,7 @@ export async function updateUserProfile(
   if (!ready) return { user: null, error: "Database unavailable. Please try again." };
 
   try {
-    const [row] = await db
-      .update(users)
+    const [row] = await db1.update(users)
       .set({
         ...(name !== undefined ? { name } : {}),
         ...(whatsapp !== undefined ? { whatsapp } : {}),

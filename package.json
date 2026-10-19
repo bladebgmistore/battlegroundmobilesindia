@@ -6,6 +6,14 @@
     "build": "next build && node scripts/check-404.js",
     "start": "next start",
     "lint": "eslint .",
+    "db:generate:db1": "drizzle-kit generate --config=drizzle.config.db1.ts",
+    "db:generate:db2": "drizzle-kit generate --config=drizzle.config.db2.ts",
+    "db:generate:db3": "drizzle-kit generate --config=drizzle.config.db3.ts",
+    "db:push:db1": "drizzle-kit push --config=drizzle.config.db1.ts",
+    "db:push:db2": "drizzle-kit push --config=drizzle.config.db2.ts",
+    "db:push:db3": "drizzle-kit push --config=drizzle.config.db3.ts",
+    "db:push": "npm run db:push:db1 && npm run db:push:db2 && npm run db:push:db3",
+    "db:init": "tsx src/lib/db-bootstrap.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

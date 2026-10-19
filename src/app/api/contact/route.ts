@@ -1,5 +1,6 @@
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { customerMessages } from "@/db/schema";
+import { ensureCustomerMessageTables } from "@/lib/message-tables";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Please complete all fields." }, { status: 400 });
     }
     try {
-      await db.insert(customerMessages).values({ name, whatsapp, message });
+      await ensureCustomerMessageTables();
+      await db3.insert(customerMessages).values({ name, whatsapp, message });
     } catch {
       // Still acknowledge the message even if DB is offline.
       return Response.json({ ok: true, saved: false }, { status: 201 });

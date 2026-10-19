@@ -1,5 +1,6 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { coupons } from "@/db/schema";
+import { ensureStoreTables } from "@/lib/store-tables";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -21,7 +22,8 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Coupon code and amount are required." }, { status: 400 });
     }
 
-    const [coupon] = await db.select().from(coupons).where(eq(coupons.code, cleanCode)).limit(1);
+    await ensureStoreTables();
+    const [coupon] = await db2.select().from(coupons).where(eq(coupons.code, cleanCode)).limit(1);
     if (!coupon || !coupon.isActive) {
       return Response.json({ valid: false, error: "Invalid or disabled coupon." }, { status: 404 });
     }

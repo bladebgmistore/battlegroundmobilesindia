@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db2 } from "@/db";
 import { sql } from "drizzle-orm";
 
 /**
@@ -42,7 +42,7 @@ export function ensureFeedbackTables(): Promise<boolean> {
   g.__bgmiFeedbackTablesReady = (async () => {
     const [createTable, ...rest] = STATEMENTS;
     try {
-      await db.execute(sql.raw(createTable));
+      await db2.execute(sql.raw(createTable));
     } catch {
       // Database unreachable — retry on the next request.
       g.__bgmiFeedbackTablesReady = undefined;
@@ -50,7 +50,7 @@ export function ensureFeedbackTables(): Promise<boolean> {
     }
     for (const statement of rest) {
       try {
-        await db.execute(sql.raw(statement));
+        await db2.execute(sql.raw(statement));
       } catch {
         // Best effort — the column/index may already match.
       }

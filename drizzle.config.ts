@@ -1,22 +1,24 @@
 import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
-import { DATABASE_CONFIG_HINT, getMigrationDatabaseUrl } from "./src/lib/env";
+import { DATABASE_CONFIG_HINT, getDatabaseUrlDb1 } from "./src/lib/env";
 
 /**
- * Drizzle CLI configuration.
+ * Drizzle CLI configuration — 3-database setup.
  *
- * Migrations and `drizzle-kit push` need a DIRECT (non-pooled) PostgreSQL
- * connection — PgBouncer in transaction mode cannot run DDL. The URL is
- * resolved centrally in `src/lib/env.ts`:
+ * Each Neon database has its own schema file:
+ *  DB1 → src/db/schemas/db1.ts (users, auth, staff, logs)
+ *  DB2 → src/db/schemas/db2.ts (inventory, products, pricing)
+ *  DB3 → src/db/schemas/db3.ts (orders, proofs, referrals)
  *
- *   1. `BGMISTORE_DATABASE_URL_UNPOOLED`  (direct — preferred for migrations)
- *   2. `BGMISTORE_POSTGRES_URL_NON_POOLING`
- *   3. `BGMISTORE_DATABASE_URL`           (pooled — last resort)
+ * This default config targets DB1 only. Use the per-database configs (or the
+ * npm scripts) to provision all three databases:
  *
- * The running app itself uses the pooled `BGMISTORE_DATABASE_URL` (see
- * `src/db/index.ts`).
+ *   npm run db:push        # DB1, then DB2, then DB3
+ *   npm run db:push:db1    # drizzle.config.db1.ts
+ *   npm run db:push:db2    # drizzle.config.db2.ts
+ *   npm run db:push:db3    # drizzle.config.db3.ts
  */
-const url = getMigrationDatabaseUrl();
+const url = getDatabaseUrlDb1();
 
 if (!url) {
   throw new Error(`${DATABASE_CONFIG_HINT} Required for Drizzle commands.`);
@@ -24,8 +26,6 @@ if (!url) {
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/db/schema.ts",
-  dbCredentials: {
-    url,
-  },
+  schema: "./src/db/schemas/db1.ts",
+  dbCredentials: { url },
 });

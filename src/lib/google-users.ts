@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db1 } from "@/db";
 import { users } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
@@ -52,15 +52,13 @@ export async function upsertGoogleUser(
   if (!ready) return fallback; // DB offline — session still works (stateless cookie).
 
   try {
-    const [existing] = await db
-      .select()
+    const [existing] = await db1.select()
       .from(users)
       .where(or(eq(users.googleId, profile.sub), eq(users.email, profile.email)))
       .limit(1);
 
     if (existing) {
-      await db
-        .update(users)
+      await db1.update(users)
         .set({
           googleId: profile.sub,
           email: profile.email,
@@ -91,8 +89,7 @@ export async function upsertGoogleUser(
     const referredBy = await findReferrerIdByCode(options.referralCode);
     const referralCode = await generateUniqueReferralCode().catch(() => null);
 
-    const [created] = await db
-      .insert(users)
+    const [created] = await db1.insert(users)
       .values({
         email: profile.email,
         name: profile.name,
@@ -127,8 +124,7 @@ export async function listUsers(limit = 200): Promise<AppUser[]> {
   const ready = await ensureAuthTables();
   if (!ready) return [];
   try {
-    const rows = await db
-      .select({
+    const rows = await db1.select({
         id: users.id,
         googleId: users.googleId,
         email: users.email,

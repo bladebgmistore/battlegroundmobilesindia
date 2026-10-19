@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db3 } from "@/db";
 import { customerProofs } from "@/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { ensureProofTables } from "@/lib/proof-tables";
@@ -129,8 +129,7 @@ export function parseProofInput(data: Record<string, unknown>, partial: boolean)
 export async function listPublicProofs(limit = 60): Promise<Proof[] | null> {
   if (!(await ensureProofTables())) return null;
   try {
-    const rows = await db
-      .select()
+    const rows = await db3.select()
       .from(customerProofs)
       .where(eq(customerProofs.isActive, true))
       .orderBy(desc(customerProofs.deliveredAt), desc(customerProofs.createdAt), asc(customerProofs.sortOrder))
@@ -145,8 +144,7 @@ export async function listPublicProofs(limit = 60): Promise<Proof[] | null> {
 export async function listAllProofs(): Promise<Proof[] | null> {
   if (!(await ensureProofTables())) return null;
   try {
-    const rows = await db
-      .select()
+    const rows = await db3.select()
       .from(customerProofs)
       .orderBy(desc(customerProofs.deliveredAt), desc(customerProofs.createdAt), asc(customerProofs.sortOrder));
     return rows.map(toProof);
@@ -173,8 +171,7 @@ export async function createProof(input: ProofInput): Promise<Proof | null> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const orderCode = input.orderCode?.trim() || generateOrderCode();
     try {
-      const [created] = await db
-        .insert(customerProofs)
+      const [created] = await db3.insert(customerProofs)
         .values({ ...base, orderCode })
         .returning();
       return created ? toProof(created) : null;
@@ -202,8 +199,7 @@ export async function updateProof(id: string, input: ProofInput): Promise<Proof 
   if (input.sortOrder !== undefined) patch.sortOrder = input.sortOrder;
 
   try {
-    const [updated] = await db
-      .update(customerProofs)
+    const [updated] = await db3.update(customerProofs)
       .set(patch)
       .where(eq(customerProofs.id, id))
       .returning();
@@ -218,8 +214,7 @@ export async function deleteProof(id: string): Promise<boolean | null> {
   if (!(await ensureProofTables())) return null;
   if (!isUuid(id)) return false;
   try {
-    const removed = await db
-      .delete(customerProofs)
+    const removed = await db3.delete(customerProofs)
       .where(and(eq(customerProofs.id, id)))
       .returning({ id: customerProofs.id });
     return removed.length > 0;

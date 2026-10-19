@@ -83,7 +83,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Site controls (WhatsApp, logo, socials, maintenance, headline)
 
 > Full configuration and deployment instructions: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**
-> Database schema: **[sql/001_google_auth_and_site_logs.sql](./sql/001_google_auth_and_site_logs.sql)**, **[sql/002_feedback_moderation.sql](./sql/002_feedback_moderation.sql)**, **[sql/003_staff_members.sql](./sql/003_staff_members.sql)**, **[sql/004_referral_and_points.sql](./sql/004_referral_and_points.sql)**, **[sql/005_customer_proofs.sql](./sql/005_customer_proofs.sql)**
+> Database schema: generated migrations live in **[drizzle/db1](./drizzle/db1)**, **[drizzle/db2](./drizzle/db2)** and **[drizzle/db3](./drizzle/db3)**.
 
 ---
 
@@ -91,7 +91,8 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 
 ```bash
 npm install
-npx drizzle-kit push
+npm run db:push   # creates the DB1/DB2/DB3 schemas
+npm run db:init   # optional: seeds the demo catalog + site settings
 npm run dev
 ```
 
@@ -108,8 +109,10 @@ Open `http://localhost:3000`
 Copy `.env.example` → `.env.local` and fill it in:
 
 ```bash
-BGMISTORE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
-BGMISTORE_DATABASE_URL_UNPOOLED=postgresql://postgres:postgres@127.0.0.1:5432/app_db
+# Three separate Neon PostgreSQL databases
+DATABASE_URL_DB1=postgresql://user:password@ep-db1-pooler.region.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL_DB2=postgresql://user:password@ep-db2-pooler.region.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL_DB3=postgresql://user:password@ep-db3-pooler.region.aws.neon.tech/neondb?sslmode=require
 GOOGLE_CLIENT_ID=your-google-oauth-client-id
 GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 GOOGLE_REDIRECT_URI=https://your-domain.example/auth/google/callback
@@ -124,9 +127,10 @@ between the hosting dashboard and the code stays auditable:
 
 | Variable | Used for |
 |---|---|
-| `BGMISTORE_DATABASE_URL` | Pooled connection used by the running app |
-| `BGMISTORE_DATABASE_URL_UNPOOLED` | Direct connection used by `drizzle-kit` migrations/DDL |
-| `BGMISTORE_POSTGRES_URL`, `BGMISTORE_POSTGRES_PRISMA_URL`, `BGMISTORE_POSTGRES_URL_NON_POOLING`, `BGMISTORE_POSTGRES_*`, `BGMISTORE_PG*`, `BGMISTORE_PGHOST_UNPOOLED`, `BGMISTORE_NEON_PROJECT_ID` | Vercel/Neon fallbacks and discrete credentials — used when the two keys above are absent |
+| `DATABASE_URL_DB1` | **DB1** — User accounts, authentication, profiles, roles/permissions, login logs |
+| `DATABASE_URL_DB2` | **DB2** — Store inventory: categories, products, accounts, UC packages, coupons, pricing, site settings, reviews |
+| `DATABASE_URL_DB3` | **DB3** — Orders, transactions, payment logs, support tickets, delivery proofs, referral commissions & points |
+| `BGMISTORE_NEON_PROJECT_ID` | Optional Neon project id (diagnostics only) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth 2.0 (Authorization Code + PKCE) |
 | `NEXTAUTH_URL` | Canonical site URL; OAuth redirect base when `GOOGLE_REDIRECT_URI` is omitted |
 | `AUTH_SECRET` (alias `NEXTAUTH_SECRET`) | HMAC key that signs the `bgmi_session` cookie |
@@ -139,35 +143,53 @@ bundle). Blank it out to disable Meta Pixel tracking in that environment — the
 `<MetaPixel />` component then renders nothing. Full walkthrough:
 [META_PIXEL_SETUP.md](./META_PIXEL_SETUP.md).
 
-For production on Netlify / Vercel, add `BGMISTORE_DATABASE_URL` (and
-`BGMISTORE_DATABASE_URL_UNPOOLED` for migrations) in the host environment settings, then run:
+For production on Netlify / Vercel, add `DATABASE_URL_DB1`, `DATABASE_URL_DB2` and
+`DATABASE_URL_DB3` in the host environment settings, then create the tables in
+each database once:
 
 ```bash
-npx drizzle-kit push
+npm run db:push   # pushes the DB1, DB2 and DB3 schemas in order
+# or individually:
+npm run db:push:db1
+npm run db:push:db2
+npm run db:push:db3
 ```
-
-against the production database once.
 
 ---
 
 ## Database tables
 
+### Database 1 — users & auth (`src/db/schemas/db1.ts`)
 | Table | Purpose |
 |---|---|
-| `accounts` | Account listings |
-| `uc_packages` | UC packages |
-| `coupons` | Promo coupons |
-| `orders` | Checkout requests |
-| `customer_messages` | Contact form inbox |
-| `site_settings` | Public site settings |
 | `users` | Google accounts (name, email, `google_id`, `whatsapp`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
-| `staff_members` | Team roles — email → admin / manager / moderator (managed from Admin → Team & Roles) |
+| `staff_members` | Team roles — email → admin / manager / moderator (Admin → Team & Roles) |
 | `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
+| `admins`, `user_sessions`, `admin_sessions`, `password_resets` | Legacy, unused since Google Sign-In (kept for schema compatibility) |
+
+### Database 2 — inventory & pricing (`src/db/schemas/db2.ts`)
+| Table | Purpose |
+|---|---|
+| `categories` | Store categories (slug, image, sort order) |
+| `products` | Product listings and prices |
+| `accounts` | BGMI account listings |
+| `uc_packages` | UC packages |
+| `special_products` | Supercar / X-Suit listings |
+| `coupons` | Promo coupons (validated from DB2, usage counted on checkout) |
+| `site_settings` | Public site settings (WhatsApp, UPI, logo, maintenance mode) |
+| `feedbacks` | Player reviews + moderation state |
+
+### Database 3 — orders, proofs & points (`src/db/schemas/db3.ts`)
+| Table | Purpose |
+|---|---|
+| `orders` | Checkout requests, payment status, delivery credentials/OTP |
+| `customer_messages` | Contact form inbox |
 | `referral_commissions` | Commission ledger — one row per confirmed purchase of a referred user (unique per order; `credited` / `reversed`) |
 | `point_redemptions` | Points → UC requests (`pending` / `completed` / `rejected`, rejected = refunded) |
 | `reward_items` | Points store catalogue (UC amount, points cost, visibility) |
 | `customer_proofs` | Verified deliveries on `/proofs` — customer name, unique `order_code` (`#ORD-xxxx`), product title, amount, proof image, visibility |
-| `user_sessions` / `admins` / `admin_sessions` / `password_resets` | Legacy, unused since Google Sign-In (kept so `drizzle-kit push` never drops them) |
+| `support_tickets` / `support_messages` | Order-based "Chat with Admin" tickets |
+| `announcements` / `user_notifications` / `notification_reads` | Broadcasts and the header bell inbox |
 
 If the database is offline, the storefront still shows default catalog data and checkout still opens WhatsApp.
 
@@ -177,11 +199,11 @@ If the database is offline, the storefront still shows default catalog data and 
 
 1. Connect the Git repo
 2. Build command: `npm run build` (already in `netlify.toml`)
-3. Add env vars: `BGMISTORE_DATABASE_URL` (pooled) + `BGMISTORE_DATABASE_URL_UNPOOLED` (direct, for migrations)
+3. Add env vars: `DATABASE_URL_DB1`, `DATABASE_URL_DB2`, `DATABASE_URL_DB3`
 4. Deploy
-5. After first deploy, push schema once:
+5. After first deploy, push each schema once:
    ```bash
-   npx drizzle-kit push
+   npm run db:push
    ```
 6. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `NEXTAUTH_URL`, `AUTH_SECRET`, and `OWNER_EMAIL`
 7. Register `https://your-domain.example/auth/google/callback` (replace with your domain) as an Authorized redirect URI on the Google OAuth client

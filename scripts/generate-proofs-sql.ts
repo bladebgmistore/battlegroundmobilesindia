@@ -28,7 +28,7 @@ const sql = `-- ================================================================
 --  pre-loaded proofs (exact titles & prices from the business brief — the
 --  single source of truth is src/lib/proof-seed.ts, which this file mirrors).
 --
---  Run with:   psql "$DATABASE_URL_DB3" -f sql/005_customer_proofs.sql
+--  Run with:   psql "$DATABASE_URL_DB3" -f sql/legacy-single-db/005_customer_proofs.sql
 --  (The app applies the same statements automatically at runtime — see
 --   src/lib/proof-tables.ts, src/lib/proofs.ts)
 -- ============================================================================
@@ -92,4 +92,4 @@ ON CONFLICT (setting_key) DO NOTHING;
 `;
 
 writeFileSync(join(outDir, "005_customer_proofs.sql"), sql);
-console.log(`wrote sql/005_customer_proofs.sql (${PROOF_SEED.length} seeded proofs)`);
+console.log(`wrote sql/legacy-single-db/005_customer_proofs.sql (${PROOF_SEED.length} seeded proofs)`);

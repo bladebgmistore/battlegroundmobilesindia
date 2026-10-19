@@ -159,6 +159,21 @@ export function getNeonProjectId(): string | undefined {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Value validation                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `true` when `value` is a plain absolute `http(s)` URL.
+ *
+ * Deliberately strict: a value pasted out of rendered Markdown — which is how
+ * `[https://example.com](https://example.com)` ends up in a dashboard field —
+ * fails here, as does anything with whitespace or a stray bracket.
+ */
+export function isAbsoluteHttpUrl(value: string): boolean {
+  return /^https?:\/\/[^\s[/]+$/i.test(value.trim());
+}
+
+/* -------------------------------------------------------------------------- */
 /*  2. Authentication — Clerk, Google OAuth, NextAuth-style session keys       */
 /* -------------------------------------------------------------------------- */
 
@@ -197,11 +212,32 @@ export function isAuthSecretConfigured(): boolean {
   return Boolean(firstEnv(AUTH_SECRET_KEYS));
 }
 
-/** Canonical site URL (`NEXTAUTH_URL`), without a trailing slash. */
+/**
+ * Canonical site URL (`NEXTAUTH_URL`), without a trailing slash.
+ *
+ * Returns `undefined` when the variable is unset OR not a valid absolute URL,
+ * so a mis-pasted value can never poison the OAuth redirect fallback — an
+ * invalid URL is treated as "not configured" and the request origin is used
+ * instead, which at least keeps sign-in working.
+ */
 export function getNextAuthUrl(): string | undefined {
-  const url = firstEnv(["NEXTAUTH_URL"]);
-  if (!url) return undefined;
-  return url.replace(/\/+$/, "");
+  const raw = firstEnv(["NEXTAUTH_URL"]);
+  if (!raw) return undefined;
+
+  const url = raw.replace(/\/+$/, "");
+  if (!isAbsoluteHttpUrl(url)) {
+    console.error(
+      `[env] NEXTAUTH_URL is not a valid URL: ${JSON.stringify(raw)}. ` +
+        `Set it to a plain absolute URL such as "https://your-domain.com" (no brackets, no trailing slash).`,
+    );
+    return undefined;
+  }
+  return url;
+}
+
+/** Raw `NEXTAUTH_URL` as configured — kept so diagnostics can show the bad value. */
+export function getRawNextAuthUrl(): string | undefined {
+  return firstEnv(["NEXTAUTH_URL"]);
 }
 
 /**

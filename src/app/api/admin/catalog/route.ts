@@ -42,7 +42,18 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin catalog read failed:", error);
-    return jsonError("Database connection failed. Check DATABASE_URL on Netlify.", 503);
+    // Multi-DB failover: primary (BGMISTORE_*) was tried, then secondary (DATABASE2_*) — both failed
+    return Response.json(
+      {
+        error:
+          "Database connection failed. Both primary (BGMISTORE_*) and secondary (DATABASE2_*) are unreachable. " +
+          "Verify BGMISTORE_DATABASE_URL / BGMISTORE_POSTGRES_PRISMA_URL and DATABASE2_* in Netlify/Vercel Environment Variables, then redeploy. " +
+          "Check /api/db-status for detailed diagnostics.",
+        hint: "Primary is BGMISTORE_* → Secondary is DATABASE2_*. Legacy DATABASE_URL fallback is also supported.",
+        diagnostics: "/api/db-status",
+      },
+      { status: 503 },
+    );
   }
 }
 

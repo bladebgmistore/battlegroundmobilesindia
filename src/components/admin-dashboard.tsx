@@ -156,7 +156,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         can("referrals") ? safeJson("/api/admin/redemptions?status=pending") : Promise.resolve("skip"),
       ]);
 
-      setDatabaseError(cat === null ? "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables." : "");
+      setDatabaseError(
+        cat === null
+          ? "Neon catalog could not be loaded. Both databases unreachable — verify BGMISTORE_* (primary) and DATABASE2_* (secondary) in Netlify/Vercel Environment Variables, then redeploy. Check /api/db-status for diagnostics."
+          : "",
+      );
       setCategories(cat && cat !== "skip" ? cat.categories ?? [] : []);
       setProducts(cat && cat !== "skip" ? cat.products ?? [] : []);
       setPacks(cat && cat !== "skip" ? cat.ucPackages ?? [] : []);

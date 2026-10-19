@@ -156,7 +156,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         can("referrals") ? safeJson("/api/admin/redemptions?status=pending") : Promise.resolve("skip"),
       ]);
 
-      setDatabaseError(cat === null ? "Neon catalog could not be loaded. Verify DATABASE_URL in Netlify environment variables." : "");
+      setDatabaseError(
+        cat === null
+          ? "Neon catalog could not be loaded. Both databases unreachable — verify BGMISTORE_* (primary) and DATABASE2_* (secondary) in Netlify/Vercel Environment Variables, then redeploy. Check /api/db-status for diagnostics."
+          : "",
+      );
       setCategories(cat && cat !== "skip" ? cat.categories ?? [] : []);
       setProducts(cat && cat !== "skip" ? cat.products ?? [] : []);
       setPacks(cat && cat !== "skip" ? cat.ucPackages ?? [] : []);
@@ -333,17 +337,18 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
 
   const deliveredOrders = useMemo(() => orders.filter((o) => o.status === "delivered"), [orders]);
   const totalRevenue = useMemo(() => deliveredOrders.reduce((a, o) => a + o.amount, 0), [deliveredOrders]);
+  const [nowTimestamp] = useState(() => Date.now());
   const charts = useMemo(() => {
     const days: { day: string; requests: number }[] = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000);
+      const d = new Date(nowTimestamp - i * 86400000);
       days.push({
         day: d.toLocaleDateString("en-IN", { weekday: "short" }),
         requests: orders.filter((o) => new Date(o.createdAt).toDateString() === d.toDateString()).length,
       });
     }
     return days;
-  }, [orders]);
+  }, [nowTimestamp, orders]);
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#eef1f6]"><div className="flex items-center gap-3 text-sm font-bold text-[#0f4c81]"><span className="h-3 w-3 animate-ping rounded-full bg-[#d9f657]" /> LOADING CONTROL CENTRE</div></main>;
 
@@ -665,14 +670,11 @@ function CategoryWorkspace({ categories, products, create, update, remove }: { c
   const empty = { name: "", slug: "", description: "", image: "", sortOrder: "100" };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedSlug, setSelectedSlug] = useState(categories[0]?.slug ?? "");
-
-  useEffect(() => {
-    if (!selectedSlug && categories[0]) setSelectedSlug(categories[0].slug);
-    if (selectedSlug && !categories.some((c) => c.slug === selectedSlug)) {
-      setSelectedSlug(categories[0]?.slug ?? "");
-    }
-  }, [categories, selectedSlug]);
+  const [selectedSlugState, setSelectedSlugState] = useState("");
+  const selectedSlug = selectedSlugState && categories.some((c) => c.slug === selectedSlugState)
+    ? selectedSlugState
+    : (categories[0]?.slug ?? "");
+  const setSelectedSlug = setSelectedSlugState;
 
   const submit = async () => {
     let image = form.image.trim();
@@ -782,12 +784,6 @@ function ProductsManager({ heading, fixedCategorySlug, products, categories, cre
   });
   const [form, setForm] = useState(makeEmpty);
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!editingId && fixedCategorySlug) {
-      setForm((current) => ({ ...current, categorySlug: fixedCategorySlug }));
-    }
-  }, [fixedCategorySlug, editingId]);
 
   const submit = async () => {
     let image = form.image.trim();
@@ -1073,7 +1069,7 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
               <button onClick={() => setCredModal(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
             </div>
             <p className="mt-4 rounded-lg border border-[#d9e4f0] bg-[#f3f8fe] px-3 py-2 text-[11px] leading-5 text-[#64748b]">
-              These credentials are revealed to the buyer (<b className="text-[#0f4c81]">GET ID PASSWORD</b>) once the order is marked <b className="text-[#0f4c81]">Payment Confirmed</b> or <b className="text-[#0f4c81]">Delivered</b>. Set the OTP here after the buyer's verification payment.
+              These credentials are revealed to the buyer (<b className="text-[#0f4c81]">GET ID PASSWORD</b>) once the order is marked <b className="text-[#0f4c81]">Payment Confirmed</b> or <b className="text-[#0f4c81]">Delivered</b>. Set the OTP here after the buyer&apos;s verification payment.
             </p>
             <div className="mt-5 grid gap-3">
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">ACCOUNT LOGIN TYPE
@@ -1216,7 +1212,22 @@ function FeedbacksManager({ create, update, remove, onCountsChange }: { create: 
     } catch {}
   };
 
-  useEffect(() => { loadFeedbacks(); }, []);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/feedbacks", { cache: "no-store", credentials: "same-origin" });
+        const data = await res.json().catch(() => null);
+        if (alive && res.ok && data?.feedbacks) {
+          setFeedbacks(data.feedbacks);
+          onCountsChange?.(
+            (data.feedbacks as FeedbackItem[]).filter((item) => (item.status ?? "approved") === "pending").length,
+          );
+        }
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, [onCountsChange]);
 
   const submit = async () => {
     const data = { ...form, rating: Number(form.rating), isActive: true };

@@ -9,6 +9,7 @@ import {
   isGoogleConfigured,
 } from "@/lib/google-oauth";
 import { isSecureRequest } from "@/lib/auth";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,9 +26,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const rawNext = request.nextUrl.searchParams.get("next") ?? "/dashboard";
-  // Only allow same-site relative redirects (open-redirect protection).
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  const rawNext = request.nextUrl.searchParams.get("next");
+  const next = safeAuthRedirect(rawNext);
 
   const state = createStateValue();
   const codeVerifier = createCodeVerifier();

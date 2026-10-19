@@ -3,44 +3,43 @@ import { NextResponse, type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * Public diagnostic endpoint — tells you which auth environment variables are
- * missing on the server WITHOUT ever exposing their values.
- *
- * Visit https://<your-domain>/api/auth/config-check after deploying.
- * Every flag must be `true` and `redirectUri` must exactly match the
- * "Authorised redirect URI" configured on the Google OAuth client.
- */
+/** Public Google OAuth + multi-DB configuration diagnostic. Never exposes secrets. */
 export async function GET(request: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
   const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? "";
-  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "";
+  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
   const ownerEmail = process.env.OWNER_EMAIL ?? "";
-  const databaseUrl = process.env.DATABASE_URL ?? "";
-
-  // Firebase Phone Auth (+91 mobile OTP) — see src/lib/firebase.ts.
-  const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "";
-  const firebaseAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "";
-  const firebaseProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "";
-  const firebaseAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "";
-  const phoneSignatureCheck = (process.env.FIREBASE_PHONE_VERIFY ?? "").trim().toLowerCase();
-  const phoneVerificationMode =
-    phoneSignatureCheck === "jwt" || phoneSignatureCheck === "claims"
-      ? "jwt-claims (dev convenience — do NOT use in production)"
-      : phoneSignatureCheck === "strict" || process.env.NODE_ENV === "production"
-        ? "identity-toolkit (strict)"
-        : "jwt-claims (dev default)";
-  const phoneAuthConfigured = Boolean(firebaseApiKey && firebaseAuthDomain && firebaseProjectId && firebaseAppId);
-
-  const origin = new URL(request.url).origin;
+  const origin = request.nextUrl.origin;
   const effectiveRedirectUri = redirectUri || `${origin}/auth/google/callback`;
+
+  // Multi-DB: primary (BGMISTORE_*) is required, secondary (DATABASE2_*) is optional
+  const primaryPooled =
+    process.env.BGMISTORE_POSTGRES_PRISMA_URL ??
+    process.env.BGMISTORE_POSTGRES_URL ??
+    process.env.BGMISTORE_DATABASE_URL ??
+    "";
+  const primaryUnpooled =
+    process.env.BGMISTORE_DATABASE_URL_UNPOOLED ?? process.env.BGMISTORE_POSTGRES_URL_NON_POOLING ?? "";
+  const secondaryPooled =
+    process.env.DATABASE2_POSTGRES_PRISMA_URL ??
+    process.env.DATABASE2_POSTGRES_URL ??
+    process.env.DATABASE2_DATABASE_URL ??
+    "";
+  const secondaryUnpooled =
+    process.env.DATABASE2_DATABASE_URL_UNPOOLED ??
+    process.env.DATABASE2_POSTGRES_URL_NON_POOLING ??
+    "";
+  // Legacy fallback still honoured
+  const legacyUrl = process.env.DATABASE_URL ?? "";
+  const hasPrimary = Boolean(primaryPooled || primaryUnpooled || legacyUrl);
+  const hasSecondary = Boolean(secondaryPooled || secondaryUnpooled);
 
   const missing: string[] = [];
   if (!clientId) missing.push("GOOGLE_CLIENT_ID");
   if (!clientSecret) missing.push("GOOGLE_CLIENT_SECRET");
   if (!authSecret) missing.push("AUTH_SECRET");
-  if (!databaseUrl) missing.push("DATABASE_URL");
+  if (!hasPrimary) missing.push("BGMISTORE_DATABASE_URL / BGMISTORE_POSTGRES_PRISMA_URL (or DATABASE_URL fallback)");
 
   return NextResponse.json(
     {
@@ -52,30 +51,41 @@ export async function GET(request: NextRequest) {
         GOOGLE_REDIRECT_URI: Boolean(redirectUri),
         AUTH_SECRET: Boolean(authSecret),
         OWNER_EMAIL: Boolean(ownerEmail),
-        DATABASE_URL: Boolean(databaseUrl),
-        NEXT_PUBLIC_FIREBASE_API_KEY: Boolean(firebaseApiKey),
-        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: Boolean(firebaseAuthDomain),
-        NEXT_PUBLIC_FIREBASE_PROJECT_ID: Boolean(firebaseProjectId),
-        NEXT_PUBLIC_FIREBASE_APP_ID: Boolean(firebaseAppId),
-        phoneSignInConfigured: phoneAuthConfigured,
-        phoneTokenVerification: phoneVerificationMode,
+        // Multi-DB checks
+        PRIMARY_DATABASE: hasPrimary,
+        SECONDARY_DATABASE: hasSecondary,
+        DATABASE_URL_LEGACY: Boolean(legacyUrl),
+        BGMISTORE_DATABASE_URL: Boolean(process.env.BGMISTORE_DATABASE_URL),
+        BGMISTORE_DATABASE_URL_UNPOOLED: Boolean(process.env.BGMISTORE_DATABASE_URL_UNPOOLED),
+        BGMISTORE_POSTGRES_URL: Boolean(process.env.BGMISTORE_POSTGRES_URL),
+        BGMISTORE_POSTGRES_PRISMA_URL: Boolean(process.env.BGMISTORE_POSTGRES_PRISMA_URL),
+        BGMISTORE_POSTGRES_URL_NON_POOLING: Boolean(process.env.BGMISTORE_POSTGRES_URL_NON_POOLING),
+        DATABASE2_DATABASE_URL: Boolean(process.env.DATABASE2_DATABASE_URL),
+        DATABASE2_DATABASE_URL_UNPOOLED: Boolean(process.env.DATABASE2_DATABASE_URL_UNPOOLED),
+        DATABASE2_POSTGRES_URL: Boolean(process.env.DATABASE2_POSTGRES_URL),
+        DATABASE2_POSTGRES_PRISMA_URL: Boolean(process.env.DATABASE2_POSTGRES_PRISMA_URL),
+        DATABASE2_POSTGRES_URL_NON_POOLING: Boolean(process.env.DATABASE2_POSTGRES_URL_NON_POOLING),
       },
-      // Safe to show: the public half of the client id and the redirect URI.
+      database: {
+        primary: {
+          pooled: Boolean(primaryPooled),
+          unpooled: Boolean(primaryUnpooled),
+          viaLegacyFallback: !primaryPooled && !primaryUnpooled && Boolean(legacyUrl),
+        },
+        secondary: {
+          configured: hasSecondary,
+          pooled: Boolean(secondaryPooled),
+          unpooled: Boolean(secondaryUnpooled),
+        },
+        failover: hasPrimary && hasSecondary ? "enabled (primary BGMISTORE_* → secondary DATABASE2_*)" : hasPrimary ? "single DB (no failover)" : "not configured",
+      },
       clientIdPreview: clientId ? `${clientId.slice(0, 12)}…${clientId.slice(-24)}` : null,
       ownerEmail: ownerEmail || "manavjeph800@gmail.com (default)",
       requestOrigin: origin,
       effectiveRedirectUri,
-      /** +91 mobile OTP checklist. */
-      phoneAuth: {
-        envConfigured: phoneAuthConfigured,
-        tokenVerification: phoneVerificationMode,
-        hint: phoneAuthConfigured
-          ? `Add this origin to Firebase → Authentication → Settings → Authorised domains (currently ${origin}) or phone sign-in will be refused with auth/unauthorized-domain. Also enable the Phone provider under Authentication → Sign-in method.`
-          : "Add the NEXT_PUBLIC_FIREBASE_* variables (see .env.example) and redeploy to switch mobile OTP on.",
-      },
       hint:
         missing.length === 0
-          ? "All set. Make sure effectiveRedirectUri is listed in Google Cloud Console → Credentials → Authorised redirect URIs."
+          ? "Google OAuth + database are ready. Ensure effectiveRedirectUri exactly matches an Authorized redirect URI on the Google OAuth client."
           : `Add these environment variables in your hosting dashboard and redeploy: ${missing.join(", ")}`,
     },
     { headers: { "Cache-Control": "no-store" } },

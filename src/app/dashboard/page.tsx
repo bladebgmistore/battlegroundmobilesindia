@@ -18,9 +18,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
       user={{
         name: session.name,
         email: session.email,
-        // +91 OTP accounts carry a verified phone instead of a Google email.
-        phone: session.phone ?? null,
-        provider: session.authProvider ?? "google",
         picture: session.picture,
         role: session.role,
         isOwner: session.role === ROLE_OWNER,

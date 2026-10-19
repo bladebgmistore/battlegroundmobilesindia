@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield, FiShoppingBag, FiSmartphone } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiGift, FiLock, FiUser, FiCreditCard, FiLoader, FiShield, FiShoppingBag } from "react-icons/fi";
 import { DISCOUNT_PERCENT, formatINR, mrpOf, savingsOf } from "@/lib/store-data";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { useStoreSettings } from "@/lib/use-store-settings";
@@ -262,8 +262,15 @@ export default function CheckoutPage() {
   // Login is compulsory to checkout — guests see a sign-in gate instead of the form.
   const checkoutLocked = authChecked && (!authedUser || authRequired);
   // Preserve the full product/amount/uid/category query when sending the buyer
-  // to sign-in / signup so they land right back on this checkout after auth.
+  // to sign-in so they land right back on this checkout after authentication.
   const checkoutNext = encodeURIComponent(`/checkout${params.toString() ? `?${params.toString()}` : ""}`);
+
+  // Redirect to login if unauthenticated
+  useEffect(() => {
+    if (authChecked && (!authedUser || authRequired)) {
+      router.push(`/login?next=${checkoutNext}`);
+    }
+  }, [authChecked, authedUser, authRequired, checkoutNext, router]);
 
   return (
     <>
@@ -287,12 +294,10 @@ export default function CheckoutPage() {
               <p className="mt-6 text-[10px] font-black tracking-[.18em] text-[#0f4c81]">ACCOUNT REQUIRED</p>
               <h1 className="mt-3 text-3xl font-black tracking-[-.05em] text-[#0f172a]">Sign in to continue checkout</h1>
               <p className="mt-3 text-sm leading-6 text-[#64748b]">
-                An account is required to place an order — sign in with Google or your +91 mobile number. Your order, payment
-                screenshot and delivery details stay saved in your account.
+                Sign in with Google to place your order. Your order, payment screenshot and delivery details stay saved in your account.
               </p>
               <div className="mt-7 grid gap-3">
-                <a href={`/auth/google?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> CONTINUE WITH GOOGLE</a>
-                <a href={`/login?next=${checkoutNext}`} className="btn-outline w-full"><FiSmartphone /> LOGIN WITH MOBILE OTP</a>
+                <Link href={`/login?next=${checkoutNext}`} className="btn-primary w-full"><FiLock /> CONTINUE WITH GOOGLE</Link>
               </div>
               {authRequired && authedUser && (
                 <p className="mt-5 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] px-3.5 py-2.5 text-[11px] font-semibold text-[#8a6d1a]">

@@ -1,31 +1,35 @@
 import { redirect } from "next/navigation";
-import GoogleLogin from "@/components/google-login";
+import AuthView from "@/components/auth-view";
 import { getSession } from "@/lib/auth";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Sign In | Battleground Mobile India Store",
+  title: "Player Sign In | Battleground Mobile India Store",
+  description: "Sign in to your BGMI Store player account securely with Google.",
   robots: { index: false, follow: false },
 };
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string; error?: string; signedout?: string }>;
-}) {
+type LoginSearchParams = {
+  next?: string;
+  redirect?: string;
+  returnTo?: string;
+  callbackUrl?: string;
+  error?: string;
+  signedout?: string;
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<LoginSearchParams> }) {
   const params = await searchParams;
   const session = await getSession();
+  const target = safeAuthRedirect(params.next ?? params.redirect ?? params.returnTo ?? params.callbackUrl);
 
-  // Already signed in — go straight to the dashboard (or the requested page).
-  if (session) {
-    const target = params.next?.startsWith("/") && !params.next.startsWith("//") ? params.next : "/dashboard";
-    redirect(target);
-  }
+  if (session) redirect(target);
 
   return (
-    <GoogleLogin
-      next={params.next?.startsWith("/") ? params.next : "/dashboard"}
+    <AuthView
+      next={target}
       error={params.error}
       signedOut={params.signedout === "1"}
     />

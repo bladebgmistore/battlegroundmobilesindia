@@ -23,23 +23,16 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - **Add to Cart** on every product card (home shelves, UC tiles, `/accounts` grid + quick view, `/uc-purchase`, category pages) with an **ADDED ✓** confirmation
 - Cart state = **React Context + `useSyncExternalStore`**, persisted in **`localStorage`** (survives reloads, synced across tabs, SSR-safe)
 - Checkout strips into the existing flow: `/checkout?...&cart=1`, UID requirement detected automatically, cart emptied once the order is registered
+- Guests can browse, add products and manage the cart freely; checkout redirects to Google sign-in with the cart destination preserved, then returns to checkout after authentication
 - Full walkthrough: **[CART_SETUP.md](./CART_SETUP.md)**
 
-### Authentication — Google **or** +91 Mobile OTP
-- **Continue with Google** (OAuth 2.0, Authorization Code + PKCE) — unchanged, still the default tab
-- **Mobile Number OTP** — Firebase Phone Auth (`signInWithPhoneNumber` + invisible
-  `RecaptchaVerifier` bound to `<div id="recaptcha-container">`), 10-digit Indian
-  number validation with a fixed **+91** prefix, 6-digit OTP, resend + countdown
-- The Firebase ID token is **verified server-side** (Google Identity Toolkit in
-  production) before a session is issued; both methods end in the *same* signed,
-  `httpOnly`, 30-day session cookie
-- Setup / troubleshooting: **[PHONE_AUTH_SETUP.md](./PHONE_AUTH_SETUP.md)**
-- **Homepage is public** with a *Login* button in the header; `src/proxy.ts`
-  gates every other page and API route and redirects guests to `/login?next=…`
-  (allow-list: `PUBLIC_PAGES` in `src/lib/auth-config.ts`)
-- Signed (HMAC-SHA256), `httpOnly`, 30-day session cookie
-- Old email/WhatsApp + password login, signup, OTP reset and admin password
-  login have been removed
+### Authentication — custom Google Sign-In only
+- Google OAuth 2.0 **Authorization Code + PKCE** flow: `/auth/google` → Google → `/auth/google/callback`.
+- Google profile is verified by the server before issuing a signed, `httpOnly`, 30-day application session cookie.
+- `/login` is the single Google sign-in page, styled to match the site's light storefront theme.
+- Browsing, categories and cart actions are public; checkout and order APIs require a signed-in account. Guests are sent to `/login?next=…` and returned to their selected checkout after sign-in.
+- Setup / troubleshooting: **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)**.
+- Only the custom Google sign-in method is supported; legacy password sign-in has been removed.
 
 ### Refer & Earn + Points Store
 - **Unique referral code** for every account. Signing up through a `?ref=CODE` link (any page of the store) links the new account to its referrer (`users.referred_by`). Accounts created before this feature get a code on their next sign-in.
@@ -116,20 +109,12 @@ Copy `.env.example` → `.env.local` and fill it in:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
-GOOGLE_CLIENT_ID=822938602122-d99qjh37o9gl4hu332ijrdjjjvum4f5p.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=https://battlegroundmobilesindia.shop/auth/google/callback
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_REDIRECT_URI=https://your-domain.example/auth/google/callback
 AUTH_SECRET=$(openssl rand -base64 32)
 OWNER_EMAIL=manavjeph800@gmail.com
 NEXT_PUBLIC_FACEBOOK_PIXEL_ID=4056208531176598
-# Firebase Phone Auth (+91 mobile OTP) — see PHONE_AUTH_SETUP.md
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBo2oq92M_Ld6OGIWUWUWUwVd9q5GnW3oKNY
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=battlegroundmobileindias-f8e2f.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=battlegroundmobileindias-f8e2f
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=battlegroundmobileindias-f8e2f.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=982171987292
-NEXT_PUBLIC_FIREBASE_APP_ID=1:982171987292:web:4f52d95624d271caa02599
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-WKTZZ2KHYH
 ```
 
 `NEXT_PUBLIC_FACEBOOK_PIXEL_ID` is public by design (it ships in the browser
@@ -157,7 +142,7 @@ against the production database once.
 | `orders` | Checkout requests |
 | `customer_messages` | Contact form inbox |
 | `site_settings` | Public site settings |
-| `users` | Google **and +91 phone** accounts (name, email, `google_id`, `phone_uid`, `whatsapp`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
+| `users` | Google accounts (name, email, `google_id`, `whatsapp`, avatar, role) + `referral_code`, `referred_by`, `points_balance` |
 | `staff_members` | Team roles — email → admin / manager / moderator (managed from Admin → Team & Roles) |
 | `site_logs` | Visitor tracking — email, IP, page URL, timestamp |
 | `referral_commissions` | Commission ledger — one row per confirmed purchase of a referred user (unique per order; `credited` / `reversed`) |
@@ -180,13 +165,9 @@ If the database is offline, the storefront still shows default catalog data and 
    ```bash
    npx drizzle-kit push
    ```
-6. Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `AUTH_SECRET`, `OWNER_EMAIL`
-7. Add the seven `NEXT_PUBLIC_FIREBASE_*` variables for mobile-OTP login, then add
-   the deployed domain to Firebase → Authentication → Settings → Authorised domains
-8. Sign in at `/login` (Google or +91 mobile OTP) with the owner account, then open `/admin`
-9. Optional: run [`sql/007_phone_auth.sql`](./sql/007_phone_auth.sql) if you apply
-   migrations by hand instead of letting `ensureAuthTables()` provision the
-   `users.phone_uid` column automatically
+6. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `AUTH_SECRET`, `OWNER_EMAIL`, and `DATABASE_URL`
+7. Register `https://your-domain.example/auth/google/callback` (replace with your domain) as an Authorized redirect URI on the Google OAuth client
+8. Sign in at `/login` with the owner Google account, then open `/admin`
 
 ---
 
@@ -198,9 +179,8 @@ If the database is offline, the storefront still shows default catalog data and 
 | `/accounts` | Account store |
 | `/uc-purchase` | UC packages |
 | `/checkout` | Buy flow + coupon (`?cart=1` = multi-item cart checkout) |
-| `/login` | Sign in — Google tab or +91 Mobile OTP tab (only public page) |
-| `/auth/google` → `/auth/google/callback` | Google OAuth 2.0 flow |
-| `/api/auth/phone` | `POST { idToken }` → verifies a Firebase phone token, issues the session cookie |
+| `/login` | Sign in with the custom Google OAuth flow |
+| `/auth/google` → `/auth/google/callback` | Google OAuth 2.0 Authorization Code + PKCE flow |
 | `/auth/logout` | Sign out |
 | `/dashboard` | User dashboard (profile, orders, admin link) |
 | `/refer-earn` | Refer & Earn dashboard (link, totals, referred friends, points history) |
@@ -224,7 +204,7 @@ If the database is offline, the storefront still shows default catalog data and 
 
 ## Refer & Earn rules
 
-- **Attribution** happens only for brand-new accounts that sign up through a referral link. Existing accounts are never re-attributed. The latest referral link opened before signing up is the one credited.
+- **Attribution** happens only for brand-new accounts created after following a referral link. Existing accounts are never re-attributed. The latest referral link opened before the first sign-in is the one credited.
 - **Commission** = `floor(amount paid × 20%)` points, where *amount paid* is the order total after coupons. It is credited once per order (`referral_commissions.order_id` is unique) when the order is `payment_confirmed` or `delivered`, and reversed when it is cancelled, moved back to an unconfirmed status or deleted.
 - **OTP copies** created by the account verification flow are stored with `orders.commissionable = false`, so one purchase never earns commission twice.
 - **Redemptions** debit the balance and create the request in a single SQL statement, so no partial state is possible. Rejecting a pending request refunds the points exactly once. If a commission is reversed after its points were spent, the balance can go negative and new redemptions are blocked until it is positive again.

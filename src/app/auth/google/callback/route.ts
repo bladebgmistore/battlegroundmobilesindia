@@ -12,6 +12,7 @@ import { applySessionCookie, isSecureRequest } from "@/lib/auth";
 import { upsertGoogleUser } from "@/lib/google-users";
 import { recordVisit } from "@/lib/site-logs";
 import { getClientIp } from "@/lib/geo";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
     role: user.role,
   });
 
-  const target = stored.next && stored.next.startsWith("/") && !stored.next.startsWith("//") ? stored.next : "/dashboard";
+  const target = safeAuthRedirect(stored.next);
   const secure = isSecureRequest(request);
   const response = redirectTo(target);
 

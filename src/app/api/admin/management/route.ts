@@ -21,7 +21,13 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Admin management read failed:", error);
     return Response.json(
-      { error: "Database connection failed. Check DATABASE_URL on Netlify." },
+      {
+        error:
+          "Database connection failed. Both primary (BGMISTORE_*) and secondary (DATABASE2_*) are unreachable. " +
+          "Verify BGMISTORE_* and DATABASE2_* in Netlify/Vercel Environment Variables, then redeploy. " +
+          "See /api/db-status for diagnostics.",
+        diagnostics: "/api/db-status",
+      },
       { status: 503 },
     );
   }

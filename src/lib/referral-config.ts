@@ -5,7 +5,7 @@
  * cookie names and the code validator to capture `?ref=` links.
  */
 
-/** Cookie that carries the referrer's code from the referral link until signup. */
+/** Cookie that carries the referrer's code from the referral link until first sign-in. */
 export const REFERRAL_COOKIE = "bgmi_ref";
 /** A referral link stays attributable for 30 days. */
 export const REFERRAL_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

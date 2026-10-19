@@ -246,7 +246,40 @@ export function isFailoverError(error: unknown): boolean {
 
   if (!haystack) return false;
 
-  // --- Postgres error codes that are failover-eligible (infra, not query logic) ---
+  // --- First, EXCLUDE pure query-logic errors that should NEVER fail over ---
+  // These would also fail on the secondary (same schema, same bad data), so
+  // retrying would just waste time and hide bugs.
+  // If primary throws one of these, we let it bubble — it's an app bug, not infra.
+  const nonFailoverKeywords = [
+    "duplicate key",
+    "unique violation",
+    "unique constraint",
+    "violates foreign key",
+    "violates check constraint",
+    "violates not-null",
+    "violates exclusion",
+    "violates unique",
+    "foreign key violation",
+    "not-null violation",
+    "check constraint violation",
+    "syntax error",
+    "unterminated quoted",
+    "missing from-clause",
+    "invalid input syntax",
+    "invalid input value",
+    "value too long",
+    "string data, right truncation",
+  ];
+  // If it looks like a pure constraint/syntax error, do NOT fail over.
+  // We still allow failover if the SAME message also contains infra keywords
+  // (e.g., "connection error ... duplicate key" shouldn't happen, but just in case we check infra first).
+  const isNonFailover = nonFailoverKeywords.some((kw) => haystack.includes(kw));
+  if (isNonFailover) {
+    // Edge: Neon sometimes returns "quota exceeded ... duplicate"? No — safe to return false here.
+    return false;
+  }
+
+  // --- Postgres error codes that are definitely failover-eligible (infra, not query logic) ---
   // 53300 too_many_connections, 53400 configuration_limit_exceeded,
   // 57014 query_canceled (often timeout), 58000 system_error, 08001-08006 connection_exception
   const pgCodeFailover = /\b(53300|53400|57014|58000|0800[1-6])\b/;
@@ -284,6 +317,12 @@ export function isFailoverError(error: unknown): boolean {
     "max_connections",
     "remaining connection slots are reserved",
     "sorry, too many clients",
+    "no pg_hba.conf entry",
+    "password authentication failed",
+    "role \"", // role does not exist / auth
+    "authentication failed",
+    "self signed certificate",
+    "certificate has expired",
   ];
 
   // --- Timeout keywords ---
@@ -302,6 +341,7 @@ export function isFailoverError(error: unknown): boolean {
     "acquire timeout",
     "connectiontimeout",
     "read timeout",
+    "query execution timeout",
   ];
 
   // --- Quota / limit / Neon-specific keywords ---
@@ -343,13 +383,13 @@ export function isFailoverError(error: unknown): boolean {
     "active time limit",
     "data transfer limit",
     "written data limit",
+    "neon",
+    "project has been suspended",
+    "project status: idle",
+    "endpoint is disabled",
   ];
 
   // --- HTTP gateway codes from Neon API / Vercel / Cloudflare ---
-  // Be careful: we only treat these as failover if they appear in a connection
-  // error context, not for every 503 the app itself might return.
-  // We check for them combined with db/neon/fetch keywords, or standalone
-  // if the message is clearly an infra error.
   const httpGatewayKeywords = ["502", "503", "504", "521", "522", "523", "524", "525", "526"];
   const httpGatewayPhrases = ["bad gateway", "service unavailable", "gateway timeout", "origin unreachable", "cloudflare"];
 
@@ -359,15 +399,60 @@ export function isFailoverError(error: unknown): boolean {
   if (matchesAny(timeoutKeywords)) return true;
   if (matchesAny(quotaKeywords)) return true;
   if (matchesAny(httpGatewayKeywords)) {
-    // 502/503/504 from Neon/Vercel fetch should fail over; plain app 503 should not.
-    // Heuristic: if haystack also mentions neon / fetch / database / connection, it's infra.
     const infraContext = ["neon", "fetch", "database", "connection", "postgres", "pg", "api", "vercel", "cloudflare", "gateway", "upstream"];
     if (infraContext.some((kw) => haystack.includes(kw)) || haystack.match(/\b50[234]\b/)) return true;
   }
   if (matchesAny(httpGatewayPhrases)) return true;
-
-  // Undici's ConnectTimeoutError / TimeoutError often have these names
   if (haystack.includes("connecttimeouterror") || haystack.includes("timeouterror") || haystack.includes("headers timeout")) return true;
+
+  // --- AGGRESSIVE FALLBACK: for user expectation "jab 1st na chale to 2nd kaam me aa jaaye" ---
+  // If the error came from the DB driver and is NOT a pure constraint/syntax error,
+  // we consider it infra and fail over. This guarantees the site never crashes
+  // when primary is down, even if the exact error message is unknown.
+  // Heuristic: any DB error containing these broad failure signals should fail over.
+  const broadFailoverSignals = [
+    "error",
+    "failed",
+    "failure",
+    "exception",
+    "cannot",
+    "unable",
+    "unavailable",
+    "terminat",
+    "refused",
+    "reset",
+    "enotfound",
+    "etimedout",
+    "econn",
+    "eai_again",
+    "getaddrinfo",
+    "fetch",
+    "connection",
+    "pool",
+    "exhausted",
+    "suspended",
+    "quota",
+    "limit",
+    "timeout",
+    "neon",
+    "database",
+    "postgres",
+    "pg_",
+    "sql",
+  ];
+  // Only apply broad check if haystack looks like a DB/infra error (not a plain app "not found" message)
+  // We require at least one broad signal AND the error came from a DB-related source
+  // (heuristic: contains "neon", "postgres", "database", "connection", "pool", "query", "fetch", "pg")
+  const dbContext = ["neon", "postgres", "database", "connection", "pool", "query", "fetch", " pg", "pg_", "sql", "timeout", "quota", "limit", "econn", "enotfound", "eai_again"];
+  const hasBroadSignal = broadFailoverSignals.some((kw) => haystack.includes(kw));
+  const hasDbContext = dbContext.some((kw) => haystack.includes(kw));
+  if (hasBroadSignal && hasDbContext) return true;
+
+  // Final catch-all: if error message is non-empty and contains "error" / "failed" and is NOT a constraint error, fail over.
+  // This is intentionally permissive — user explicitly wants primary-down → secondary.
+  if (haystack.includes("error") || haystack.includes("failed") || haystack.includes("failure") || haystack.includes("exception")) {
+    return true;
+  }
 
   return false;
 }

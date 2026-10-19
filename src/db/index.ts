@@ -121,7 +121,8 @@ function getNeonUnpooledSecondary(): NeonSql | null {
 // ---------------------------------------------------------------------------
 
 function poolConfigFor(url: string): PoolConfig {
-  return { ...buildPoolConfig(url), max: 3, idleTimeoutMillis: 20000, connectionTimeoutMillis: 10000 } as PoolConfig;
+  // Faster failover: 5s connect timeout so secondary is tried quickly on Vercel (10s function limit)
+  return { ...buildPoolConfig(url), max: 3, idleTimeoutMillis: 20000, connectionTimeoutMillis: 5000 } as PoolConfig;
 }
 
 function getPoolPooledPrimary(): Pool | null {
@@ -547,7 +548,9 @@ function getPooledFailoverClient(): AnyDrizzle {
   if (g.__bgmiDrizzlePooledFailover) return g.__bgmiDrizzlePooledFailover;
 
   const primary = getDrizzlePooledPrimary();
-  const secondary = getDrizzlePooledSecondary();
+  // For pooled, try pooled secondary first, then unpooled secondary as last resort
+  let secondary = getDrizzlePooledSecondary();
+  if (!secondary) secondary = getDrizzleUnpooledSecondary();
 
   if (!primary && !secondary) {
     throw new Error(

@@ -462,14 +462,10 @@ export default function AccountPage() {
                         <input value={email} readOnly disabled type="email" className="form-input pl-10 opacity-70" />
                         <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
                       </div>
-                      <span className="text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">
-                        Managed by your Google account.
-                      </span>
                     </label>
                     <div className="grid gap-2">
                       <label htmlFor="profile-whatsapp" className="flex items-center justify-between text-[10px] font-black tracking-[.12em] text-[#334155]">
                         <span>WHATSAPP NUMBER</span>
-                        {!whatsapp && <span className="font-bold normal-case tracking-normal text-[#94a3b8]">Not added yet</span>}
                       </label>
                       <WhatsappInput
                         id="profile-whatsapp"
@@ -478,12 +474,6 @@ export default function AccountPage() {
                         placeholder="Add your WhatsApp number"
                         invalid={profileMsg?.type === "err" && Boolean(whatsapp) && !isCompleteWhatsapp(whatsapp)}
                       />
-                      <span className="flex items-start gap-1.5 text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">
-                        <FiPhone className="mt-0.5 shrink-0" />
-                        {whatsapp
-                          ? "Used for order confirmation, delivery updates and UC receipts."
-                          : "Add your active WhatsApp number so we can reach you about orders."}
-                      </span>
                     </div>
                     {profileMsg && (
                       <p className={`flex items-center gap-2 rounded-lg p-3 text-xs font-bold ${profileMsg.type === "ok" ? "bg-[#dcf5e8] text-[#0e9f6e]" : "bg-red-500/10 text-[#c62828]"}`}>

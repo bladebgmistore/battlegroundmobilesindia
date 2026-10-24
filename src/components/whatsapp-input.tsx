@@ -46,6 +46,8 @@ export function WhatsappInput({
   const local = value ? parsed.local : "";
 
   const emit = (nextDial: string, nextLocal: string) => {
+    // Remember the chosen country so clearing the field keeps it selected.
+    setEmptyDial(nextDial);
     const digits = nextLocal.replace(/\D/g, "");
     onChange(digits ? `+${nextDial.replace(/\D/g, "")}${digits}` : "");
   };
@@ -56,7 +58,12 @@ export function WhatsappInput({
   };
 
   const handleLocal = (event: ChangeEvent<HTMLInputElement>) => {
-    emit(dial, event.target.value.replace(/\D/g, "").slice(0, 15));
+    // E.164 caps the whole number at 15 digits, country code included, and
+    // Indian mobiles are always exactly 10 — stop accepting extra keystrokes
+    // instead of silently storing an undialable number.
+    const e164Room = Math.max(1, 15 - dial.replace(/\D/g, "").length);
+    const room = dial === "+91" ? Math.min(10, e164Room) : Math.min(14, e164Room);
+    emit(dial, event.target.value.replace(/\D/g, "").slice(0, room));
   };
 
   const country = COUNTRY_DIAL_CODES.find((item) => item.dial === dial) ?? COUNTRY_DIAL_CODES[0];
@@ -84,6 +91,8 @@ export function WhatsappInput({
         </select>
         <FiChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 text-xs text-[#94a3b8]" />
       </div>
+      {/* text-base (16px) on phones stops iOS Safari from zooming the page on
+          focus, which made the field feel frozen while typing. */}
       <input
         id={inputId}
         value={local}
@@ -92,9 +101,13 @@ export function WhatsappInput({
         autoFocus={autoFocus}
         type="tel"
         inputMode="numeric"
+        pattern="[0-9]*"
         autoComplete="tel-national"
+        enterKeyHint="done"
+        spellCheck={false}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm font-semibold text-[#0f172a] outline-none placeholder:font-medium placeholder:text-[#97a3b6]"
+        aria-invalid={invalid ? true : undefined}
+        className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-semibold text-[#0f172a] outline-none placeholder:font-medium placeholder:text-[#97a3b6] sm:text-sm"
       />
     </div>
   );

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { FiAlertCircle, FiCheckCircle, FiMessageCircle, FiX } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { WhatsappInput, isCompleteWhatsapp } from "@/components/whatsapp-input";
-import { formatWhatsapp } from "@/lib/phone";
+import { formatWhatsapp, splitWhatsapp } from "@/lib/phone";
 import {
   SIGNUP_COOKIE,
   WHATSAPP_PROMPT_DISMISS_KEY,
@@ -108,6 +108,15 @@ export default function WhatsappPrompt() {
   if (!open || !user) return null;
 
   const complete = isCompleteWhatsapp(phone);
+  const { dial, local } = splitWhatsapp(phone);
+  const digitsLeft = dial === "+91" ? Math.max(0, 10 - local.length) : 0;
+  const hint = !local
+    ? "Pick your country code, then enter the number without the leading zero."
+    : complete
+      ? "Looks good — save it to receive order updates."
+      : digitsLeft > 0
+        ? `${digitsLeft} more digit${digitsLeft === 1 ? "" : "s"} needed.`
+        : "Enter the full number for the selected country.";
 
   const save = async () => {
     if (!complete || busy) return;
@@ -139,8 +148,12 @@ export default function WhatsappPrompt() {
 
   return (
     <div
-      className="fixed inset-0 z-[85] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={() => !saved && close(true)}
+      className="fixed inset-0 z-[85] grid place-items-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4"
+      // Only a real tap on the backdrop closes the dialog — a scroll gesture
+      // that happens to end outside the card must not dismiss it mid-typing.
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !saved) close(true);
+      }}
       role="presentation"
     >
       <div
@@ -148,7 +161,7 @@ export default function WhatsappPrompt() {
         aria-modal="true"
         aria-labelledby="whatsapp-prompt-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white shadow-[0_30px_80px_rgba(15,40,70,.3)]"
+        className="my-auto w-full max-w-md overflow-hidden rounded-2xl border border-[#dbe2ec] bg-white shadow-[0_30px_80px_rgba(15,40,70,.3)]"
       >
         <div className="relative bg-gradient-to-br from-[#0f4c81] to-[#1b6fb0] p-6 text-white">
           {!saved && (
@@ -184,7 +197,13 @@ export default function WhatsappPrompt() {
               <p className="mt-1 font-mono text-sm font-bold text-[#0e9f6e]">{saved}</p>
             </div>
           ) : (
-            <>
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void save();
+              }}
+            >
               <div>
                 <label htmlFor="signup-whatsapp" className="mb-2 block text-[10px] font-black tracking-[.14em] text-[#334155]">
                   ACTIVE WHATSAPP NUMBER
@@ -197,9 +216,18 @@ export default function WhatsappPrompt() {
                   autoFocus
                   invalid={Boolean(error)}
                 />
-                <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-[#64748b]">
-                  <FiAlertCircle className="mt-0.5 shrink-0 text-[#0f4c81]" />
-                  <span>Pick your country code, then enter the number without the leading zero.</span>
+                <p
+                  aria-live="polite"
+                  className={`mt-2 flex items-start gap-1.5 text-[11px] leading-4 ${
+                    complete ? "font-bold text-[#0e9f6e]" : "text-[#64748b]"
+                  }`}
+                >
+                  {complete ? (
+                    <FiCheckCircle className="mt-0.5 shrink-0" />
+                  ) : (
+                    <FiAlertCircle className="mt-0.5 shrink-0 text-[#0f4c81]" />
+                  )}
+                  <span>{hint}</span>
                 </p>
               </div>
 
@@ -210,8 +238,7 @@ export default function WhatsappPrompt() {
               )}
 
               <button
-                type="button"
-                onClick={() => void save()}
+                type="submit"
                 disabled={!complete || busy}
                 className="btn-primary w-full justify-center py-3.5 text-xs font-black tracking-[.12em] disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -227,7 +254,7 @@ export default function WhatsappPrompt() {
               <p className="text-center text-[10px] leading-4 text-[#94a3b8]">
                 You can change or remove this number anytime from Profile &amp; Security.
               </p>
-            </>
+            </form>
           )}
         </div>
       </div>

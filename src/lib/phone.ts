@@ -96,17 +96,35 @@ export function normalizeWhatsapp(
   return `+${digits}`;
 }
 
-/** Split a stored E.164 number into the picker's dial code + local digits. */
+/**
+ * Split a stored E.164 number into the picker's dial code + local digits.
+ *
+ * This is deliberately a *raw* split — it never validates, because it also runs
+ * on every keystroke while the field is half-typed. An earlier version routed
+ * through `normalizeWhatsapp`, which rejects anything shorter than 8 digits, so
+ * the first 7 digits the buyer typed were discarded and the field rendered
+ * empty (typing looked broken on both desktop and mobile). Validation happens
+ * separately in `isCompleteLocalNumber` / `normalizeWhatsapp`.
+ */
 export function splitWhatsapp(
   value: string | null | undefined,
   fallbackDial: string = DEFAULT_DIAL_CODE,
 ): { dial: string; local: string } {
-  const normalized = normalizeWhatsapp(value, fallbackDial);
-  if (!normalized) return { dial: fallbackDial, local: "" };
+  const text = String(value ?? "").trim();
+  const digits = text.replace(/\D/g, "");
+  if (!digits) return { dial: fallbackDial, local: "" };
 
-  const digits = normalized.slice(1);
-  const dial = DIALS_BY_LENGTH.find((candidate) => digits.startsWith(candidate.slice(1))) ?? fallbackDial;
-  return { dial, local: digits.slice(dial.replace(/\D/g, "").length) };
+  // Untagged digits (legacy / pasted local number) belong to the chosen country.
+  if (!text.startsWith("+")) {
+    return { dial: fallbackDial, local: digits.slice(0, MAX_DIGITS) };
+  }
+
+  const dial = DIALS_BY_LENGTH.find((candidate) => digits.startsWith(candidate.slice(1)));
+  if (!dial) {
+    // Still typing the country code (e.g. "+9") — keep the digits visible.
+    return { dial: fallbackDial, local: digits.slice(0, MAX_DIGITS) };
+  }
+  return { dial, local: digits.slice(dial.replace(/\D/g, "").length).slice(0, MAX_DIGITS) };
 }
 
 /** Human-friendly display: `+91 98765 43210`. */

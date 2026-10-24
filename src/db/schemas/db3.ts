@@ -3,6 +3,7 @@
  *
  * Tables:
  *  - orders
+ *  - adminPresence (live "admin is reading this chat" heartbeat)
  *  - customerMessages
  *  - referralCommissions
  *  - rewardItems
@@ -32,10 +33,23 @@ export const orders = pgTable("orders", {
   accountEmail: varchar("account_email", { length: 180 }),
   accountPassword: text("account_password"),
   otpCode: varchar("otp_code", { length: 24 }),
+  /**
+   * Account-order OTP lifecycle (all server-generated):
+   *   none → approved   |   none → pending → approved | rejected
+   * `pending` means the buyer paid the refundable verification fee and is
+   * waiting for an admin to approve the request, which generates a fresh code.
+   */
+  otpRequestStatus: varchar("otp_request_status", { length: 16 }).notNull().default("none"),
+  otpRequestedAt: timestamp("otp_requested_at", { withTimezone: true }),
+  otpRequestPaid: boolean("otp_request_paid").notNull().default(false),
+  otpRequestPaidAt: timestamp("otp_request_paid_at", { withTimezone: true }),
+  otpIssuedAt: timestamp("otp_issued_at", { withTimezone: true }),
   verificationPaid: boolean("verification_paid").notNull().default(false),
   verificationScreenshot: text("verification_screenshot"),
   verificationPaidAt: timestamp("verification_paid_at", { withTimezone: true }),
   paymentScreenshot: text("payment_screenshot"),
+  /** UPI / bank transaction reference (UTR) submitted with the payment proof. */
+  transactionRef: varchar("transaction_ref", { length: 64 }),
   buyerIp: varchar("buyer_ip", { length: 64 }),
   buyerCity: varchar("buyer_city", { length: 120 }),
   buyerRegion: varchar("buyer_region", { length: 120 }),
@@ -126,6 +140,17 @@ export const supportMessages = pgTable("support_messages", {
   attachmentType: varchar("attachment_type", { length: 64 }),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Lightweight "is a staff member looking at the support desk right now" state.
+ * The admin dashboard heartbeats every ~15s with the ticket it has open, so the
+ * Telegram notifier can stay silent while a chat is being read in real time.
+ */
+export const adminPresence = pgTable("admin_presence", {
+  email: varchar("email", { length: 180 }).primaryKey(),
+  activeTicketId: uuid("active_ticket_id"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const userNotifications = pgTable("user_notifications", {

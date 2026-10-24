@@ -58,6 +58,32 @@ export default function AdminTicketsPanel({ onToast }: { onToast?: (message: str
 
   const active = tickets.find((t) => t.id === activeId) ?? null;
 
+  /**
+   * Presence heartbeat — tells the server which ticket (if any) is on screen.
+   * While a chat is open the buyer's messages are read within one 3s poll, so
+   * the Telegram "unread message" alert stays silent.
+   */
+  useEffect(() => {
+    let alive = true;
+    const ping = async () => {
+      try {
+        await fetch("/api/admin/presence", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticketId: activeId }),
+        });
+      } catch {
+        // next heartbeat retries
+      }
+    };
+    void ping();
+    const timer = setInterval(() => {
+      if (alive) void ping();
+    }, 15000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [activeId]);
+
   const resolve = async (ticket: Ticket) => {
     if (!confirm(`Close & resolve ticket for ${ticket.orderCode}?\n\nThe ticket and its entire chat history will be permanently deleted from both dashboards.`)) return;
     setResolving(true);

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth-config";
+import { SIGNUP_COOKIE, SIGNUP_COOKIE_MAX_AGE_SECONDS } from "@/lib/profile-config";
 import {
   REFERRAL_COOKIE,
   WELCOME_COOKIE,
@@ -98,6 +99,19 @@ export async function GET(request: NextRequest) {
   response.cookies.set({ name: OAUTH_STATE_COOKIE, value: "", path: "/", maxAge: 0 });
   // The referral link has been consumed by this sign-in.
   response.cookies.set({ name: REFERRAL_COOKIE, value: "", path: "/", maxAge: 0 });
+  // Brand-new account → the client prompts for the WhatsApp number right after
+  // sign-up (see components/whatsapp-prompt.tsx). Existing users are skipped.
+  if (user.isNew) {
+    response.cookies.set({
+      name: SIGNUP_COOKIE,
+      value: "1",
+      httpOnly: false,
+      sameSite: "lax",
+      secure,
+      path: "/",
+      maxAge: SIGNUP_COOKIE_MAX_AGE_SECONDS,
+    });
+  }
   // One-shot flag so the first page after login can show the "Refer & Win" pop-up.
   response.cookies.set({
     name: WELCOME_COOKIE,

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { ensureAuthTables } from "@/lib/auth-tables";
 import { SESSION_COOKIE } from "@/lib/auth-config";
 import { verifySession } from "@/lib/auth-session";
+import { normalizeWhatsapp } from "@/lib/phone";
 import type { NextRequest } from "next/server";
 
 /**
@@ -68,25 +69,29 @@ export async function getCurrentUser(request: NextRequest): Promise<UserRecord |
 }
 
 function normalizePhone(value?: string | null): string | null {
-  if (!value) return null;
-  const digits = String(value).replace(/\D/g, "");
-  const local = digits.length > 10 ? digits.slice(-10) : digits;
-  return local.length >= 8 && local.length <= 15 ? local : null;
+  // Stored as E.164 (`+919876543210`) so the country code survives. A bare
+  // 10-digit number is assumed to be Indian (the store's primary market).
+  return normalizeWhatsapp(value);
 }
 
 /**
  * Users may edit their display name and WhatsApp number (used to contact them
  * about orders). The email is owned by Google and is therefore read-only.
+ *
+ * Passing `whatsapp: null` (or an empty string) clears the saved number, which
+ * is what the Profile & Security "remove" action does.
  */
 export async function updateUserProfile(
   id: string,
   input: { name?: string; whatsapp?: string | null },
 ): Promise<{ user: UserRecord | null; error?: string }> {
   const name = input.name !== undefined ? String(input.name).trim().slice(0, 120) : undefined;
-  const whatsapp = input.whatsapp !== undefined ? normalizePhone(input.whatsapp) : undefined;
+  const whatsapp = input.whatsapp !== undefined
+    ? (String(input.whatsapp).trim() ? normalizeWhatsapp(input.whatsapp) : null)
+    : undefined;
 
   if (name !== undefined && !name) return { user: null, error: "Name cannot be empty." };
-  if (input.whatsapp && !whatsapp) return { user: null, error: "Enter a valid WhatsApp number." };
+  if (input.whatsapp && !whatsapp) return { user: null, error: "Enter a valid WhatsApp number with country code." };
 
   const ready = await ensureAuthTables();
   if (!ready) return { user: null, error: "Database unavailable. Please try again." };
@@ -115,7 +120,12 @@ export async function updateUserProfile(
         createdAt: row.createdAt,
       },
     };
-  } catch {
+  } catch (error) {
+    // `users.whatsapp` is UNIQUE — one number can only belong to one account.
+    const message = error instanceof Error ? error.message : "";
+    if (/duplicate key|unique constraint/i.test(message)) {
+      return { user: null, error: "This WhatsApp number is already linked to another account." };
+    }
     return { user: null, error: "Could not update profile." };
   }
 }

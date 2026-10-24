@@ -229,6 +229,9 @@ export default function CheckoutPage() {
           ...(couponResult?.code ? { coupon: couponResult.code, discount: String(discountAmount) } : {}),
           ...(uid ? { uid } : {}),
           ...(playerName ? { ign: playerName } : {}),
+          // Needed by the payment page: UC purchases show a dedicated success
+          // screen and never appear in the buyer's order history.
+          ...(categorySlug ? { category: categorySlug } : {}),
           name: values.name,
           whatsapp: values.whatsapp,
         }).toString();

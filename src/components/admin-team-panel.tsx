@@ -182,7 +182,7 @@ export default function AdminTeamPanel({ ownerEmail }: { ownerEmail: string }) {
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="member@gmail.com"
+                placeholder="name@yourstore.com"
                 type="email"
                 className="admin-input"
               />

@@ -3,7 +3,7 @@ import { orders, supportMessages, supportTickets, userNotifications, users } fro
 import { ensureSupportTables } from "@/lib/support-tables";
 import { ensureNotificationTables } from "@/lib/notification-tables";
 import { notifySupportReply } from "@/lib/notifications";
-import { notifyAdminSupportMessage } from "@/lib/telegram";
+import { scheduleNewTicketTelegramAlert, scheduleSupportTelegramAlert } from "@/lib/support-alerts";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 
 /**
@@ -58,13 +58,12 @@ export async function createOrGetTicketForOrder(order: TicketOrder, user: { id: 
     .returning();
 
   if (created) {
-    // A brand-new support ticket → instant Telegram alert to the admin's
-    // phone (fire-and-forget — never blocks the buyer's request).
-    notifyAdminSupportMessage({
+    // Smart alert: ping the admin's phone only if nobody has this chat open.
+    await scheduleNewTicketTelegramAlert({
+      ticketId: created.id,
       orderCode: created.orderCode,
       customerName: created.customerName ?? order.customerName,
-      messageText: "Opened a new support ticket",
-    });
+    }).catch((error) => console.error("Support alert failed:", error));
     return created;
   }
 
@@ -231,14 +230,17 @@ export async function addMessage(
     );
   }
 
-  // Customer wrote → instant Telegram alert to the admin's phone. Covers
-  // replies AND the first message on a brand-new ticket. Fire-and-forget.
+  // Customer wrote → Telegram only if the message is STILL unseen after a
+  // short threshold. If the admin has the chat open (or reads it in real time)
+  // nothing is sent. Fire-and-forget, never blocks the buyer.
   if (sender === "user" && created) {
-    notifyAdminSupportMessage({
+    await scheduleSupportTelegramAlert({
+      messageId: created.id,
+      ticketId: ticket.id,
       orderCode: ticket.orderCode,
       customerName: ticket.customerName ?? input.senderName ?? "Customer",
       messageText: created.message,
-    });
+    }).catch((error) => console.error("Support alert failed:", error));
   }
 
   return created ?? null;

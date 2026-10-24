@@ -25,6 +25,7 @@ Premium BGMI accounts & UC marketplace built with **Next.js**, **TypeScript**, *
 - Checkout strips into the existing flow: `/checkout?...&cart=1`, UID requirement detected automatically, cart emptied once the order is registered
 - Guests can browse, add products and manage the cart freely; checkout redirects to Google sign-in with the cart destination preserved, then returns to checkout after authentication
 - Full walkthrough: **[CART_SETUP.md](./CART_SETUP.md)**
+- UC orders, account OTP flow, chat read receipts & smart Telegram alerts: **[ORDER_FLOWS.md](./ORDER_FLOWS.md)**
 
 ### Authentication — custom Google Sign-In only
 - Google OAuth 2.0 **Authorization Code + PKCE** flow: `/auth/google` → Google → `/auth/google/callback`.

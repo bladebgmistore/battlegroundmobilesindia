@@ -6,7 +6,8 @@ import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
 import { demoSaveOrder, demoUpdateOrder, demoListAllOrders, demoDeleteOrders } from "@/lib/demo-orders";
 import { syncReferralCommissions } from "@/lib/referrals";
-import { getOrderForNotification, notifyOrderStatusChange } from "@/lib/notifications";
+import { getOrderForNotification, notifyOrderStatusChange, notifyUser } from "@/lib/notifications";
+import { generateOtpCode, normalizeOtpCode } from "@/lib/otp";
 import { notifyAdminNewOrder } from "@/lib/telegram";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
@@ -120,18 +121,73 @@ export async function PATCH(request: NextRequest) {
     if (body.accountLoginType !== undefined) patch.accountLoginType = String(body.accountLoginType ?? "").trim().slice(0, 48) || null;
     if (body.accountEmail !== undefined) patch.accountEmail = String(body.accountEmail ?? "").trim().slice(0, 180) || null;
     if (body.accountPassword !== undefined) patch.accountPassword = String(body.accountPassword ?? "").trim() || null;
-    if (body.otpCode !== undefined) patch.otpCode = String(body.otpCode ?? "").trim().slice(0, 24) || null;
-    if (!Object.keys(patch).length) {
+    if (body.transactionRef !== undefined) patch.transactionRef = String(body.transactionRef ?? "").trim().slice(0, 64) || null;
+    // The admin normally never types an OTP — the server generates it below.
+    // A 6-digit value is still accepted for corrections.
+    if (body.otpCode !== undefined) patch.otpCode = normalizeOtpCode(body.otpCode);
+    if (!Object.keys(patch).length && body.generateOtp !== true) {
       return Response.json({ error: "Nothing to update." }, { status: 400 });
     }
     try {
       await ensureOrderColumns();
       let previousStatus: string | null = null;
-      if (status) {
-        const [current] = await db3.select({ status: orders.status }).from(orders).where(eq(orders.id, String(id))).limit(1);
-        previousStatus = current?.status ?? null;
+      let current: {
+        status: string;
+        categorySlug: string | null;
+        otpCode: string | null;
+        userId: string | null;
+        orderCode: string;
+        productName: string;
+      } | null = null;
+      if (status || body.generateOtp === true || body.otpCode === undefined) {
+        const [row] = await db3.select({
+          status: orders.status,
+          categorySlug: orders.categorySlug,
+          otpCode: orders.otpCode,
+          userId: orders.userId,
+          orderCode: orders.orderCode,
+          productName: orders.productName,
+        }).from(orders).where(eq(orders.id, String(id))).limit(1);
+        current = row ?? null;
+        previousStatus = row?.status ?? null;
       }
+
+      /**
+       * Account orders: a 6-digit OTP is generated AUTOMATICALLY (never typed
+       * by staff) as soon as the purchase is confirmed, and again whenever an
+       * OTP request is approved (see /api/admin/account-orders).
+       */
+      const isAccountOrder = current?.categorySlug === "accounts";
+      const confirming = status === "payment_confirmed" || status === "delivered";
+      const shouldIssueOtp =
+        isAccountOrder
+        && current
+        && (body.generateOtp === true || (confirming && !patch.otpCode && !current.otpCode));
+
+      if (shouldIssueOtp) {
+        patch.otpCode = generateOtpCode();
+        patch.otpIssuedAt = new Date();
+        patch.otpRequestStatus = "approved";
+      }
+
+      if (!Object.keys(patch).length) {
+        return Response.json({ error: "Nothing to update." }, { status: 400 });
+      }
+
       await db3.update(orders).set(patch).where(eq(orders.id, String(id)));
+
+      // Tell the buyer their fresh code is ready (bell notification).
+      if (shouldIssueOtp && current?.userId) {
+        await notifyUser({
+          userId: current.userId,
+          type: "order_update",
+          title: "Your new account OTP is ready",
+          body: `A fresh 6-digit OTP was generated for ${current.orderCode} (${current.productName}). Open My Orders to view it.`,
+          link: "/account",
+          orderId: String(id),
+        }).catch((error) => console.error("OTP notification failed:", error));
+      }
+
       if (status) {
         await syncReferralCommissions({ orderId: String(id) }).catch((error) => console.error("Referral commission sync failed:", error));
       }
@@ -143,12 +199,23 @@ export async function PATCH(request: NextRequest) {
       }
       return Response.json({ ok: true });
     } catch {
-      const patched = demoUpdateOrder(String(id), patch);
-      if (!patched) {
-        const match = demoListAllOrders().find((o) => o.id === id);
-        if (match) demoUpdateOrder(match.orderCode, patch);
+      // Demo store path (database offline): derive the account OTP locally.
+      const match = demoListAllOrders().find((o) => o.id === id);
+      const target = match ?? null;
+      const isAccountOrder = target?.categorySlug === "accounts";
+      const confirming = status === "payment_confirmed" || status === "delivered";
+      const demoPatch: Record<string, unknown> = { ...patch };
+      if (
+        isAccountOrder
+        && (body.generateOtp === true || (confirming && !demoPatch.otpCode && !target?.otpCode))
+      ) {
+        demoPatch.otpCode = generateOtpCode();
+        demoPatch.otpIssuedAt = new Date();
+        demoPatch.otpRequestStatus = "approved";
       }
-      return Response.json({ ok: true, demo: true });
+      let patched = demoUpdateOrder(String(id), demoPatch);
+      if (!patched && match) patched = demoUpdateOrder(match.orderCode, demoPatch);
+      return Response.json({ ok: true, demo: true, otpCode: demoPatch.otpCode ?? null });
     }
   } catch {
     return Response.json({ error: "Could not update order status." }, { status: 500 });

@@ -2,8 +2,9 @@ import { db3 } from "@/db";
 import { orders } from "@/db/schema";
 import { resolveBuyerLocation } from "@/lib/geo";
 import { ensureOrderColumns } from "@/lib/order-columns";
-import { demoUpdateOrder } from "@/lib/demo-orders";
+import { demoGetOrderByCode, demoUpdateOrder } from "@/lib/demo-orders";
 import { notifyOrderStatusChange } from "@/lib/notifications";
+import { generateOtpCode } from "@/lib/otp";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 
@@ -33,6 +34,10 @@ export async function POST(request: NextRequest) {
     const orderCode = String(body?.orderCode ?? "").trim().slice(0, 24);
     const screenshot = typeof body?.screenshot === "string" ? body.screenshot : null;
     const markPaid = body?.markPaid === true;
+    // UPI / bank reference (UTR) typed by the buyer — shown in the admin desks.
+    const transactionRef = typeof body?.transactionId === "string"
+      ? body.transactionId.trim().replace(/[^A-Za-z0-9]/g, "").slice(0, 64) || null
+      : null;
 
     if (!orderCode) {
       return Response.json({ ok: false, error: "Missing order reference." }, { status: 400 });
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!screenshot && !markPaid) {
+    if (!screenshot && !markPaid && !transactionRef) {
       return Response.json({ ok: false, error: "Nothing to update." }, { status: 400 });
     }
 
@@ -58,7 +63,13 @@ export async function POST(request: NextRequest) {
 
     try {
       await ensureOrderColumns();
-      const [existing] = await db3.select({ id: orders.id, buyerIp: orders.buyerIp, status: orders.status })
+      const [existing] = await db3.select({
+        id: orders.id,
+        buyerIp: orders.buyerIp,
+        status: orders.status,
+        categorySlug: orders.categorySlug,
+        otpCode: orders.otpCode,
+      })
         .from(orders)
         .where(eq(orders.orderCode, orderCode))
         .limit(1);
@@ -71,9 +82,17 @@ export async function POST(request: NextRequest) {
 
       const patch: Partial<typeof orders.$inferInsert> = {};
       if (screenshot) patch.paymentScreenshot = screenshot;
+      if (transactionRef) patch.transactionRef = transactionRef;
       if (markPaid) {
         patch.status = "payment_review";
         patch.paidAt = new Date();
+        // Account purchases: issue the first 6-digit OTP as soon as the buyer
+        // confirms payment, so it is ready the moment credentials are added.
+        // Codes are always generated server-side — never typed by staff.
+        if (existing.categorySlug === "accounts" && !existing.otpCode) {
+          patch.otpCode = generateOtpCode();
+          patch.otpIssuedAt = new Date();
+        }
       }
       if (!existing.buyerIp && geo.ip) {
         patch.buyerIp = geo.ip;
@@ -86,10 +105,15 @@ export async function POST(request: NextRequest) {
       return Response.json({ ok: true, saved: true });
     } catch {
       // Database offline — record the change on the demo order instead.
+      const demoOrder = demoGetOrderByCode(orderCode);
       demoUpdateOrder(orderCode, {
         paymentScreenshot: screenshot ?? undefined,
+        transactionRef: transactionRef ?? undefined,
         buyerIp: geo.ip ?? undefined,
         ...(markPaid ? { status: "payment_review", paidAt: new Date() } : {}),
+        ...(markPaid && demoOrder?.categorySlug === "accounts" && !demoOrder.otpCode
+          ? { otpCode: generateOtpCode(), otpIssuedAt: new Date() }
+          : {}),
       });
       return Response.json({ ok: true, saved: true, demo: true });
     }

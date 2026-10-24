@@ -29,6 +29,12 @@ export type DemoOrder = Record<string, unknown> & {
   accountEmail?: string | null;
   accountPassword?: string | null;
   otpCode?: string | null;
+  otpRequestStatus?: string | null;
+  otpRequestedAt?: string | Date | null;
+  otpRequestPaid?: boolean;
+  otpRequestPaidAt?: string | Date | null;
+  otpIssuedAt?: string | Date | null;
+  transactionRef?: string | null;
   verificationPaid?: boolean;
   verificationScreenshot?: string | null;
   verificationPaidAt?: string | Date | null;

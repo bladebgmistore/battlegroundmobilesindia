@@ -27,9 +27,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const ticket = await getTicketForAdmin(id);
     if (!ticket) return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
 
-    const messages = await listMessages(ticket.id);
-    // Staff opened the ticket → customer messages count as read.
+    // Mark FIRST, then read: the returned rows must already say `isRead: true`
+    // so the admin's blue double ticks render on the very next poll.
     await markTicketReadByAdmin(ticket.id).catch(() => undefined);
+    const messages = await listMessages(ticket.id);
     return NextResponse.json({ ok: true, ticket, messages });
   } catch (error) {
     console.error("Admin ticket messages read failed:", error);

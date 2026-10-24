@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiCheckCircle, FiDownload, FiImage, FiPaperclip, FiSend } from "react-icons/fi";
+import { FiCheck, FiCheckCircle, FiDownload, FiImage, FiPaperclip, FiSend } from "react-icons/fi";
 import { compressImageFile, formatBytes } from "@/lib/client-image";
 
 export type ChatMessage = {
@@ -20,6 +20,26 @@ export type ChatMessage = {
 type AttachmentDraft = { dataUrl: string; name: string; type: string; size: number };
 
 const MAX_FILE_BYTES = 1.5 * 1024 * 1024;
+
+/**
+ * WhatsApp-style delivery ticks — ADMIN ONLY.
+ *
+ * Double blue ticks mean the admin has opened and read the customer's message
+ * (`is_read` was flipped by GET /api/admin/tickets/:id/messages). Grey double
+ * ticks mean delivered but not seen yet. Buyers never see this indicator.
+ */
+function SeenTicks({ seen }: { seen: boolean }) {
+  return (
+    <span
+      className={`ml-1.5 inline-flex items-center align-middle ${seen ? "text-[#1d9bf0]" : "text-[#94a3b8]"}`}
+      title={seen ? "Seen by admin" : "Delivered — not seen yet"}
+      aria-label={seen ? "Seen by admin" : "Not seen yet"}
+    >
+      <FiCheck className="text-[11px]" />
+      <FiCheck className="-ml-[7px] text-[11px]" />
+    </span>
+  );
+}
 
 /**
  * Shared real-time chat panel for one support ticket — used by the buyer
@@ -193,8 +213,9 @@ export function SupportChat({
                     </div>
                   )}
                   {m.message && <p className="whitespace-pre-wrap leading-6">{m.message}</p>}
-                  <p className={`mt-1.5 text-right text-[9px] font-bold ${mine ? "text-white/60" : "text-[#94a3b8]"}`}>
+                  <p className={`mt-1.5 flex items-center justify-end text-[9px] font-bold ${mine ? "text-white/60" : "text-[#94a3b8]"}`}>
                     {new Date(m.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {viewer === "admin" && !mine && <SeenTicks seen={m.isRead} />}
                   </p>
                 </div>
               </div>

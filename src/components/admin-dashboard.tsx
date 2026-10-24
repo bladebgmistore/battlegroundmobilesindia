@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FaWhatsapp } from "react-icons/fa";
-import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBell, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiMessageSquare, FiPackage, FiRadio, FiPlus, FiRefreshCw, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX } from "react-icons/fi";
+import { FiActivity, FiAlertCircle, FiArchive, FiAward, FiBarChart2, FiBell, FiBox, FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFolder, FiGift, FiHome, FiImage, FiKey, FiLayout, FiLock, FiLogOut, FiMail, FiMapPin, FiMenu, FiMessageSquare, FiPackage, FiRadio, FiPlus, FiRefreshCw, FiSettings, FiShield, FiSliders, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2, FiUser, FiUserPlus, FiUsers, FiX, FiZap } from "react-icons/fi";
 import { Category, Product, StorePage, formatINR, images, UcPackageItem } from "@/lib/store-data";
 import { canonicalCategorySlug, categoryHref, normalizeSlug, pageHref } from "@/lib/catalog";
 import { invalidateStoreCatalog } from "@/lib/use-store-catalog";
@@ -17,15 +17,17 @@ import AdminTeamPanel from "@/components/admin-team-panel";
 import AdminReferralsPanel from "@/components/admin-referrals-panel";
 import AdminProofsPanel from "@/components/admin-proofs-panel";
 import AdminTicketsPanel from "@/components/admin-tickets-panel";
+import AdminUcOrdersPanel from "@/components/admin-uc-orders-panel";
+import AdminAccountOrdersPanel from "@/components/admin-account-orders-panel";
 import AdminAnnouncementsPanel from "@/components/admin-announcements-panel";
 import { ROLE_META, roleHasScope, roleLabel, type AdminScope } from "@/lib/rbac";
 
 type Coupon = { id: string; code: string; discountType: string; discountValue: number; usageLimit: number | null; usageCount: number; expiresAt: string | null; isActive: boolean };
-type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
+type Order = { id: string; orderCode: string; customerName: string; customerWhatsapp: string; playerUid?: string | null; playerName?: string | null; productName: string; categorySlug?: string | null; originalAmount?: number; discountAmount?: number; couponCode?: string | null; amount: number; status: string; accountLoginType?: string | null; accountEmail?: string | null; accountPassword?: string | null; otpCode?: string | null; otpRequestStatus?: string | null; otpRequestPaid?: boolean; otpRequestedAt?: string | null; otpRequestPaidAt?: string | null; otpIssuedAt?: string | null; transactionRef?: string | null; verificationPaid?: boolean; verificationPaidAt?: string | null; paymentScreenshot?: string | null; buyerIp?: string | null; buyerCity?: string | null; buyerRegion?: string | null; buyerCountry?: string | null; paidAt?: string | null; createdAt: string };
 type Message = { id: string; name: string; whatsapp: string; message: string; isRead: boolean; createdAt: string };
 type SettingRow = { settingKey: string; value: unknown };
 type SessionInfo = { name: string; email: string; role: string; picture: string | null };
-type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "pages" | "coupons" | "orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
+type View = "overview" | "accounts" | "uc" | "super-cars" | "x-suits" | "categories" | "pages" | "coupons" | "orders" | "uc-orders" | "account-orders" | "referrals" | "proofs" | "messages" | "tickets" | "announcements" | "feedbacks" | "visitors" | "users" | "site" | "team";
 
 /** Shape of the admin API payloads the dashboard boot-loads. */
 type CatalogPayload = { categories: Category[]; products: Product[]; ucPackages: UcPackageItem[]; pages: StorePage[]; coupons: Coupon[] };
@@ -97,6 +99,8 @@ const MENU: MenuSection[] = [
     name: "Operations",
     items: [
       { view: "orders", label: "Orders", icon: FiArchive, scope: "orders" },
+      { view: "uc-orders", label: "UC Orders", icon: FiZap, scope: "orders" },
+      { view: "account-orders", label: "Account Orders", icon: FiKey, scope: "orders" },
       { view: "tickets", label: "Support Tickets", icon: FiMessageSquare, scope: "tickets" },
       { view: "announcements", label: "Announcements", icon: FiRadio, scope: "announcements" },
       { view: "referrals", label: "Referrals & Points", icon: FiAward, scope: "referrals" },
@@ -172,6 +176,11 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     ? requestedView
     : (flatItems[0]?.view ?? "overview");
   const activeItem = flatItems.find((item) => item.view === view) ?? flatItems[0];
+  // Read by the support badge poller without restarting its interval.
+  const viewRef = useRef<View>(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
   const activeSection = visibleMenu.find((section) => section.items.some((item) => item.view === activeItem?.view));
 
   const load = async () => {
@@ -252,7 +261,9 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         const data = await res.json().catch(() => null);
         if (!alive || !res.ok || !data) return;
         const count = Number(data.unreadCount ?? 0);
-        if (count > unreadTicketsRef.current) {
+        // While the tickets desk is open the message is already on screen —
+        // no toast/sound (the chat pane marks it read within one poll).
+        if (count > unreadTicketsRef.current && viewRef.current !== "tickets") {
           const fresh = count - unreadTicketsRef.current;
           playAdminAlertSound();
           toast(fresh === 1 ? "\U0001F514 New support message from a customer." : `\U0001F514 ${fresh} new support messages from customers.`);
@@ -377,6 +388,18 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
   };
 
   const unread = messages.filter((m) => !m.isRead).length;
+
+  /** Account orders waiting for an admin to approve a "Get New OTP" request. */
+  const pendingOtpRequests = useMemo(
+    () => orders.filter((o) => o.categorySlug === "accounts" && o.otpRequestStatus === "pending").length,
+    [orders],
+  );
+
+  /** UC orders still waiting on payment confirmation. */
+  const pendingUcOrders = useMemo(
+    () => orders.filter((o) => o.categorySlug === "uc" && (o.status === "awaiting_contact" || o.status === "payment_review")).length,
+    [orders],
+  );
   const pendingOrders = useMemo(
     () => orders.filter((o) => o.status === "awaiting_contact" || o.status === "payment_review").length,
     [orders],
@@ -388,6 +411,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
     if (itemView === "tickets") return unreadTickets;
     if (itemView === "feedbacks") return pendingFeedbacks;
     if (itemView === "orders") return pendingOrders;
+    if (itemView === "uc-orders") return pendingUcOrders;
+    if (itemView === "account-orders") return pendingOtpRequests;
     if (itemView === "referrals") return pendingRedemptions;
     return 0;
   };
@@ -562,6 +587,8 @@ export default function AdminDashboard({ owner }: { owner: SessionInfo }) {
         {view === "feedbacks" && <FeedbacksManager create={create} update={update} remove={remove} onCountsChange={setPendingFeedbacks} />}
         {view === "coupons" && <CouponManager coupons={coupons} create={create} update={update} remove={remove} />}
         {view === "orders" && <OrdersPanel orders={orders} setStatus={setOrderStatus} deliver={deliverOrder} updateCreds={updateCredentials} canDelete={role === "owner"} />}
+        {view === "uc-orders" && <AdminUcOrdersPanel onToast={toast} onChanged={() => { void load(); }} />}
+        {view === "account-orders" && <AdminAccountOrdersPanel onToast={toast} onChanged={() => { void load(); }} />}
         {view === "referrals" && <AdminReferralsPanel />}
         {view === "proofs" && <AdminProofsPanel />}
         {view === "messages" && <MessagePanel messages={messages} refresh={load} />}
@@ -1183,7 +1210,8 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Order | null>(null);
   const [credModal, setCredModal] = useState<Order | null>(null);
-  const [credForm, setCredForm] = useState({ accountLoginType: "", accountEmail: "", accountPassword: "", otpCode: "" });
+  // The OTP is generated by the server — staff never type it here.
+  const [credForm, setCredForm] = useState({ accountLoginType: "", accountEmail: "", accountPassword: "" });
   const allSelected = orders.length > 0 && selected.length === orders.length;
   const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
   const toggleAll = () => setSelected(allSelected ? [] : orders.map((o) => o.id));
@@ -1202,7 +1230,6 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
       accountLoginType: o.accountLoginType ?? "FACEBOOK",
       accountEmail: o.accountEmail ?? "",
       accountPassword: o.accountPassword ?? "",
-      otpCode: o.otpCode ?? "",
     });
   };
 
@@ -1347,21 +1374,29 @@ function OrdersPanel({ orders, setStatus, deliver, updateCreds, canDelete }: {
               <button onClick={() => setCredModal(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dbe2ec] text-[#64748b] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
             </div>
             <p className="mt-4 rounded-lg border border-[#d9e4f0] bg-[#f3f8fe] px-3 py-2 text-[11px] leading-5 text-[#64748b]">
-              These credentials are revealed to the buyer (<b className="text-[#0f4c81]">GET ID PASSWORD</b>) once the order is marked <b className="text-[#0f4c81]">Payment Confirmed</b> or <b className="text-[#0f4c81]">Delivered</b>. Set the OTP here after the buyer&apos;s verification payment.
+              These credentials are revealed to the buyer together with their <b className="text-[#0f4c81]">automatically generated 6-digit OTP</b> once the order is marked <b className="text-[#0f4c81]">Payment Confirmed</b> or <b className="text-[#0f4c81]">Delivered</b>. You never need to type an OTP — confirming issues one, and approving a &quot;Get New OTP&quot; request in <b className="text-[#0f4c81]">Account Orders</b> issues a fresh one.
             </p>
             <div className="mt-5 grid gap-3">
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">ACCOUNT LOGIN TYPE
                 <input value={credForm.accountLoginType} onChange={(e) => setCredForm({ ...credForm, accountLoginType: e.target.value })} placeholder="FACEBOOK / GOOGLE / PLAYER ID" className="admin-input" />
               </label>
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">MAIL
-                <input value={credForm.accountEmail} onChange={(e) => setCredForm({ ...credForm, accountEmail: e.target.value })} placeholder="email@example.com" className="admin-input" />
+                <input value={credForm.accountEmail} onChange={(e) => setCredForm({ ...credForm, accountEmail: e.target.value })} placeholder="Account ID or email" className="admin-input" />
               </label>
               <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">PASSWORD
                 <input value={credForm.accountPassword} onChange={(e) => setCredForm({ ...credForm, accountPassword: e.target.value })} placeholder="account password" className="admin-input" />
               </label>
-              <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]">OTP CODE <span className="font-normal normal-case tracking-normal text-[#94a3b8]">(shown to buyer in their order after verification payment)</span>
-                <input value={credForm.otpCode} onChange={(e) => setCredForm({ ...credForm, otpCode: e.target.value })} placeholder="e.g. 492816" className="admin-input font-mono" />
-              </label>
+              <div className="rounded-lg border border-[#d9e4f0] bg-[#f3f8fe] p-3">
+                <p className="text-[10px] font-black tracking-[.12em] text-[#0f4c81]">CURRENT ACTIVE OTP (AUTO-GENERATED)</p>
+                <p className="mt-1 font-mono text-xl font-black tracking-[.24em] text-[#0f172a]">
+                  {credModal.otpCode ?? "—"}
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-[#64748b]">
+                  {credModal.otpCode
+                    ? "Issued by the server. Use Account Orders to approve a new-OTP request."
+                    : "Saving as Payment Confirmed / Delivered issues a fresh 6-digit code automatically."}
+                </p>
+              </div>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <button onClick={() => { deliver(credModal.id, credForm); setCredModal(null); }} className="admin-primary flex-[1.2]"><FiKey /> CONFIRM & SAVE</button>

@@ -29,7 +29,7 @@ export default function VerifyPage() {
   const title = isAccount ? "Verification Payment" : "Website Charge";
   const heading = isAccount ? "GET ACCOUNT OTP" : "WEBSITE CHARGE";
   const note = isAccount
-    ? "This is a one-time verification payment used to generate the OTP for your delivered account. The full amount will be refunded back to your UPI within 15–20 minutes after verification."
+    ? "This is a one-time verification payment for a NEW account OTP. Once paid, your request goes straight to the store team — approval generates a brand-new 6-digit OTP automatically in My Orders. The full amount is refunded to your UPI within 15–20 minutes."
     : "This is a website delivery charge for your order. The full amount will be refunded back to your UPI within 15–20 minutes after verification.";
 
   const { upiId } = useStoreSettings();
@@ -40,6 +40,8 @@ export default function VerifyPage() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Prevents a duplicate submission after the confirmation screen appears.
+  const [submitted, setSubmitted] = useState(false);
 
   const upiUrl = buildUpiUrl({ upiId, amount, orderCode, productName: product });
   const qrUrl = buildQrImageUrl(upiUrl);
@@ -81,7 +83,7 @@ export default function VerifyPage() {
   };
 
   const handlePaid = async () => {
-    if (!screenshotUploaded || busy) return;
+    if (!screenshotUploaded || busy || submitted) return;
     setBusy(true);
     try {
       await fetch("/api/orders/verify-payment", {
@@ -89,6 +91,7 @@ export default function VerifyPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderCode, markPaid: true }),
       }).catch(() => null);
+      setSubmitted(true);
       setShowPaidModal(true);
       // Payment note hote hi buyer ko "My Orders" par redirect.
       router.prefetch?.("/account");
@@ -199,9 +202,9 @@ export default function VerifyPage() {
                 {!screenshotUploaded && uploadState !== "error" && <p className="mt-3 text-[10px] leading-4 text-[#94a3b8]">Image is auto-compressed under 2 MB in your browser. The <b>I Have Paid</b> button unlocks after a successful upload.</p>}
               </div>
 
-              <button onClick={handlePaid} disabled={!screenshotUploaded || busy} className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-black tracking-wide transition-all duration-300 ${screenshotUploaded ? "bg-[#0f4c81] text-white shadow-[0_10px_26px_rgba(15,76,129,.28)] hover:-translate-y-0.5 hover:bg-[#0a3557]" : "cursor-not-allowed bg-[#e2e8f0] text-[#94a3b8]"}`}>
+              <button onClick={handlePaid} disabled={!screenshotUploaded || busy || submitted} className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-black tracking-wide transition-all duration-300 ${screenshotUploaded ? "bg-[#0f4c81] text-white shadow-[0_10px_26px_rgba(15,76,129,.28)] hover:-translate-y-0.5 hover:bg-[#0a3557]" : "cursor-not-allowed bg-[#e2e8f0] text-[#94a3b8]"}`}>
                 {busy ? <FiLoader className="animate-spin text-lg" /> : screenshotUploaded ? <FiCheckCircle className="text-lg" /> : <FiLock className="text-lg" />}
-                {screenshotUploaded ? "I HAVE PAID - SUBMIT" : "UPLOAD SCREENSHOT TO UNLOCK"}
+                {submitted ? "PAYMENT SUBMITTED" : screenshotUploaded ? "I HAVE PAID - SUBMIT" : "UPLOAD SCREENSHOT TO UNLOCK"}
               </button>
               <p className="mt-3 text-center text-[10px] text-[#94a3b8]">Your refundable payment will be verified by the admin. The amount is refunded to your UPI within 15–20 minutes.</p>
             </div>
@@ -220,10 +223,12 @@ export default function VerifyPage() {
             <div onClick={(e) => e.stopPropagation()} className="modal-card w-full max-w-md rounded-2xl border border-[#dbe2ec] bg-white p-6 text-center shadow-[0_30px_80px_rgba(15,40,70,.25)]">
               <button onClick={() => setShowPaidModal(false)} aria-label="Close" className="ml-auto grid h-8 w-8 place-items-center rounded-full text-[#94a3b8] transition-colors hover:bg-[#f1f5fb] hover:text-[#0f172a]"><FiX /></button>
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#0e9f6e]/12 text-2xl text-[#0e9f6e]"><FiCheckCircle /></div>
-              <h3 className="mt-4 text-xl font-black text-[#0f172a]">Payment Noted!</h3>
+              <h3 className="mt-4 text-xl font-black text-[#0f172a]">
+                {isAccount ? "OTP Request Submitted" : "Payment Noted!"}
+              </h3>
               <p className="mt-2 text-sm leading-6 text-[#64748b]">
                 Your {title.toLowerCase()} payment of <b className="text-[#0f172a]">{formatINR(amount)}</b> for order <b className="text-[#0f172a]">{orderCode}</b> has been saved. The amount will be refunded to your UPI within 15–20 minutes.
-                {isAccount && " If this was a repeat payment, your earlier payments for this order will be refunded within 24 hours."}
+                {isAccount && " As soon as the store team approves the request, a brand-new 6-digit OTP appears automatically in My Orders. If you paid before, all earlier payments are refunded within 24 hours."}
               </p>
               <p className="mt-3 flex items-center justify-center gap-2 text-[11px] font-black tracking-[.1em] text-[#0f4c81]"><FiLoader className="animate-spin" /> TAKING YOU TO MY ORDERS…</p>
               <Link href="/account" className="btn-primary mt-4 inline-flex w-full justify-center !py-3 text-xs">GO TO MY ORDERS</Link>

@@ -27,9 +27,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const ticket = await getTicketForUser(id, user.id);
     if (!ticket) return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
 
-    const messages = await listMessages(ticket.id);
-    // The buyer is viewing the chat → admin messages count as read.
+    // Mark first so the returned rows already reflect the read state.
     await markTicketReadByUser(ticket.id).catch(() => undefined);
+    const messages = await listMessages(ticket.id);
     return NextResponse.json({ ok: true, ticket, messages });
   } catch (error) {
     console.error("Support messages read failed:", error);

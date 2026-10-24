@@ -3,9 +3,11 @@ import { after } from "next/server";
 /**
  * Telegram Bot API — instant phone alerts for the store admin.
  *
- * Two key store events ping the admin's Telegram:
- *   1. A new order is placed at checkout.
- *   2. A support ticket is opened, or a customer replies on a ticket.
+ * Two key store events reach the admin's Telegram:
+ *   1. A new order is placed at checkout — sent immediately.
+ *   2. A support message that stays UNSEEN — dispatched by
+ *      `lib/support-alerts.ts` only after the read-state re-check, so chats the
+ *      admin is already reading never ping the phone.
  *
  * Configuration (environment variables win; the store's own bot below is the
  * default so alerts work out of the box — see .env.example):
@@ -178,11 +180,6 @@ export function notifyAdminNewOrder(order: NewOrderAlert): void {
   }
 }
 
-/** 💬 Event 2: new support ticket / customer reply. Fire-and-forget, never throws. */
-export function notifyAdminSupportMessage(input: SupportMessageAlert): void {
-  try {
-    dispatchAlert(buildSupportMessageAlert(input));
-  } catch (error) {
-    console.error("[telegram] support-message alert failed:", error);
-  }
-}
+// Support-message alerts live in `lib/support-alerts.ts` — they must first
+// confirm the message is still unread (and that no admin has the chat open)
+// before calling `sendTelegramMessage`.

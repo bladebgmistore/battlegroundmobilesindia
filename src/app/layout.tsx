@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import VisitTracker from "@/components/visit-tracker";
 import { GamingEnhancements } from "@/components/gaming-enhancements";
 import ReferWinPopup from "@/components/refer-win-popup";
+import WhatsappPrompt from "@/components/whatsapp-prompt";
 import MetaPixel from "@/components/meta-pixel";
 
 /**
@@ -74,6 +75,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <GamingEnhancements />
         {/* "Refer & Win" pop-up — appears once, right after a Google sign-in. */}
         <ReferWinPopup />
+        {/* Post-signup prompt for the buyer's active WhatsApp number. */}
+        <WhatsappPrompt />
         {/* Logs every page view (user email + IP + URL + timestamp) for the admin panel. */}
         <Suspense fallback={null}>
           <VisitTracker />

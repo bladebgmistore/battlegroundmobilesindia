@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiRefreshCw, FiSave, FiShield, FiUser, FiClock, FiPackage, FiEye, FiKey, FiRefreshCw as FiRefresh } from "react-icons/fi";
-import { FaWhatsapp } from "react-icons/fa";
-import Link from "next/link";
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiPlus, FiRefreshCw, FiSave, FiShield, FiTrash2, FiUser, FiClock, FiPackage, FiKey, FiZap } from "react-icons/fi";
 import { GridBackdrop, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { WhatsappInput, isCompleteWhatsapp } from "@/components/whatsapp-input";
 import { formatINR } from "@/lib/store-data";
 import { downloadInvoice } from "@/lib/invoice";
 import { useStoreSettings } from "@/lib/use-store-settings";
+import { formatWhatsapp } from "@/lib/phone";
 
 type User = {
   id: string;
@@ -35,8 +35,13 @@ type Order = {
   accountEmail?: string | null;
   accountPassword?: string | null;
   otpCode?: string | null;
+  otpRequestStatus?: string | null;
+  otpRequestPaid?: boolean;
+  otpRequestedAt?: string | null;
+  otpIssuedAt?: string | null;
   verificationPaid?: boolean;
   verificationPaidAt?: string | null;
+  transactionRef?: string | null;
 };
 
 // The refundable verification fee a buyer pays to generate an OTP for a
@@ -56,45 +61,79 @@ export function statusInfo(status: string) {
   return STATUS_LABEL[status] ?? { label: status.replace(/_/g, " "), className: "bg-[#eef1f6] text-[#64748b]" };
 }
 
-/** GET OTP / GENERATE AGAIN — sends an account buyer to the refundable
- * verification-payment page. The amount is shown only on the payment page. */
-function OtpAction({ order, verificationPaid }: {
-  order: Order;
-  verificationPaid: boolean;
-}) {
+/**
+ * Account OTP panel.
+ *
+ * The 6-digit code is ALWAYS generated server-side — first automatically when
+ * the admin confirms the purchase, and again each time an admin approves a
+ * "Get New OTP" request. The customer never types it and the admin never has to.
+ */
+function OtpAction({ order }: { order: Order }) {
   const router = useRouter();
-  const go = () => router.push(`/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=otp&amount=1499&product=${encodeURIComponent(order.productName)}`);
-  const note = "Complete the verification payment to generate your account OTP. The amount is refunded to your UPI within 15–20 minutes. If a code you generated earlier did not work, pay again — all your previous payments are refunded within 24 hours.";
-
-  // The admin sets the OTP on the order; show it here once available.
+  const requestStatus = order.otpRequestStatus ?? "none";
   const otpReady = Boolean(order.otpCode);
+  const pending = requestStatus === "pending";
+  const rejected = requestStatus === "rejected";
+
+  const requestNew = () => {
+    router.push(
+      `/verify?orderCode=${encodeURIComponent(order.orderCode)}&type=otp&amount=1499&product=${encodeURIComponent(order.productName)}`,
+    );
+  };
 
   return (
     <div className="mt-4 rounded-xl border border-[#cfe3f7] bg-white p-4">
-      <p className="text-xs font-bold text-[#0f4c81]">GET OTP</p>
-      <p className="mt-1.5 text-[11px] leading-5 text-[#64748b]">{note}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-black text-[#0f4c81]"><FiKey /> ACCOUNT OTP</p>
+        {otpReady && (
+          <span className="rounded-full bg-[#dcf5e8] px-2.5 py-1 text-[9px] font-black tracking-[.1em] text-[#0e9f6e]">
+            ACTIVE · AUTO-GENERATED
+          </span>
+        )}
+      </div>
 
       {otpReady ? (
         <div className="mt-3 rounded-lg border border-[#dbe2ec] bg-[#f8fafc] p-3">
-          <p className="text-[10px] font-black tracking-[.13em] text-[#0f4c81]">YOUR ACCOUNT OTP</p>
+          <p className="text-[10px] font-black tracking-[.13em] text-[#0f4c81]">YOUR 6-DIGIT OTP</p>
           <p className="mt-1 font-mono text-2xl font-black tracking-[.3em] text-[#0f172a]">{order.otpCode}</p>
-          <p className="mt-2 text-[10px] leading-4 text-[#64748b]">Use this OTP to complete your account sign-in. It is shown only on your confirmed order.</p>
+          <p className="mt-2 text-[10px] leading-4 text-[#64748b]">
+            Use this OTP to complete your account sign-in. It is generated automatically by the store — never share it with anyone.
+          </p>
+        </div>
+      ) : pending ? (
+        <div className="mt-3 rounded-lg border border-[#f2e2b3] bg-[#fdf9ec] p-3">
+          <p className="flex items-center gap-1.5 text-[11px] font-black text-[#8a6d00]"><FiClock /> OTP REQUEST PENDING APPROVAL</p>
+          <p className="mt-1.5 text-[10px] leading-4 text-[#8a6d00]">
+            Your verification payment is confirmed. As soon as the admin approves this request a brand-new 6-digit OTP is generated here automatically.
+          </p>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={go} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
-            <FiEye /> GET OTP
-          </button>
-          {verificationPaid && (
-            <button onClick={go} className="btn-outline inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em]">
-              <FiRefresh /> GENERATE AGAIN
-            </button>
-          )}
-        </div>
+        <p className="mt-2 text-[11px] leading-5 text-[#64748b]">
+          {rejected
+            ? "Your last OTP request was not approved. You can submit a fresh request below."
+            : "Your OTP is generated automatically once the store team confirms your purchase. If it expires or stops working, request a new one."}
+        </p>
       )}
 
-      {verificationPaid && !otpReady && (
-        <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#0e9f6e]"><FiCheckCircle /> Verification payment submitted — your OTP will appear here shortly. Refund returns within 15–20 minutes.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={requestNew}
+          disabled={pending}
+          className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-black tracking-[.1em] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FiRefreshCw /> GET NEW OTP
+        </button>
+        {order.otpIssuedAt && (
+          <span className="inline-flex items-center gap-1.5 self-center text-[10px] font-bold text-[#94a3b8]">
+            <FiZap /> Issued {new Date(order.otpIssuedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+      </div>
+
+      {pending && (
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#0e9f6e]">
+          <FiCheckCircle /> Verification payment received — the refund returns to your UPI within 15–20 minutes.
+        </p>
       )}
     </div>
   );
@@ -146,10 +185,55 @@ export default function AccountPage() {
     })();
   }, [router]);
 
+  /**
+   * Keep the order list fresh while it is on screen: when an admin approves a
+   * "Get New OTP" request the new 6-digit code appears here automatically,
+   * without the buyer having to reload the page.
+   */
+  useEffect(() => {
+    if (activeTab !== "orders") return;
+    let alive = true;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/account/orders", { credentials: "same-origin", cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (alive && data?.ok) setOrders(data.orders ?? []);
+      } catch {
+        // next tick retries
+      }
+    };
+    const timer = setInterval(() => void refresh(), 15000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [activeTab]);
+
+  const applyUser = (u: User) => {
+    setUser(u);
+    setName(u.name);
+    setEmail(u.email ?? "");
+    setWhatsapp(u.whatsapp ?? "");
+  };
+
+  // The global post-signup prompt writes the number too — stay in sync.
+  useEffect(() => {
+    const onProfileUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<User>).detail;
+      if (detail?.id) applyUser(detail);
+    };
+    window.addEventListener("bgmi:profile-updated", onProfileUpdate);
+    return () => window.removeEventListener("bgmi:profile-updated", onProfileUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const saveProfile = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    setProfileBusy(true);
     setProfileMsg(null);
+    // Empty is allowed (the field is simply "not added"); a partial number is not.
+    if (whatsapp && !isCompleteWhatsapp(whatsapp)) {
+      setProfileMsg({ type: "err", text: "Enter a complete WhatsApp number with its country code." });
+      return;
+    }
+    setProfileBusy(true);
     try {
       const res = await fetch("/api/account/profile", {
         method: "PATCH",
@@ -162,14 +246,37 @@ export default function AccountPage() {
         setProfileMsg({ type: "err", text: data?.error ?? "Could not save changes." });
         return;
       }
-      const u = data.user as User;
-      setUser(u);
-      setName(u.name);
-      setEmail(u.email ?? "");
-      setWhatsapp(u.whatsapp ?? "");
+      applyUser(data.user as User);
       setProfileMsg({ type: "ok", text: "Profile updated." });
     } catch {
       setProfileMsg({ type: "err", text: "Could not save changes." });
+    } finally {
+      setProfileBusy(false);
+    }
+  };
+
+  /** Remove the saved number (the field clears — no dummy value is shown). */
+  const removeWhatsapp = async () => {
+    if (!user?.whatsapp) return;
+    if (!confirm("Remove your saved WhatsApp number?")) return;
+    setProfileBusy(true);
+    setProfileMsg(null);
+    try {
+      const res = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp: "" }),
+        credentials: "same-origin",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.user) {
+        setProfileMsg({ type: "err", text: data?.error ?? "Could not remove the number." });
+        return;
+      }
+      applyUser(data.user as User);
+      setProfileMsg({ type: "ok", text: "WhatsApp number removed." });
+    } catch {
+      setProfileMsg({ type: "err", text: "Could not remove the number." });
     } finally {
       setProfileBusy(false);
     }
@@ -317,11 +424,8 @@ export default function AccountPage() {
                                 <p className="mt-2 text-[11px] text-[#64748b]">Credentials will be shown here once your order is confirmed and delivered.</p>
                               )}
 
-                              {/* GET OTP / GENERATE AGAIN */}
-                              <OtpAction
-                                order={order}
-                                verificationPaid={order.verificationPaid === true}
-                              />
+                              {/* Auto-generated OTP + Get New OTP request */}
+                              <OtpAction order={order} />
                             </div>
                           )}
 
@@ -332,7 +436,7 @@ export default function AccountPage() {
                               onClick={() => router.push(websiteChargeUrl)}
                               className="btn-primary mt-4 inline-flex items-center gap-2 px-5 py-3 text-[10px] font-black tracking-[.1em]"
                             >
-                              <FiCheckCircle /> CONFERM ORDER
+                              <FiCheckCircle /> CONFIRM ORDER
                             </button>
                           )}
                         </div>
@@ -362,13 +466,25 @@ export default function AccountPage() {
                         Managed by your Google account.
                       </span>
                     </label>
-                    <label className="grid gap-2 text-[10px] font-black tracking-[.12em] text-[#334155]">
-                      WHATSAPP NUMBER
-                      <div className="relative">
-                        <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="form-input pl-10" placeholder="+91 98XXXXXX" />
-                        <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
-                      </div>
-                    </label>
+                    <div className="grid gap-2">
+                      <label htmlFor="profile-whatsapp" className="flex items-center justify-between text-[10px] font-black tracking-[.12em] text-[#334155]">
+                        <span>WHATSAPP NUMBER</span>
+                        {!whatsapp && <span className="font-bold normal-case tracking-normal text-[#94a3b8]">Not added yet</span>}
+                      </label>
+                      <WhatsappInput
+                        id="profile-whatsapp"
+                        value={whatsapp}
+                        onChange={(next) => { setWhatsapp(next); setProfileMsg(null); }}
+                        placeholder="Add your WhatsApp number"
+                        invalid={profileMsg?.type === "err" && Boolean(whatsapp) && !isCompleteWhatsapp(whatsapp)}
+                      />
+                      <span className="flex items-start gap-1.5 text-[10px] font-semibold normal-case tracking-normal text-[#94a3b8]">
+                        <FiPhone className="mt-0.5 shrink-0" />
+                        {whatsapp
+                          ? "Used for order confirmation, delivery updates and UC receipts."
+                          : "Add your active WhatsApp number so we can reach you about orders."}
+                      </span>
+                    </div>
                     {profileMsg && (
                       <p className={`flex items-center gap-2 rounded-lg p-3 text-xs font-bold ${profileMsg.type === "ok" ? "bg-[#dcf5e8] text-[#0e9f6e]" : "bg-red-500/10 text-[#c62828]"}`}>
                         {profileMsg.type === "ok" ? <FiCheckCircle /> : <FiAlertCircle />}{profileMsg.text}
@@ -386,8 +502,45 @@ export default function AccountPage() {
                     This store uses <strong>Google Sign-In</strong>. There is no store password to manage — your
                     password, 2-step verification and device security are handled by Google.
                   </p>
-                  <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#dcf5e8] bg-[#f3fbf7] px-4 py-3 text-xs font-bold text-[#0e9f6e]">
-                    <FiCheckCircle className="text-base" /> Signed in with Google as {user.email}
+                  <div className="mt-5 divide-y divide-[#eef1f6] rounded-xl border border-[#e5e8ef]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                      <span className="flex items-center gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]"><FiMail /> EMAIL ADDRESS</span>
+                      <span className="font-mono text-xs font-bold text-[#0f172a]">{user.email || "—"}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                      <span className="flex items-center gap-2 text-[10px] font-black tracking-[.12em] text-[#64748b]"><FiPhone /> WHATSAPP NUMBER</span>
+                      {user.whatsapp ? (
+                        <span className="flex items-center gap-3">
+                          <span className="font-mono text-xs font-bold text-[#0f172a]">{formatWhatsapp(user.whatsapp)}</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("profile")}
+                            className="text-[9px] font-black tracking-[.1em] text-[#0f4c81] hover:underline"
+                          >
+                            CHANGE
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removeWhatsapp()}
+                            disabled={profileBusy}
+                            className="inline-flex items-center gap-1 text-[9px] font-black tracking-[.1em] text-red-500 hover:underline disabled:opacity-50"
+                          >
+                            <FiTrash2 /> REMOVE
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("profile")}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#0f4c81]/30 px-2.5 py-1.5 text-[9px] font-black tracking-[.1em] text-[#0f4c81] transition hover:bg-[#0f4c81] hover:text-white"
+                        >
+                          <FiPlus /> ADD PHONE NUMBER
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#dcf5e8] bg-[#f3fbf7] px-4 py-3 text-xs font-bold text-[#0e9f6e]">
+                    <FiCheckCircle className="shrink-0 text-base" /> Signed in with Google
                   </div>
                   <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="btn-outline mt-5 flex items-center justify-center gap-2 py-3.5 text-xs font-black tracking-[.12em]">
                     <FiShield /> MANAGE GOOGLE SECURITY

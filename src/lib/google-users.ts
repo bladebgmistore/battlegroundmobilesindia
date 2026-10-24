@@ -16,6 +16,8 @@ export type AppUser = {
   isActive: boolean;
   createdAt: string | Date | null;
   lastLoginAt: string | Date | null;
+  /** True only when this call created the row (used for the signup prompt). */
+  isNew?: boolean;
 };
 
 /**
@@ -83,6 +85,7 @@ export async function upsertGoogleUser(
         isActive: existing.isActive,
         createdAt: existing.createdAt,
         lastLoginAt: new Date(),
+        isNew: false,
       };
     }
 
@@ -113,6 +116,7 @@ export async function upsertGoogleUser(
       isActive: created.isActive,
       createdAt: created.createdAt,
       lastLoginAt: created.lastLoginAt ?? new Date(),
+      isNew: true,
     };
   } catch {
     return fallback;
